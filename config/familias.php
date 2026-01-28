@@ -1,0 +1,60 @@
+<?php
+
+return [
+    '02 ONA Varilla' => ['02ONVAR', '02ONGEN'],
+
+    '03 ONA Trefilados' => ['03ONMLL', '03ONALM', '03ONESC', '03ONARM', '03ONGEN'],
+
+    '04 ONA Concreto' => ['04ONCON', '04ONADH', '04ONCLZ', '04ONCMR', '04ONEXT', '04ONGEN'],
+
+    '05 ONA Bombeo' => ['05ONBOM', '05ONGEN'],
+
+    '06 ONA Cimbra' => ['06ONCIM', '06ONTIR', '06ONSLL', '06ONREN', '06ONMAD', '06ONEQU', '06ONGEN'],
+
+    '07 ONA Poliestireno' => ['07ONCAS', '07ONPLA', '07ONBOV', '07ONGEN'],
+
+    '08 ONA Prefabricados' => ['08ONADO', '08ONLAD', '08ONPLA', '08ONTAB', '08ONTUB', '08ONVIG', '08ONBLO', '08ONGEN'],
+
+    '09 ONA Cementantes' => ['09ONMOR', '09ONADI', '09ONCAL', '09ONCEM', '09ONDES', '09ONGEN'],
+
+    '10 ONA Clavos' => ['10ONCLA', '10ONGEN'],
+
+    '11 ONA Agregados' => ['12ONAGR', '12ONGEN'],
+
+    '12 ONA Combustibles' => ['12ONCOM', '12GENGEN'],
+
+    '13 ONA Hta y Equipo' => [
+        '13ONHTA','13ONBRO','13ONCEP','13ONCIN','13ONCOP','13ONDIS','13ONEQM',
+        '13ONPIN','13ONESC','13ONFLE','13ONFUM','13ONMRR','13ONMRT','13ONPAL',
+        '13ONPIS','13ONPLO','13ONCOR','13ONESP','13ONLLV','13ONJGO','13ONLLA',
+        '13ONNIV','13ONRAS','13ONPUL','13ONCAN','13ONCAR','13ONLLN','13ONVOL',
+        '13ONREN','13ONGEN'
+    ],
+
+    '15 ONA Otros' => ['15ONOAL', '15ONOTR', '15ONAME', '15ONVIG'],
+
+    'ONA Ferret' => ['16ONFRR'],
+
+    '20 Recs' => ['20RCACC', '20RCADH', '20RCGEN', '20RCMOS', '20RCCER', '20RCCAN'],
+
+    '22 Yesos y TR' => ['22YTADH','22YTACC','22YTYES','22YTPAN','22YTPER','22YTFIJ','22YTREF','22YTSEL','22YTGEN'],
+
+    '24 Pinturas e Imper' => ['24PNAPL','24PNSEL','24PNPIN','24PNSOL','24PNIMP','24PNGEN'],
+
+    '26 Acce Sanit' => [
+        '26ACSCAL','26ACSREG','26ACSMON','26ACSLAV','26ACSWCC','26ACSFLX',
+        '26ACSMIN','26ACSTAR','26ACSCES','26ACSCOL','26ACSGEN','26ACSTOA',
+        '26ACSGAN','26ACSPOR'
+    ],
+
+    '32 Limpieza' => ['32LMLIM', '32LMGEN'],
+
+    '40 Instalaciones' => [
+        '40IECAB','40IEVAR','40IECON','40IEACC','40IEPLA','40IHCON','40IELUM',
+        '40IECCA','40IESOP','40ISSEL','40IECAJ','40IGTUB','40IGACC','40IGCON',
+        '40IGSEG','40IGVAL','40IHVAL','40IHACC','40IHTUB','40IHSOP','40IHMED',
+        '40IHBOM','40ISSOP','40ISREG','40ISACC','40ISCON','40ISTUB','40GEINS'
+    ],
+
+    '60 Seg e Higiene' => ['60SHDOR','60SHEPP','60SHEQS','60SHACC','60SHCAP','60SHCON','60SHGEN'],
+];
