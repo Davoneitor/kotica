@@ -106,7 +106,6 @@ class ExploreController extends Controller
      */
     private function erpFindUpdatedExpr(string $tableAlias, string $tableName): ?string
     {
-        // Candidatos comunes en ERP
         $candidates = [
             'FechaModificacion',
             'FechaActualizacion',
@@ -117,7 +116,7 @@ class ExploreController extends Controller
             'LastUpdate',
             'LastUpdated',
             'TimeStamp',
-            'timestamp', // ojo: a veces es rowversion (no fecha)
+            'timestamp',
         ];
 
         foreach ($candidates as $col) {
@@ -129,8 +128,6 @@ class ExploreController extends Controller
             );
 
             if ($exists) {
-                // rowversion/timestamp NO es fecha real, pero si tu ERP lo usa como datetime
-                // lo sabrás por el tipo. Para evitar problemas, validamos tipo no-binario.
                 $type = DB::connection('erp')->selectOne(
                     "SELECT DATA_TYPE AS t
                      FROM INFORMATION_SCHEMA.COLUMNS
@@ -140,7 +137,6 @@ class ExploreController extends Controller
 
                 $t = strtolower((string)($type->t ?? ''));
                 if (in_array($t, ['timestamp', 'rowversion', 'binary', 'varbinary'], true)) {
-                    // No es fecha usable.
                     continue;
                 }
 
@@ -153,10 +149,6 @@ class ExploreController extends Controller
 
     /**
      * ✅ La fecha que usaremos como “Última actualización del registro (sistema)”
-     * Regla:
-     * 1) PD (detalle)
-     * 2) P (pedido)
-     * 3) P.FechaPedido (fallback)
      */
     private function erpUltimaActualizacionExpr(): string
     {
@@ -170,7 +162,7 @@ class ExploreController extends Controller
     }
 
     /**
-     * Ejecuta la consulta ERP (historial OC) y agrega FechaUltimaActualizacion
+     * Ejecuta la consulta ERP (historial OC) y agrega FechaUltimaActualizacion + FechaUltimaEntrada
      */
     private function erpFetchOrdenesCompra(int $unidadNegocioId, string $q): \Illuminate\Support\Collection
     {
@@ -190,8 +182,11 @@ class ExploreController extends Controller
                 PD.Cantidad,
                 ISNULL(PD.ParcialPralmacen,0) AS ParcialPralmacen,
 
-                -- ✅ NUEVO: última actualización (sistema) del registro
-                {$ultimaExpr} AS FechaUltimaActualizacion
+                -- ✅ última actualización (sistema) del registro
+                {$ultimaExpr} AS FechaUltimaActualizacion,
+
+                -- ✅ la que necesitas para mostrar en Explore
+                PD.FechaUltimaEntrada AS FechaUltimaEntrada
 
             FROM AcPedidosDet PD
             INNER JOIN AcPedidos P ON PD.idPedido = P.idPedido
@@ -268,9 +263,11 @@ class ExploreController extends Controller
                 // Fecha de creación OC
                 'fecha'          => (string) $r->FechaPedido,
 
-                // ✅ Última actualización del registro (sistema)
-                // (ideal para Parciales/Finalizadas)
+                // Última actualización (sistema)
                 'fecha_evento'   => (string) ($r->FechaUltimaActualizacion ?? $r->FechaPedido),
+
+                // ✅ FechaUltimaEntrada (la que vas a mostrar en el blade)
+                'FechaUltimaEntrada' => $r->FechaUltimaEntrada ? (string) $r->FechaUltimaEntrada : null,
 
                 'pedida'         => $pedida,
                 'recibida'       => $recibida,
@@ -285,8 +282,9 @@ class ExploreController extends Controller
     /**
      * ✅ PDF: OC pendientes + parciales
      */
-    public function ordenesCompraReportePdf(Request $request)
-    {
+  public function ordenesCompraReportePdf(Request $request)
+{
+    try {
         $user = auth()->user();
         $obraActualId = (int) ($user->obra_actual_id ?? 0);
         $obraActual = $obraActualId ? Obra::find($obraActualId) : null;
@@ -298,6 +296,7 @@ class ExploreController extends Controller
         $unidadNegocioId = (int) $obraActual->erp_unidad_negocio_id;
         $q = trim((string) $request->get('q', ''));
 
+        // ✅ ERP
         $rows = $this->erpFetchOrdenesCompra($unidadNegocioId, $q);
 
         $data = $rows->map(function ($r) {
@@ -327,6 +326,7 @@ class ExploreController extends Controller
         ->filter(fn($r) => in_array($r['estado'], ['pendiente', 'parcial'], true))
         ->values();
 
+        // ✅ PDF
         $pdf = Pdf::loadView('pdf.oc_pendientes_parciales', [
             'obra' => $obraActual,
             'q'    => $q,
@@ -335,7 +335,27 @@ class ExploreController extends Controller
         ])->setPaper('letter', 'landscape');
 
         return $pdf->download('OC_pendientes_parciales.pdf');
+
+    } catch (\Throwable $e) {
+
+        // ✅ Log completo para PRODUCCIÓN
+        Log::error('Explore PDF OC falló (ordenesCompraReportePdf)', [
+            'msg' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString(),
+            'user_id' => auth()->id(),
+            'obra_actual_id' => auth()->user()->obra_actual_id ?? null,
+            'q' => $request->get('q'),
+        ]);
+
+        // ✅ Respuesta clara para tu modal (fetch)
+        return response(
+            'Error interno al generar el PDF: ' . $e->getMessage(),
+            500
+        );
     }
+}
 
     /**
      * GRAFICAS (local)

@@ -6,7 +6,8 @@
 
     <x-slot name="header">
         @php
-    $isAdmin = auth()->check() && auth()->user()->email === 'admin@kotica.com';
+    $isAdmin = auth()->check() && auth()->user()->is_admin == 1;
+
 @endphp
 
         {{-- ✅ x-data="{}" (NO vacío) para que Alpine habilite $store en el header --}}
@@ -153,7 +154,8 @@
                                 }
 
                                 // ✅ SOLO ADMIN (por correo)
-                                $isAdmin = auth()->check() && auth()->user()->email === 'admin@kotica.com';
+                               $isAdmin = auth()->check() && auth()->user()->is_admin == 1;
+
                             @endphp
 
                             <tr class="border-b" id="inv-{{ $inv->id }}" style="{{ $style }}">

@@ -142,59 +142,192 @@ class InventarioController extends Controller
         return view('inventario.create', compact('obras'));
     }
 
-    public function store(Request $request)
+    /**
+     * ✅ Ejecuta el SP del ERP: sp_InsertarInsumo
+     * Regresa: ['ok'=>bool,'return_value'=>int,'mensaje'=>string]
+     */
+    private function erpInsertarInsumo(array $p): array
     {
-        $data = $request->validate([
-            'obra_id'     => ['required','integer'],
-            'insumo_id'   => ['nullable','string','max:100'],
-            'familia'     => ['nullable','string','max:150'],
-            'subfamilia'  => ['nullable','string','max:150'],
-            'descripcion' => ['required','string','max:255'],
-            'unidad'      => ['nullable','string','max:50'],
-            'proveedor'   => ['nullable','string','max:255'],
-            'cantidad'    => ['required','numeric'],
-            'destino'     => ['nullable','string','max:255'],
-            'devolvible'  => ['nullable'],
+        $sql = "
+            DECLARE @return_value int, @Mensaje nvarchar(200);
+
+            EXEC @return_value = sp_InsertarInsumo
+                @Insumo = ?,
+                @Descripcion = ?,
+                @Unidad = ?,
+                @Familia = ?,
+                @Subfamilia = ?,
+                @CorreoUsuario = ?,
+                @Mensaje = @Mensaje OUTPUT;
+
+            SELECT
+                @return_value AS return_value,
+                @Mensaje AS mensaje;
+        ";
+
+        $rows = DB::connection('erp')->select($sql, [
+            (string)($p['Insumo'] ?? ''),
+            (string)($p['Descripcion'] ?? ''),
+            (string)($p['Unidad'] ?? ''),
+            (string)($p['Familia'] ?? ''),
+            (string)($p['Subfamilia'] ?? ''),
+            (string)($p['CorreoUsuario'] ?? ''),
         ]);
 
-        $inv = Inventario::create([
-            ...$data,
-            'devolvible' => (int) ((bool) ($data['devolvible'] ?? false)),
-        ]);
+        $row = $rows[0] ?? null;
 
-        return redirect()
-            ->route('inventario.index')
-            ->with('success', 'Producto creado.')
-            ->with('highlight_id', (string) $inv->id)
-            ->with('highlight_type', 'created');
+        $returnValue = (int)($row->return_value ?? -1);
+        $mensaje = (string)($row->mensaje ?? 'Sin mensaje del ERP');
+
+        return [
+            'ok' => ($returnValue === 0),
+            'return_value' => $returnValue,
+            'mensaje' => $mensaje,
+        ];
     }
 
- public function edit(Inventario $inventario)
-{
-    $obras = Obra::orderBy('nombre')->get(['id','nombre']);
+    public function store(Request $request)
+    {
+        // ✅ viene del checkbox (si no viene, lo tomamos como 0)
+        $guardarEnErp = $request->boolean('guardar_en_erp', false);
 
-    // Familias (ya lo tienes)
-    $familias = config('familias');
+        // ✅ Reglas base
+        $rules = [
+            'obra_id'        => ['required','integer'],
+            'insumo_id'      => ['nullable','string','max:100'],
+            'familia'        => ['nullable','string','max:150'],
+            'subfamilia'     => ['nullable','string','max:150'],
+            'descripcion'    => ['required','string','max:255'],
+            'unidad'         => ['nullable','string','max:50'],
+            'proveedor'      => ['nullable','string','max:255'],
+            'cantidad'       => ['required','numeric'],
+            'destino'        => ['nullable','string','max:255'],
+            'devolvible'     => ['nullable'],
+            'guardar_en_erp' => ['nullable'], // checkbox
+        ];
 
-    // ✅ UNIDADES DINÁMICAS DESDE BD
-    $unidades = Inventario::query()
-        ->select('unidad')
-        ->whereNotNull('unidad')
-        ->where('unidad', '!=', '')
-        ->distinct()
-        ->orderBy('unidad')
-        ->pluck('unidad')
-        ->toArray();
+        // ✅ Si se va a guardar en ERP, exigimos los campos que el SP necesita
+        if ($guardarEnErp) {
+            $rules['insumo_id']  = ['required','string','max:100'];
+            $rules['familia']    = ['required','string','max:150'];
+            $rules['subfamilia'] = ['required','string','max:150'];
+            $rules['unidad']     = ['required','string','max:50'];
+        }
 
-    return view('inventario.edit', compact(
-        'inventario',
-        'obras',
-        'familias',
-        'unidades'
-    ));
-}
+        $data = $request->validate($rules);
 
+        // ✅ FIX: tu BD NO permite destino NULL → ponemos default
+        $data['destino'] = trim((string)($data['destino'] ?? ''));
+        if ($data['destino'] === '') {
+            $data['destino'] = 'SIN DESTINO';
+        }
 
+        // ✅ VALIDACIÓN: evitar duplicado (obra_id + insumo_id)
+        $obraId = (int)($data['obra_id'] ?? 0);
+        $insumoId = trim((string)($data['insumo_id'] ?? ''));
+
+        // Solo validamos si viene insumo_id (en tu flujo casi siempre viene)
+        if ($obraId > 0 && $insumoId !== '') {
+            $existe = Inventario::query()
+                ->where('obra_id', $obraId)
+                ->where('insumo_id', $insumoId)
+                ->first();
+
+            if ($existe) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'insumo_id' => "Ese insumo ya existe en esta obra. Abre el registro y edítalo (ID {$existe->id}).",
+                    ])
+                    ->with('highlight_id', (string)$existe->id)
+                    ->with('highlight_type', 'duplicate');
+            }
+        }
+
+        DB::beginTransaction();
+        try {
+            // 1) Guardar local
+            $inv = Inventario::create([
+                ...$data,
+                'devolvible' => (int) ((bool) ($data['devolvible'] ?? false)),
+            ]);
+
+            // 2) Guardar en ERP (si aplica)
+            if ($guardarEnErp) {
+                $correo = (string)(auth()->user()->email ?? 'sistemas@kotica.com.mx');
+
+                $resp = $this->erpInsertarInsumo([
+                    'Insumo'        => $data['insumo_id'],
+                    'Descripcion'   => $data['descripcion'],
+                    'Unidad'        => $data['unidad'],
+                    'Familia'       => $data['familia'],
+                    'Subfamilia'    => $data['subfamilia'],
+                    'CorreoUsuario' => 'sistemas@kotica.com.mx',
+                ]);
+
+                if (!$resp['ok']) {
+                    DB::rollBack();
+
+                    Log::error('SP sp_InsertarInsumo falló', [
+                        'return_value' => $resp['return_value'],
+                        'mensaje' => $resp['mensaje'],
+                        'insumo_id' => $data['insumo_id'] ?? null,
+                        'obra_id' => $data['obra_id'] ?? null,
+                    ]);
+
+                    return back()
+                        ->withInput()
+                        ->withErrors([
+                            'guardar_en_erp' => 'No se pudo guardar en ERP: ' . $resp['mensaje'],
+                        ]);
+                }
+            }
+
+            DB::commit();
+
+            $msg = $guardarEnErp
+                ? 'Producto creado y enviado al ERP.'
+                : 'Producto creado.';
+
+            return redirect()
+                ->route('inventario.index')
+                ->with('success', $msg)
+                ->with('highlight_id', (string) $inv->id)
+                ->with('highlight_type', 'created');
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Inventario store falló: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'general' => 'Error al guardar: ' . $e->getMessage(),
+                ]);
+        }
+    }
+
+    public function edit(Inventario $inventario)
+    {
+        $obras = Obra::orderBy('nombre')->get(['id','nombre']);
+        $familias = config('familias');
+
+        $unidades = Inventario::query()
+            ->select('unidad')
+            ->whereNotNull('unidad')
+            ->where('unidad', '!=', '')
+            ->distinct()
+            ->orderBy('unidad')
+            ->pluck('unidad')
+            ->toArray();
+
+        return view('inventario.edit', compact(
+            'inventario',
+            'obras',
+            'familias',
+            'unidades'
+        ));
+    }
 
     public function update(Request $request, Inventario $inventario)
     {
@@ -210,6 +343,12 @@ class InventarioController extends Controller
             'destino'     => ['nullable','string','max:255'],
             'devolvible'  => ['nullable'],
         ]);
+
+        // ✅ FIX: destino nunca NULL
+        $data['destino'] = trim((string)($data['destino'] ?? ''));
+        if ($data['destino'] === '') {
+            $data['destino'] = 'SIN DESTINO';
+        }
 
         $inventario->update([
             ...$data,

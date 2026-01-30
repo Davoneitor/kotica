@@ -10,7 +10,7 @@ use App\Http\Controllers\ExploreController;
 use App\Http\Controllers\RetornablesController;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('inventario.index');
 });
 
 Route::middleware('auth')->group(function () {

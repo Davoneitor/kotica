@@ -338,14 +338,16 @@
                                 <template x-if="estadoOC(r)==='parcial'">
                                     <div>
                                         Última llegada (sistema):
-                                        <span class="font-medium" x-text="r.fecha_evento ?? r.fecha"></span>
+                                        <span class="font-medium" x-text="r.FechaUltimaEntrada ?? r.fecha"></span>
+
                                     </div>
                                 </template>
 
                                 <template x-if="estadoOC(r)==='finalizada'">
                                     <div>
                                         Entregada (sistema):
-                                        <span class="font-medium" x-text="r.fecha_evento ?? r.fecha"></span>
+                                        <span class="font-medium" x-text="r.FechaUltimaEntrada ?? r.fecha"></span>
+
                                     </div>
                                 </template>
 

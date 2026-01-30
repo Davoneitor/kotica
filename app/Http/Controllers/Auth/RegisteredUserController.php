@@ -32,22 +32,24 @@ class RegisteredUserController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+    'name' => ['required', 'string', 'max:255'],
 
-            // Selección de obras (many-to-many)
-            'obras' => ['required', 'array', 'min:1'],
-            'obras.*' => ['integer', 'exists:obras,id'],
+    'obras' => ['required', 'array', 'min:1'],
+    'obras.*' => ['integer', 'exists:obras,id'],
 
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
-        ]);
+    'is_admin' => ['nullable', 'boolean'],
 
-        // ✅ Crear usuario
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-        ]);
+    'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
+    'password' => ['required', 'confirmed', Rules\Password::defaults()],
+]);
+
+$user = User::create([
+    'name' => $validated['name'],
+    'email' => $validated['email'],
+    'password' => Hash::make($validated['password']),
+    'is_admin' => $request->boolean('is_admin'),
+]);
+
 
         // ✅ Asignar obras (tabla pivote)
         $user->obras()->sync($validated['obras']);
