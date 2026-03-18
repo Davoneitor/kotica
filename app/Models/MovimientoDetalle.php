@@ -16,6 +16,7 @@ class MovimientoDetalle extends Model
         'descripcion',
         'unidad',
         'cantidad',
+        'precio_unitario',
         'devolvible',
 
         // ✅ columnas reales en tu tabla

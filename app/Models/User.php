@@ -21,7 +21,12 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-          'is_admin',
+        'is_admin',
+        'is_multiobra',
+        'solo_explore',
+
+        // ✅ para poder guardar/cambiar la obra actual con update()/create()
+        'obra_actual_id',
     ];
 
     /**
@@ -42,23 +47,25 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-        'email_verified_at' => 'datetime',
-        'password' => 'hashed',
-        'is_admin' => 'boolean',
-    ];
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+            'is_admin'      => 'boolean',
+            'is_multiobra'  => 'integer',
+            'solo_explore'  => 'boolean',
+
+            // ✅ cast para que siempre sea int
+            'obra_actual_id' => 'integer',
+        ];
     }
 
+    public function obras()
+    {
+        return $this->belongsToMany(\App\Models\Obra::class, 'obra_user', 'user_id', 'obra_id')
+            ->withTimestamps();
+    }
 
-public function obras()
-{
-    return $this->belongsToMany(\App\Models\Obra::class, 'obra_user', 'user_id', 'obra_id')
-        ->withTimestamps();
-}
-
-public function obraActual()
-{
-    return $this->belongsTo(\App\Models\Obra::class, 'obra_actual_id');
-}
-
-
+    public function obraActual()
+    {
+        return $this->belongsTo(\App\Models\Obra::class, 'obra_actual_id');
+    }
 }

@@ -1,10 +1,11 @@
 <nav x-data="{ open: false }" class="bg-white border-b border-gray-100">
     @php
-        $hasProfile = \Illuminate\Support\Facades\Route::has('profile.edit');
+        $hasProfile   = \Illuminate\Support\Facades\Route::has('profile.edit');
         $enInventario = request()->routeIs('inventario.*');
 
         // ✅ SOLO ESTE USUARIO VE "CREAR USUARIOS"
-        $isAdmin = auth()->check() && auth()->user()->email === 'admin@kotica.com';
+        $isAdmin     = auth()->check() && auth()->user()->email === 'david.berumen.lozano@gmail.com';
+        $soloExplore = auth()->check() && auth()->user()->solo_explore;
     @endphp
 
     <!-- Primary Navigation Menu -->
@@ -26,6 +27,7 @@
 
                 <!-- Navigation Links (DESKTOP) -->
                 <div class="hidden space-x-8 sm:-my-px sm:ml-10 sm:flex">
+                    @if(!$soloExplore)
                     <x-nav-link
                         :href="route('inventario.index')"
                         :active="request()->routeIs('inventario.*')">
@@ -35,7 +37,7 @@
                     <x-nav-link
                         :href="route('ordenes-compra.index')"
                         :active="request()->routeIs('ordenes-compra.*')">
-                        Órdenes de compra
+                        Entradas
                     </x-nav-link>
 
                     <x-nav-link
@@ -45,10 +47,24 @@
                     </x-nav-link>
 
                     <x-nav-link
+                        :href="route('control-camiones.index')"
+                        :active="request()->routeIs('control-camiones.*')">
+                        Control Salida Camiones
+                    </x-nav-link>
+
+                    <x-nav-link
+                        :href="route('transferencias.index')"
+                        :active="request()->routeIs('transferencias.*')">
+                        Transferencias
+                    </x-nav-link>
+                    @endif
+
+                    <x-nav-link
                         :href="route('explore.index')"
                         :active="request()->routeIs('explore.*')">
                         Explore
                     </x-nav-link>
+
                 </div>
             </div>
 
@@ -84,10 +100,10 @@
                             </x-dropdown-link>
                         @endif
 
-                        {{-- ✅ SOLO ADMIN: Crear usuarios --}}
+                        {{-- ✅ SOLO ADMIN: Usuarios --}}
                         @if($isAdmin)
-                            <x-dropdown-link :href="route('register')">
-                                Crear usuarios
+                            <x-dropdown-link :href="route('users.index')">
+                                Usuarios
                             </x-dropdown-link>
                         @endif
 
@@ -135,6 +151,7 @@
     <div :class="{ 'block': open, 'hidden': ! open }" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
 
+            @if(!$soloExplore)
             {{-- ✅ Acciones SOLO aquí (móvil) --}}
             @if($enInventario)
                 <x-responsive-nav-link :href="route('inventario.create')">
@@ -158,7 +175,7 @@
             <x-responsive-nav-link
                 :href="route('ordenes-compra.index')"
                 :active="request()->routeIs('ordenes-compra.*')">
-                Órdenes de compra
+                Entradas
             </x-responsive-nav-link>
 
             <x-responsive-nav-link
@@ -168,10 +185,24 @@
             </x-responsive-nav-link>
 
             <x-responsive-nav-link
+                :href="route('control-camiones.index')"
+                :active="request()->routeIs('control-camiones.*')">
+                Control Salida Camiones
+            </x-responsive-nav-link>
+
+            <x-responsive-nav-link
+                :href="route('transferencias.index')"
+                :active="request()->routeIs('transferencias.*')">
+                Transferencias
+            </x-responsive-nav-link>
+            @endif
+
+            <x-responsive-nav-link
                 :href="route('explore.index')"
                 :active="request()->routeIs('explore.*')">
                 Explore
             </x-responsive-nav-link>
+
         </div>
 
         <!-- Responsive Settings -->
@@ -192,10 +223,10 @@
                     </x-responsive-nav-link>
                 @endif
 
-                {{-- ✅ SOLO ADMIN (móvil): Crear usuarios --}}
+                {{-- ✅ SOLO ADMIN (móvil): Usuarios --}}
                 @if($isAdmin)
-                    <x-responsive-nav-link :href="route('register')">
-                        Crear usuarios
+                    <x-responsive-nav-link :href="route('users.index')">
+                        Usuarios
                     </x-responsive-nav-link>
                 @endif
 

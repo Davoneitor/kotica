@@ -277,9 +277,13 @@
                                                     <div class="p-4 space-y-4 overflow-auto"
                                                          style="max-height: calc(100vh - 130px);">
 
-                                                        <form method="POST"
-                                                              action="{{ route('ordenes-compra.recibir') }}"
-                                                              class="space-y-4">
+                                                            <form method="POST"
+                                                                action="{{ route('ordenes-compra.recibir') }}"
+                                                                enctype="multipart/form-data"
+                                                                class="space-y-4"
+                                                                x-data="{ preview:null, sending:false }"
+                                                                @submit="sending=true">
+
                                                             @csrf
 
                                                             <input type="hidden" name="items[0][idPedido]" value="{{ $o['idPedido'] }}">
@@ -287,9 +291,11 @@
                                                             <input type="hidden" name="items[0][idInsumo]" value="{{ $it['id'] }}">
                                                             <input type="hidden" name="items[0][descripcion]" value="{{ $it['descripcion'] }}">
                                                             <input type="hidden" name="items[0][unidad]" value="{{ $it['unidad'] }}">
-                                                            <input type="hidden" name="items[0][cantidad_pedida]" value="{{ $it['cantidad'] }}">
-                                                            <input type="hidden" name="items[0][parcial_actual]" value="{{ $it['parcial_actual'] }}">
+                                                            <input type="hidden" name="items[0][cantidad_pedida]" value="{{ number_format((float) $it['cantidad'], 4, '.', '') }}">
+                                                            <input type="hidden" name="items[0][parcial_actual]" value="{{ number_format((float) $it['parcial_actual'], 4, '.', '') }}">
                                                             <input type="hidden" name="items[0][razonSocial]" value="{{ $it['razonSocial'] }}">
+                                                            <input type="hidden" name="items[0][fecha_oc]" value="{{ $o['fecha']->format('Y-m-d') }}">
+                                                            <input type="hidden" name="items[0][pu]" value="{{ $it['pu'] }}">
 
                                                             <div class="space-y-2">
                                                                 <label class="block text-base text-gray-700">
@@ -299,11 +305,44 @@
                                                                 <input type="number"
                                                                        step="0.01"
                                                                        min="0.01"
-                                                                       max="{{ $it['faltante'] }}"
+                                                                       max="{{ number_format((float) $it['faltante'], 4, '.', '') }}"
+
                                                                        name="items[0][llego]"
                                                                        class="w-full md:w-56 border rounded px-4 py-3 text-lg text-right"
                                                                        placeholder="0.00"
                                                                        required>
+
+                                                                       <div class="space-y-2">
+   <label class="block text-base text-gray-700">Foto de recepción</label>
+
+<input
+  type="file"
+  name="items[0][foto]"
+  accept="image/*"
+  class="w-full border rounded px-4 py-3"
+  required
+  @change="
+      const f = $event.target.files[0];
+      preview = f ? URL.createObjectURL(f) : null;
+  "
+>
+
+
+
+<img
+  x-show="preview"
+  x-cloak
+  :src="preview"
+  class="mt-2 w-full max-h-64 object-contain rounded border bg-gray-50"
+  alt="preview"
+/>
+
+
+    <p class="text-sm text-gray-500">
+        En celular abre cámara; en PC te deja seleccionar archivo.
+    </p>
+</div>
+
 
                                                                 <p class="text-sm text-gray-500">
                                                                     Máximo permitido (faltante): {{ number_format($it['faltante'], 2) }}
@@ -316,11 +355,12 @@
                                                                         @click="open=false">
                                                                     Cancelar
                                                                 </button>
-
                                                                 <button type="submit"
-                                                                        class="w-1/2 md:w-auto px-5 py-3 text-base rounded bg-gray-800 text-white hover:bg-gray-700">
+                                                                        :disabled="sending"
+                                                                        class="w-1/2 md:w-auto px-5 py-3 text-base rounded bg-gray-800 text-white hover:bg-gray-700 disabled:opacity-60">
                                                                     Confirmar
                                                                 </button>
+
                                                             </div>
                                                         </form>
 

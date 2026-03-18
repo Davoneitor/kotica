@@ -11,7 +11,7 @@
             </div>
 
             <div class="text-xs text-gray-500">
-                Vista de exploración (solo lectura): salidas, inventario, órdenes (ERP) y gráficas.
+                Vista de exploracion (solo lectura): salidas, inventario, ordenes (ERP) y graficas.
             </div>
         </div>
     </x-slot>
@@ -24,9 +24,27 @@
                 <div class="flex gap-2 overflow-auto">
 
                     <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
+                            :class="tab==='ent' ? 'bg-gray-900 text-white' : 'bg-white'"
+                            @click="tab='ent'; cargarEntradas()">
+                        Entradas
+                    </button>
+
+                    <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
                             :class="tab==='mov' ? 'bg-gray-900 text-white' : 'bg-white'"
                             @click="tab='mov'; cargarMovimientos()">
                         Salidas
+                    </button>
+
+                    <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
+                            :class="tab==='escom' ? 'bg-gray-900 text-white' : 'bg-white'"
+                            @click="tab='escom'; cargarEscombro()">
+                        Control Salida Camiones
+                    </button>
+
+                    <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
+                            :class="tab==='trans' ? 'bg-gray-900 text-white' : 'bg-white'"
+                            @click="tab='trans'; cargarTransferencias()">
+                        Transferencias
                     </button>
 
                     <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
@@ -38,13 +56,13 @@
                     <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
                             :class="tab==='oc' ? 'bg-gray-900 text-white' : 'bg-white'"
                             @click="tab='oc'; cargarOC()">
-                        Órdenes compra (ERP)
+                        Ordenes compra (ERP)
                     </button>
 
                     <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
                             :class="tab==='graf' ? 'bg-gray-900 text-white' : 'bg-white'"
                             @click="tab='graf'; cargarGraficas()">
-                        Gráficas
+                        Graficas
                     </button>
                 </div>
             </div>
@@ -129,9 +147,28 @@
                     </div>
 
                     <div class="mt-3 text-xs text-gray-500" x-show="loading">Cargando...</div>
+                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                        <span class="text-xs text-gray-500 font-medium">Vista:</span>
+                        <button @click="mov.vista='tarjetas'; cargarMovimientos()"
+                                :class="mov.vista==='tarjetas' ? 'bg-gray-900 text-white' : 'bg-white hover:bg-gray-50'"
+                                class="px-3 py-1 rounded border text-sm transition-colors">Tarjetas</button>
+                        <button @click="mov.vista='tabla'; cargarSalidasTabla()"
+                                :class="mov.vista==='tabla' ? 'bg-gray-900 text-white' : 'bg-white hover:bg-gray-50'"
+                                class="px-3 py-1 rounded border text-sm transition-colors">Tabla</button>
+
+                        <div class="ml-auto">
+                            <button @click="exportarSalidas()"
+                                    class="flex items-center gap-1.5 px-3 py-1.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm font-medium transition-colors whitespace-nowrap">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                                </svg>
+                                Exportar Excel
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div x-show="mov.vista==='tarjetas'" class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <template x-for="m in movimientos" :key="m.id">
                         <div class="bg-white shadow-sm rounded-lg border p-4">
                             <div class="flex items-start justify-between gap-2">
@@ -151,15 +188,26 @@
                                 </a>
                             </div>
 
-                            <div class="mt-2 text-sm">
-                                <div class="text-gray-500 text-xs">Destino</div>
-                                <div class="font-medium" x-text="m.destino"></div>
-                            </div>
+                        <div class="mt-2 text-sm">
+                        <div class="text-gray-500 text-xs">Destino</div>
+                        <div class="font-medium">
+                            <span x-text="m.destino_nombre || m.destino"></span>
+                            <span class="text-gray-500" x-show="m.nivel || m.departamento">
+                            � Nivel: <span x-text="m.nivel"></span>
+                            � Depto: <span x-text="m.departamento"></span>
+                            </span>
+                        </div>
+                        </div>
 
-                            <div class="mt-2 text-sm">
-                                <div class="text-gray-500 text-xs">Fecha</div>
-                                <div x-text="m.fecha"></div>
-                            </div>
+                        <div class="mt-2 text-sm">
+                            <div class="text-gray-500 text-xs">Obra</div>
+                            <div class="font-medium" x-text="m.obra ?? m.obra_id"></div>
+                        </div>
+
+                        <div class="mt-2 text-sm">
+                            <div class="text-gray-500 text-xs">Fecha</div>
+                            <div x-text="formatFecha(m.fecha)"></div>
+                        </div>
 
                             <div class="mt-3">
                                 <button class="w-full px-4 py-2 rounded bg-gray-900 text-white"
@@ -195,6 +243,561 @@
                         </div>
                     </template>
                 </div>
+
+                {{-- ========================= --}}
+                {{-- TABLA DE SALIDAS --}}
+                {{-- ========================= --}}
+                <div x-show="mov.vista==='tabla'" class="space-y-3">
+
+                    {{-- Total general --}}
+                    <div class="bg-gray-900 text-white rounded-lg px-4 py-3 flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <div class="text-sm font-medium">Costo total del almacén (salidas filtradas)</div>
+                            <button @click="toggleExpandirTodoSalidas()"
+                                    class="px-2 py-1 rounded text-xs border border-white/30 hover:bg-white/10 transition-colors whitespace-nowrap"
+                                    x-text="todosSalidasExpandidos() ? 'Colapsar todo' : 'Expandir todo'"></button>
+                        </div>
+                        <div class="text-2xl font-extrabold" x-text="'$' + formatMoney(totalSalidas())"></div>
+                    </div>
+
+                    {{-- Tabla --}}
+                    <div class="bg-white shadow-sm sm:rounded-lg overflow-x-auto">
+                        <div x-show="loading" class="p-4 text-sm text-gray-500">Cargando tabla...</div>
+                        <div x-show="!loading && salidasTablaData.length === 0"
+                             class="p-8 text-center text-gray-500 text-sm">
+                            Sin movimientos en el período seleccionado.
+                        </div>
+                        <table x-show="salidasTablaData.length > 0" class="w-full text-sm">
+                            <thead class="bg-gray-50 border-b text-xs text-gray-500 uppercase">
+                                <tr>
+                                    <th class="w-8 px-2 py-2"></th>
+                                    <th class="px-3 py-2 text-left">Fecha</th>
+                                    <th class="px-3 py-2 text-left">Código</th>
+                                    <th class="px-3 py-2 text-left">Descripción</th>
+                                    <th class="px-3 py-2 text-left">Unidad</th>
+                                    <th class="px-3 py-2 text-right">Cantidad</th>
+                                    <th class="px-3 py-2 text-right">P.U.</th>
+                                    <th class="px-3 py-2 text-right">Importe</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="row in salidasGruposFlat()" :key="row._key">
+                                    <tr :class="row._tipo === 'familia'
+                                                ? 'border-t-2 border-indigo-200 bg-indigo-50 cursor-pointer hover:bg-indigo-100 select-none'
+                                                : 'border-t border-gray-100 hover:bg-gray-50'"
+                                        @click="row._tipo === 'familia' && toggleSalidaGrupo(row.familia)">
+                                        {{-- Toggle icon --}}
+                                        <td class="px-2 py-2 text-center w-8">
+                                            <svg x-show="row._tipo === 'familia'"
+                                                 :class="salidasTablaExpandidos[row.familia] ? 'rotate-90' : ''"
+                                                 class="inline w-4 h-4 text-indigo-500 transition-transform duration-150"
+                                                 fill="none" stroke="currentColor" stroke-width="2.5"
+                                                 viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                            </svg>
+                                        </td>
+                                        {{-- Fecha / contador de registros --}}
+                                        <td class="px-3 py-2 text-xs tabular-nums whitespace-nowrap"
+                                            :class="row._tipo === 'familia' ? 'text-indigo-400 font-medium' : 'text-gray-500 pl-6'"
+                                            x-text="row._tipo === 'familia' ? row.count + ' registros' : formatFechaCorta(row.fecha)">
+                                        </td>
+                                        {{-- Código --}}
+                                        <td class="px-3 py-2 font-mono text-xs"
+                                            :class="row._tipo === 'familia' ? 'text-gray-300' : 'text-gray-600 pl-6'"
+                                            x-text="row._tipo !== 'familia' ? row.insumo_id : ''">
+                                        </td>
+                                        {{-- Descripción / Nombre de familia --}}
+                                        <td class="px-3 py-2"
+                                            :class="row._tipo === 'familia' ? 'text-indigo-800 font-bold text-sm uppercase tracking-wide' : 'text-xs text-gray-700 pl-6'"
+                                            x-text="row._tipo === 'familia' ? row.familia : row.descripcion">
+                                        </td>
+                                        {{-- Unidad --}}
+                                        <td class="px-3 py-2 text-xs"
+                                            :class="row._tipo === 'familia' ? '' : 'text-gray-500'"
+                                            x-text="row._tipo !== 'familia' ? row.unidad : ''">
+                                        </td>
+                                        {{-- Cantidad --}}
+                                        <td class="px-3 py-2 text-right tabular-nums"
+                                            :class="row._tipo === 'familia' ? 'text-indigo-700 font-bold' : 'text-xs font-medium text-gray-700'"
+                                            x-text="formatNum(row._tipo === 'familia' ? row.cantidad_total : row.cantidad)">
+                                        </td>
+                                        {{-- P.U. --}}
+                                        <td class="px-3 py-2 text-right text-xs tabular-nums"
+                                            :class="row._tipo === 'familia' ? 'text-gray-300' : 'text-gray-500'"
+                                            x-text="row._tipo !== 'familia' && row.precio_unitario !== null ? '$' + formatMoney(row.precio_unitario) : '—'">
+                                        </td>
+                                        {{-- Importe --}}
+                                        <td class="px-3 py-2 text-right tabular-nums"
+                                            :class="row._tipo === 'familia' ? 'text-indigo-700 font-bold' : 'text-xs text-gray-700'"
+                                            x-text="row._tipo === 'familia'
+                                                ? (row.importe_total > 0 ? '$' + formatMoney(row.importe_total) : '—')
+                                                : (row.importe !== null ? '$' + formatMoney(row.importe) : '—')">
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+
+ {{-- ========================= --}}
+{{-- ENTRADAS (RECEPCIONES OC) --}}
+{{-- ========================= --}}
+<div x-show="tab==='ent'" class="mt-4 space-y-3">
+
+    <div class="bg-white shadow-sm sm:rounded-lg p-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
+            <div class="md:col-span-2">
+                <label class="block text-xs text-gray-500 mb-1">Buscar insumo / descripción / OC</label>
+                <input class="w-full border rounded px-3 py-2"
+                       placeholder="Ej: 303-ARF / varilla / 12345"
+                       x-model="ent.q"
+                       @input.debounce.400ms="cargarEntradas()">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Desde</label>
+                <input type="date" class="w-full border rounded px-3 py-2"
+                       x-model="ent.desde"
+                       @change="cargarEntradas()">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Hasta</label>
+                <input type="date" class="w-full border rounded px-3 py-2"
+                       x-model="ent.hasta"
+                       @change="cargarEntradas()">
+            </div>
+        </div>
+
+        <div class="mt-3 text-xs text-gray-500" x-show="loading">Cargando...</div>
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+            <span class="text-xs text-gray-500 font-medium">Vista:</span>
+            <button @click="ent.vista='tarjetas'"
+                    :class="ent.vista==='tarjetas' ? 'bg-gray-900 text-white' : 'bg-white hover:bg-gray-50'"
+                    class="px-3 py-1 rounded border text-sm transition-colors">Tarjetas</button>
+            <button @click="ent.vista='tabla'"
+                    :class="ent.vista==='tabla' ? 'bg-gray-900 text-white' : 'bg-white hover:bg-gray-50'"
+                    class="px-3 py-1 rounded border text-sm transition-colors">Tabla</button>
+
+            <div class="ml-auto">
+                <button @click="exportarEntradas()"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm font-medium transition-colors whitespace-nowrap">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                    </svg>
+                    Exportar Excel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{-- ✅ Tablet friendly: 1 columna / 2 columnas --}}
+    <div x-show="ent.vista==='tarjetas'" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <template x-for="e in entradas" :key="e.id">
+            <div class="bg-white shadow-sm rounded-lg border p-4">
+                <div class="flex items-start justify-between gap-2">
+                    <div>
+                        <div class="font-semibold text-lg">
+                            Entrada #<span x-text="e.id"></span>
+                        </div>
+                        <div class="text-sm text-gray-600">
+                            OC #<span x-text="e.id_pedido"></span> · Det #<span x-text="e.pedido_det_id"></span>
+                        </div>
+                    </div>
+
+                    <div class="text-right">
+                        <div class="text-xs text-gray-500">Llegó</div>
+                        <div class="font-bold text-xl">
+                            <span x-text="num(e.cantidad_llego)"></span>
+                        </div>
+                        <div class="text-xs text-gray-600" x-text="e.unidad"></div>
+                    </div>
+                </div>
+
+                <div class="mt-2 text-sm text-gray-700">
+                    <div class="font-semibold" x-text="e.insumo"></div>
+                    <div class="text-gray-600" x-text="e.descripcion"></div>
+                </div>
+
+                <div class="mt-2 text-xs text-gray-600">
+                    <div>Fecha OC: <span class="font-medium" x-text="e.fecha_oc"></span></div>
+                    <div>Recibido: <span class="font-medium" x-text="e.fecha_recibido"></span></div>
+                    <div>
+                        Foto:
+                        <span class="font-medium" x-text="e.tiene_foto ? 'Sí' : 'No'"></span>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <button class="w-full px-4 py-2 rounded bg-gray-900 text-white"
+                            @click="verEntradaDetalles(e.id)">
+                        Ver detalles
+                    </button>
+                </div>
+
+                {{-- Desglose + imagen --}}
+                <div x-show="detallesEntradaId===e.id" class="mt-3 border-t pt-3">
+                    <template x-if="entradaDetalle==null">
+                        <div class="text-sm text-gray-500">Cargando detalle...</div>
+                    </template>
+
+                    <template x-if="entradaDetalle!=null">
+                        <div class="space-y-3">
+                            <div class="text-sm">
+                                <div class="text-gray-500 text-xs">Insumo</div>
+                                <div class="font-semibold" x-text="entradaDetalle.insumo"></div>
+                            </div>
+
+                            <template x-if="entradaDetalle.foto_url">
+                                <div>
+                                    <div class="text-gray-500 text-xs mb-1">Foto de recepción</div>
+
+                                    {{-- ✅ imagen responsive tablet + tap to zoom --}}
+                                    <button type="button" class="w-full" @click="imgModal.url=entradaDetalle.foto_url; imgModal.show=true">
+                                        <img :src="entradaDetalle.foto_url"
+                                             class="w-full max-h-72 object-contain rounded border bg-gray-50"
+                                             alt="foto recepción">
+                                    </button>
+
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        Toca la imagen para verla en grande.
+                                    </div>
+                                </div>
+                            </template>
+
+                            <template x-if="!entradaDetalle.foto_url">
+                                <div class="text-sm text-gray-500">No hay foto en esta recepción.</div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    {{-- ========================= --}}
+    {{-- TABLA DE ENTRADAS --}}
+    {{-- ========================= --}}
+    <div x-show="ent.vista==='tabla'" class="space-y-3">
+
+        {{-- Total general --}}
+        <div class="bg-gray-900 text-white rounded-lg px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="text-sm font-medium">Costo total del almacén (entradas filtradas)</div>
+                <button @click="toggleExpandirTodoEntradas()"
+                        class="px-2 py-1 rounded text-xs border border-white/30 hover:bg-white/10 transition-colors whitespace-nowrap"
+                        x-text="todosEntradasExpandidos() ? 'Colapsar todo' : 'Expandir todo'"></button>
+            </div>
+            <div class="text-2xl font-extrabold" x-text="'$' + formatMoney(totalEntradas())"></div>
+        </div>
+
+        {{-- Tabla --}}
+        <div class="bg-white shadow-sm sm:rounded-lg overflow-x-auto">
+            <div x-show="loading" class="p-4 text-sm text-gray-500">Cargando tabla...</div>
+            <div x-show="!loading && entradas.length === 0"
+                 class="p-8 text-center text-gray-500 text-sm">
+                Sin entradas en el período seleccionado.
+            </div>
+            <table x-show="entradas.length > 0" class="w-full text-sm">
+                <thead class="bg-gray-50 border-b text-xs text-gray-500 uppercase">
+                    <tr>
+                        <th class="w-8 px-2 py-2"></th>
+                        <th class="px-3 py-2 text-left">Fecha recibido</th>
+                        <th class="px-3 py-2 text-left">Código</th>
+                        <th class="px-3 py-2 text-left">Descripción</th>
+                        <th class="px-3 py-2 text-left">Unidad</th>
+                        <th class="px-3 py-2 text-right">Cantidad</th>
+                        <th class="px-3 py-2 text-right">P.U.</th>
+                        <th class="px-3 py-2 text-right">Importe</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="row in entradasGruposFlat()" :key="row._key">
+                        <tr :class="row._tipo === 'familia'
+                                    ? 'border-t-2 border-emerald-200 bg-emerald-50 cursor-pointer hover:bg-emerald-100 select-none'
+                                    : 'border-t border-gray-100 hover:bg-gray-50'"
+                            @click="row._tipo === 'familia' && toggleEntradaGrupo(row.familia)">
+                            {{-- Toggle icon --}}
+                            <td class="px-2 py-2 text-center w-8">
+                                <svg x-show="row._tipo === 'familia'"
+                                     :class="entradasTablaExpandidos[row.familia] ? 'rotate-90' : ''"
+                                     class="inline w-4 h-4 text-emerald-500 transition-transform duration-150"
+                                     fill="none" stroke="currentColor" stroke-width="2.5"
+                                     viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </td>
+                            {{-- Fecha / contador --}}
+                            <td class="px-3 py-2 text-xs tabular-nums whitespace-nowrap"
+                                :class="row._tipo === 'familia' ? 'text-emerald-400 font-medium' : 'text-gray-500 pl-6'"
+                                x-text="row._tipo === 'familia' ? row.count + ' registros' : formatFechaCorta(row.fecha_recibido)">
+                            </td>
+                            {{-- Código --}}
+                            <td class="px-3 py-2 font-mono text-xs"
+                                :class="row._tipo === 'familia' ? 'text-gray-300' : 'text-gray-600 pl-6'"
+                                x-text="row._tipo !== 'familia' ? row.insumo_id : ''">
+                            </td>
+                            {{-- Descripción / Nombre de familia --}}
+                            <td class="px-3 py-2"
+                                :class="row._tipo === 'familia' ? 'text-emerald-800 font-bold text-sm uppercase tracking-wide' : 'text-xs text-gray-700 pl-6'"
+                                x-text="row._tipo === 'familia' ? row.familia : row.descripcion">
+                            </td>
+                            {{-- Unidad --}}
+                            <td class="px-3 py-2 text-xs"
+                                :class="row._tipo === 'familia' ? '' : 'text-gray-500'"
+                                x-text="row._tipo !== 'familia' ? row.unidad : ''">
+                            </td>
+                            {{-- Cantidad --}}
+                            <td class="px-3 py-2 text-right tabular-nums"
+                                :class="row._tipo === 'familia' ? 'text-emerald-700 font-bold' : 'text-xs font-medium text-gray-700'"
+                                x-text="formatNum(row._tipo === 'familia' ? row.cantidad_total : row.cantidad_llego)">
+                            </td>
+                            {{-- P.U. --}}
+                            <td class="px-3 py-2 text-right text-xs tabular-nums"
+                                :class="row._tipo === 'familia' ? 'text-gray-300' : 'text-gray-500'"
+                                x-text="row._tipo !== 'familia' && row.precio_unitario !== null ? '$' + formatMoney(row.precio_unitario) : '—'">
+                            </td>
+                            {{-- Importe --}}
+                            <td class="px-3 py-2 text-right tabular-nums"
+                                :class="row._tipo === 'familia' ? 'text-emerald-700 font-bold' : 'text-xs text-gray-700'"
+                                x-text="row._tipo === 'familia'
+                                    ? (row.importe_total > 0 ? '$' + formatMoney(row.importe_total) : '—')
+                                    : (row.importe !== null ? '$' + formatMoney(row.importe) : '—')">
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{{-- ✅ Modal imagen full (tablet friendly) --}}
+<div x-show="imgModal.show" x-cloak
+     class="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-3"
+
+     @keydown.escape.window="imgModal.show=false">
+    <button class="absolute top-3 right-3 px-3 py-2 rounded bg-white/90"
+            @click="imgModal.show=false">✕</button>
+
+    <img :src="imgModal.url" class="max-w-full max-h-[85vh] object-contain rounded bg-white">
+</div>
+
+
+            {{-- ========================= --}}
+            {{-- TRANSFERENCIAS           --}}
+            {{-- ========================= --}}
+            <div x-show="tab==='trans'" class="mt-4 space-y-3">
+
+                {{-- Filtros --}}
+                <div class="bg-white shadow-sm sm:rounded-lg p-4">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
+                        <div class="md:col-span-2">
+                            <label class="block text-xs text-gray-500 mb-1">Buscar obra / usuario</label>
+                            <input class="w-full border rounded px-3 py-2"
+                                   placeholder="Ej: Oblatos, Juan García…"
+                                   x-model="trans.q"
+                                   @input.debounce.400ms="cargarTransferencias()">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Desde</label>
+                            <input type="date" class="w-full border rounded px-3 py-2"
+                                   x-model="trans.desde"
+                                   @change="cargarTransferencias()">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Hasta</label>
+                            <input type="date" class="w-full border rounded px-3 py-2"
+                                   x-model="trans.hasta"
+                                   @change="cargarTransferencias()">
+                        </div>
+                    </div>
+
+                    {{-- Selector de dirección --}}
+                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                        <span class="text-xs text-gray-500 font-medium">Mostrar:</span>
+                        <button @click="trans.dir = 'todas'"
+                                :class="trans.dir === 'todas'
+                                        ? 'bg-gray-900 text-white border-gray-900'
+                                        : 'bg-white text-gray-700 hover:bg-gray-50'"
+                                class="px-3 py-1.5 rounded border text-sm transition-colors">
+                            Todas
+                        </button>
+                        <button @click="trans.dir = 'enviada'"
+                                :class="trans.dir === 'enviada'
+                                        ? 'bg-blue-600 text-white border-blue-600'
+                                        : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'"
+                                class="px-3 py-1.5 rounded border text-sm transition-colors flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"/>
+                            </svg>
+                            Enviadas
+                        </button>
+                        <button @click="trans.dir = 'recibida'"
+                                :class="trans.dir === 'recibida'
+                                        ? 'bg-amber-500 text-white border-amber-500'
+                                        : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50'"
+                                class="px-3 py-1.5 rounded border text-sm transition-colors flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3"/>
+                            </svg>
+                            Recibidas
+                        </button>
+
+                        {{-- Contador --}}
+                        <span class="ml-auto text-xs text-gray-400"
+                              x-show="!loading"
+                              x-text="transferenciasFiltered().length + ' transferencia(s)'"></span>
+                    </div>
+
+                    <div class="mt-2 text-xs text-gray-500" x-show="loading">Cargando...</div>
+                </div>
+
+                {{-- Sin resultados --}}
+                <div x-show="!loading && transferenciasFiltered().length === 0"
+                     class="bg-white shadow-sm sm:rounded-lg p-8 text-center text-gray-500 text-sm">
+                    <span x-text="transferencias.length === 0
+                        ? 'No hay transferencias para esta obra en el periodo seleccionado.'
+                        : 'No hay transferencias ' + (trans.dir === \'enviada\' ? \'enviadas\' : \'recibidas\') + \' en el periodo seleccionado.\'">
+                    </span>
+                </div>
+
+                {{-- Cards --}}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <template x-for="tr in transferenciasFiltered()" :key="tr.id">
+                        <div class="bg-white shadow-sm rounded-lg border p-4">
+
+                            {{-- Encabezado tarjeta --}}
+                            <div class="flex items-start justify-between gap-2">
+                                <div>
+                                    <div class="font-semibold text-lg">
+                                        Transferencia #<span x-text="tr.id"></span>
+                                    </div>
+                                    {{-- Badge de dirección --}}
+                                    <span :class="tr.direccion === 'enviada'
+                                                  ? 'bg-blue-100 text-blue-800'
+                                                  : 'bg-amber-100 text-amber-800'"
+                                          class="inline-flex items-center gap-1 px-2 py-0.5 mt-0.5 rounded-full text-xs font-semibold">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                            <path x-show="tr.direccion === 'enviada'"
+                                                  stroke-linecap="round" stroke-linejoin="round"
+                                                  d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"/>
+                                            <path x-show="tr.direccion !== 'enviada'"
+                                                  stroke-linecap="round" stroke-linejoin="round"
+                                                  d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3"/>
+                                        </svg>
+                                        <span x-text="tr.direccion === 'enviada' ? 'ENVIADA' : 'RECIBIDA'"></span>
+                                    </span>
+                                </div>
+                                <a class="px-3 py-2 text-sm rounded border bg-gray-50 hover:bg-gray-100 shrink-0"
+                                   :href="'/transferencias/'+tr.id+'/pdf'"
+                                   target="_blank">
+                                    PDF
+                                </a>
+                            </div>
+
+                            {{-- Origen → Destino --}}
+                            <div class="mt-3 flex items-center gap-2 flex-wrap text-sm">
+                                <span :class="tr.direccion === 'enviada'
+                                              ? 'bg-blue-50 border-blue-100 text-blue-800'
+                                              : 'bg-indigo-50 border-indigo-100 text-indigo-700'"
+                                      class="px-2.5 py-1 rounded-lg border font-semibold text-xs"
+                                      x-text="tr.obra_origen"></span>
+                                <span class="text-gray-400 font-light text-lg">→</span>
+                                <span :class="tr.direccion === 'recibida'
+                                              ? 'bg-amber-50 border-amber-200 text-amber-800'
+                                              : 'bg-emerald-50 border-emerald-100 text-emerald-800'"
+                                      class="px-2.5 py-1 rounded-lg border font-semibold text-xs"
+                                      x-text="tr.obra_destino"></span>
+                            </div>
+
+                            {{-- Meta --}}
+                            <div class="mt-3 grid grid-cols-3 gap-2 text-sm">
+                                <div>
+                                    <div class="text-xs text-gray-400">Fecha</div>
+                                    <div class="font-medium" x-text="tr.fecha"></div>
+                                </div>
+                                <div>
+                                    <div class="text-xs text-gray-400">Insumos</div>
+                                    <div class="font-bold text-lg" x-text="tr.total_insumos"></div>
+                                </div>
+                                <div>
+                                    <div class="text-xs text-gray-400">Piezas</div>
+                                    <div class="font-bold text-lg"
+                                         x-text="parseFloat(tr.total_piezas || 0).toFixed(2)"></div>
+                                </div>
+                            </div>
+
+                            <div class="mt-2 text-sm">
+                                <div class="text-xs text-gray-400">Usuario</div>
+                                <div class="font-medium" x-text="tr.usuario"></div>
+                            </div>
+
+                            <div x-show="tr.observaciones" class="mt-2 text-sm">
+                                <div class="text-xs text-gray-400">Observaciones</div>
+                                <div class="text-gray-600 italic" x-text="tr.observaciones"></div>
+                            </div>
+
+                            {{-- Botón detalles --}}
+                            <div class="mt-3">
+                                <button class="w-full px-4 py-2 rounded bg-gray-900 text-white text-sm"
+                                        @click="verTransDetalles(tr.id)">
+                                    <span x-text="detallesTransId === tr.id ? 'Ocultar detalles' : 'Ver detalles'"></span>
+                                </button>
+                            </div>
+
+                            {{-- Detalles inline --}}
+                            <div x-show="detallesTransId === tr.id" class="mt-3 border-t pt-3">
+
+                                <template x-if="!transDetalle || !transDetalle.detalles || transDetalle.detalles.length === 0">
+                                    <div class="text-sm text-gray-500">Sin detalles registrados.</div>
+                                </template>
+
+                                <template x-if="transDetalle && transDetalle.detalles && transDetalle.detalles.length > 0">
+                                    <div class="overflow-x-auto">
+                                        <table class="min-w-full text-xs">
+                                            <thead class="bg-gray-50 border-b border-gray-200">
+                                                <tr>
+                                                    <th class="px-3 py-2 text-left font-semibold text-gray-500">Insumo</th>
+                                                    <th class="px-3 py-2 text-right font-semibold text-gray-500">Cant.</th>
+                                                    <th class="px-3 py-2 text-right font-semibold text-indigo-400">Orig. antes</th>
+                                                    <th class="px-3 py-2 text-right font-semibold text-indigo-600">Orig. desp.</th>
+                                                    <th class="px-3 py-2 text-right font-semibold text-emerald-400">Dest. antes</th>
+                                                    <th class="px-3 py-2 text-right font-semibold text-emerald-600">Dest. desp.</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-gray-100">
+                                                <template x-for="d in transDetalle.detalles" :key="d.id">
+                                                    <tr class="hover:bg-gray-50">
+                                                        <td class="px-3 py-2">
+                                                            <div class="font-medium text-gray-800" x-text="d.descripcion"></div>
+                                                            <div class="font-mono text-gray-400" x-text="d.insumo_id ?? ''"></div>
+                                                        </td>
+                                                        <td class="px-3 py-2 text-right font-semibold text-gray-800 tabular-nums">
+                                                            <span x-text="parseFloat(d.cantidad).toFixed(2)"></span>
+                                                            <span class="text-gray-400 ml-0.5" x-text="d.unidad ?? ''"></span>
+                                                        </td>
+                                                        <td class="px-3 py-2 text-right text-indigo-500 tabular-nums"
+                                                            x-text="parseFloat(d.origen_stock_antes).toFixed(2)"></td>
+                                                        <td class="px-3 py-2 text-right text-red-500 font-semibold tabular-nums"
+                                                            x-text="parseFloat(d.origen_stock_despues).toFixed(2)"></td>
+                                                        <td class="px-3 py-2 text-right text-emerald-500 tabular-nums"
+                                                            x-text="parseFloat(d.destino_stock_antes).toFixed(2)"></td>
+                                                        <td class="px-3 py-2 text-right text-emerald-700 font-semibold tabular-nums"
+                                                            x-text="parseFloat(d.destino_stock_despues).toFixed(2)"></td>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </template>
+                            </div>
+
+                        </div>
+                    </template>
+                </div>
             </div>
 
             {{-- ========================= --}}
@@ -204,18 +807,37 @@
                 <div class="bg-white shadow-sm sm:rounded-lg p-4">
                     <label class="block text-xs text-gray-500 mb-1">Buscar por ID (insumo) o descripción</label>
                     <input class="w-full border rounded px-3 py-2"
-                           placeholder="Ej: 303-ARF ó varilla"
+                           placeholder="Ej: 303-ARF  varilla"
                            x-model="inv.q"
                            @input.debounce.400ms="cargarInventario()">
                     <div class="mt-3 text-xs text-gray-500" x-show="loading">Cargando...</div>
+                    <div class="mt-3 flex items-center gap-2">
+                        <span class="text-xs text-gray-500 font-medium">Vista:</span>
+                        <button @click="inv.vista='tarjetas'"
+                                :class="inv.vista==='tarjetas' ? 'bg-gray-900 text-white' : 'bg-white hover:bg-gray-50'"
+                                class="px-3 py-1 rounded border text-sm transition-colors">Tarjetas</button>
+                        <button @click="inv.vista='tabla'"
+                                :class="inv.vista==='tabla' ? 'bg-gray-900 text-white' : 'bg-white hover:bg-gray-50'"
+                                class="px-3 py-1 rounded border text-sm transition-colors">Tabla</button>
+                        <div class="ml-auto">
+                            <button @click="exportarInventario()"
+                                    class="flex items-center gap-1.5 px-3 py-1.5 rounded border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 text-sm font-medium transition-colors whitespace-nowrap">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                                </svg>
+                                Exportar Excel
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {{-- Vista tarjetas --}}
+                <div x-show="inv.vista==='tarjetas'" class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <template x-for="p in inventario" :key="p.id">
                         <div class="bg-white shadow-sm rounded-lg border p-4">
                             <div class="flex items-start justify-between gap-2">
                                 <div>
-                                    <div class="font-semibold text-lg" x-text="p.id"></div>
+                                    <div class="font-semibold text-lg" x-text="p.insumo_id || p.id"></div>
                                     <div class="text-sm text-gray-700" x-text="p.descripcion"></div>
                                 </div>
                                 <div class="text-right">
@@ -226,12 +848,101 @@
                             </div>
 
                             <div class="mt-2 text-xs text-gray-600">
+                                <div>P.U.: <span class="font-medium" x-text="p.costo_promedio !== null ? '$' + formatMoney(p.costo_promedio) : '—'"></span></div>
                                 <div>Proveedor: <span class="font-medium" x-text="p.proveedor"></span></div>
                                 <div>Destino: <span class="font-medium" x-text="p.destino"></span></div>
                                 <div>Actualizado: <span class="font-medium" x-text="p.updated_at"></span></div>
                             </div>
                         </div>
                     </template>
+                </div>
+
+                {{-- Vista tabla --}}
+                <div x-show="inv.vista==='tabla'" class="space-y-3">
+
+                    {{-- Total general --}}
+                    <div class="bg-gray-900 text-white rounded-lg px-4 py-3 flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <div class="text-sm font-medium">Costo total del inventario (existencias × P.U.)</div>
+                            <button @click="toggleExpandirTodoInventario()"
+                                    class="px-2 py-1 rounded text-xs border border-white/30 hover:bg-white/10 transition-colors whitespace-nowrap"
+                                    x-text="todosInventarioExpandidos() ? 'Colapsar todo' : 'Expandir todo'"></button>
+                        </div>
+                        <div class="text-2xl font-extrabold" x-text="'$' + formatMoney(totalInventario())"></div>
+                    </div>
+
+                    {{-- Tabla --}}
+                    <div class="bg-white shadow-sm sm:rounded-lg overflow-x-auto">
+                        <div x-show="loading" class="p-4 text-sm text-gray-500">Cargando tabla...</div>
+                        <div x-show="!loading && inventario.length === 0"
+                             class="p-8 text-center text-gray-500 text-sm">
+                            Sin productos en inventario.
+                        </div>
+                        <table x-show="inventario.length > 0" class="w-full text-sm">
+                            <thead class="bg-gray-50 border-b text-xs text-gray-500 uppercase">
+                                <tr>
+                                    <th class="w-8 px-2 py-2"></th>
+                                    <th class="px-3 py-2 text-left">Código</th>
+                                    <th class="px-3 py-2 text-left">Descripción</th>
+                                    <th class="px-3 py-2 text-left">Unidad</th>
+                                    <th class="px-3 py-2 text-right">Cantidad</th>
+                                    <th class="px-3 py-2 text-right">P.U.</th>
+                                    <th class="px-3 py-2 text-right">Importe</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="row in inventarioGruposFlat()" :key="row._key">
+                                    <tr :class="row._tipo === 'familia'
+                                                ? 'border-t-2 border-amber-200 bg-amber-50 cursor-pointer hover:bg-amber-100 select-none'
+                                                : 'border-t hover:bg-gray-50'"
+                                        @click="row._tipo === 'familia' && toggleInventarioFamilia(row.familia)">
+                                        {{-- Toggle icon --}}
+                                        <td class="px-2 py-2 text-center w-8">
+                                            <svg x-show="row._tipo === 'familia'"
+                                                 :class="inventarioFamiliaExpandidos[row.familia] ? 'rotate-90' : ''"
+                                                 class="inline w-4 h-4 text-amber-500 transition-transform duration-150"
+                                                 fill="none" stroke="currentColor" stroke-width="2.5"
+                                                 viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                            </svg>
+                                        </td>
+                                        {{-- Código / contador --}}
+                                        <td class="px-3 py-2 font-mono text-xs"
+                                            :class="row._tipo === 'familia' ? 'text-amber-400 font-medium' : 'text-gray-700'"
+                                            x-text="row._tipo === 'familia' ? row.count + ' insumos' : (row.insumo_id || row.id)">
+                                        </td>
+                                        {{-- Descripción / Nombre de familia --}}
+                                        <td class="px-3 py-2"
+                                            :class="row._tipo === 'familia' ? 'text-amber-800 font-bold text-sm uppercase tracking-wide' : 'text-sm text-gray-700'"
+                                            x-text="row._tipo === 'familia' ? row.familia : row.descripcion">
+                                        </td>
+                                        {{-- Unidad --}}
+                                        <td class="px-3 py-2 text-xs"
+                                            :class="row._tipo === 'familia' ? '' : 'text-gray-600'"
+                                            x-text="row._tipo !== 'familia' ? row.unidad : ''">
+                                        </td>
+                                        {{-- Cantidad --}}
+                                        <td class="px-3 py-2 text-right tabular-nums"
+                                            :class="row._tipo === 'familia' ? 'text-amber-700 font-bold' : 'font-medium text-gray-800'"
+                                            x-text="formatNum(row._tipo === 'familia' ? row.cantidad_total : row.cantidad)">
+                                        </td>
+                                        {{-- P.U. --}}
+                                        <td class="px-3 py-2 text-right text-xs tabular-nums"
+                                            :class="row._tipo === 'familia' ? 'text-gray-300' : 'text-gray-500'"
+                                            x-text="row._tipo !== 'familia' && row.costo_promedio !== null ? '$' + formatMoney(row.costo_promedio) : '—'">
+                                        </td>
+                                        {{-- Importe --}}
+                                        <td class="px-3 py-2 text-right tabular-nums"
+                                            :class="row._tipo === 'familia' ? 'text-amber-700 font-bold' : 'font-semibold text-gray-800'"
+                                            x-text="row._tipo === 'familia'
+                                                ? (row.importe_total > 0 ? '$' + formatMoney(row.importe_total) : '—')
+                                                : (row.importe !== null ? '$' + formatMoney(row.importe) : '—')">
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -470,26 +1181,232 @@
                 </div>
             </div>
 
+        {{-- ═══════════════════════════════════════════ --}}
+        {{-- CONTROL DE CAMIONES --}}
+        {{-- ═══════════════════════════════════════════ --}}
+        <div x-show="tab==='escom'" x-cloak class="mt-4 space-y-3">
+
+            <div class="bg-white shadow-sm sm:rounded-lg p-4">
+                <div class="flex flex-wrap gap-2 items-end">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Desde</label>
+                        <input type="date" x-model="escom.desde"
+                               class="border rounded px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Hasta</label>
+                        <input type="date" x-model="escom.hasta"
+                               class="border rounded px-3 py-2 text-sm">
+                    </div>
+                    <button @click="cargarEscombro()"
+                            class="px-4 py-2 bg-gray-900 text-white rounded text-sm">
+                        Filtrar
+                    </button>
+                    <a :href="urlPdfEscombro()"
+                       target="_blank"
+                       class="px-4 py-2 border rounded text-sm bg-white hover:bg-gray-50">
+                        PDF
+                    </a>
+                    <button @click="exportarEscombro()"
+                            class="flex items-center gap-1.5 px-3 py-1.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm font-medium transition-colors whitespace-nowrap">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                        </svg>
+                        Exportar Excel
+                    </button>
+                </div>
+            </div>
+
+            <div x-show="loadingEscom" class="text-sm text-gray-500 px-1">Cargando...</div>
+
+            {{-- Resumen total --}}
+            <div x-show="escombros.length > 0 && !loadingEscom"
+                 class="bg-gray-900 text-white rounded-lg px-4 py-3 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="text-sm font-medium">Total m³ en el período</div>
+                    <button @click="toggleExpandirTodoEscombro()"
+                            class="px-2 py-1 rounded text-xs border border-white/30 hover:bg-white/10 transition-colors whitespace-nowrap"
+                            x-text="todosEscomExpandidos() ? 'Colapsar todo' : 'Expandir todo'"></button>
+                </div>
+                <div class="text-2xl font-extrabold"
+                     x-text="escombros.reduce((s,r) => s + (parseFloat(r.metros_cubicos) || 0), 0).toFixed(1) + ' m³'">
+                </div>
+            </div>
+
+            {{-- Bloques expandibles por día --}}
+            <div x-show="escombros.length > 0 && !loadingEscom" class="space-y-2">
+                <template x-for="grupo in escomGrupos()" :key="grupo.fecha">
+                    <div class="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-100">
+
+                        {{-- ── Encabezado del día (siempre visible) ── --}}
+                        <button type="button"
+                                @click="toggleEscomDia(grupo.fecha)"
+                                class="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors select-none group">
+                            <div class="flex items-center gap-3">
+                                <svg :class="escomExpandidos[grupo.fecha] ? 'rotate-90 text-gray-600' : 'text-gray-300'"
+                                     class="w-4 h-4 transition-transform duration-200 flex-shrink-0"
+                                     fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                </svg>
+                                <span class="font-bold text-gray-900 text-sm tracking-tight"
+                                      x-text="grupo.fecha"></span>
+                                <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full whitespace-nowrap"
+                                      x-text="grupo.count + (grupo.count === 1 ? ' viaje' : ' viajes')"></span>
+                            </div>
+                            <span class="font-extrabold text-gray-900 text-base tabular-nums whitespace-nowrap"
+                                  x-text="grupo.total.toFixed(1) + ' m³'"></span>
+                        </button>
+
+                        {{-- ── Tabla de registros (expandible) ── --}}
+                        <div x-show="escomExpandidos[grupo.fecha]"
+                             class="border-t border-gray-100">
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left">H. Entrada</th>
+                                            <th class="px-3 py-2 text-left">H. Salida</th>
+                                            <th class="px-3 py-2 text-left">Tipo material</th>
+                                            <th class="px-3 py-2 text-left">Placas</th>
+                                            <th class="px-3 py-2 text-right">m³</th>
+                                            <th class="px-3 py-2 text-left">Cód. recibo</th>
+                                            <th class="px-3 py-2 text-left">Usuario</th>
+                                            <th class="px-3 py-2 text-center">Fotos</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template x-for="r in grupo.filas" :key="r.id">
+                                            <tr class="border-t border-gray-50 hover:bg-gray-50">
+                                                <td class="px-3 py-2 whitespace-nowrap text-gray-700"
+                                                    x-text="formatHoraEscom(r.hora_entrada)"></td>
+                                                <td class="px-3 py-2 whitespace-nowrap text-gray-700"
+                                                    x-text="formatHoraEscom(r.hora_salida)"></td>
+                                                <td class="px-3 py-2"
+                                                    x-text="r.tipo_material || '—'"></td>
+                                                <td class="px-3 py-2"
+                                                    x-text="r.placas || '—'"></td>
+                                                <td class="px-3 py-2 text-right font-bold tabular-nums whitespace-nowrap"
+                                                    x-text="(parseFloat(r.metros_cubicos) || 0).toFixed(1) + ' m³'"></td>
+                                                <td class="px-3 py-2 text-xs text-gray-500"
+                                                    x-text="r.folio_recibo || '—'"></td>
+                                                <td class="px-3 py-2 text-xs text-gray-600"
+                                                    x-text="r.usuario || '—'"></td>
+                                                <td class="px-3 py-2 text-center">
+                                                    <div class="flex gap-1 justify-center">
+                                                        <template x-if="r.foto_vale_url">
+                                                            <button type="button"
+                                                                    @click="escomImgModal.url = r.foto_vale_url; escomImgModal.label = 'Vale'; escomImgModal.show = true"
+                                                                    class="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 border"
+                                                                    title="Ver foto del vale">
+                                                                📷 Vale
+                                                            </button>
+                                                        </template>
+                                                        <template x-if="r.foto_camion_url">
+                                                            <button type="button"
+                                                                    @click="escomImgModal.url = r.foto_camion_url; escomImgModal.label = 'Camión'; escomImgModal.show = true"
+                                                                    class="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 border"
+                                                                    title="Ver foto del camión">
+                                                                🚛 Camión
+                                                            </button>
+                                                        </template>
+                                                        <template x-if="!r.foto_vale_url && !r.foto_camion_url">
+                                                            <span class="text-gray-300 text-xs">—</span>
+                                                        </template>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+                </template>
+            </div>
+
+            <div x-show="!loadingEscom && escombros.length === 0"
+                 class="bg-white shadow-sm rounded-lg p-6 text-center text-gray-500 text-sm">
+                Sin registros en el rango seleccionado.
+            </div>
+
+        </div>
+
+        {{-- Modal imagen fotos camiones --}}
+        <div x-show="escomImgModal.show" x-cloak
+             class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+             @keydown.escape.window="escomImgModal.show = false"
+             @click.self="escomImgModal.show = false">
+            <div class="relative max-w-2xl w-full">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-white font-semibold text-sm" x-text="'Foto: ' + escomImgModal.label"></span>
+                    <button class="text-white bg-white/20 hover:bg-white/30 rounded px-3 py-1 text-sm"
+                            @click="escomImgModal.show = false">✕ Cerrar</button>
+                </div>
+                <img :src="escomImgModal.url"
+                     class="w-full max-h-[80vh] object-contain rounded bg-black"
+                     alt="foto">
+            </div>
+        </div>
+
         </div>
 
         <style>[x-cloak]{display:none!important}</style>
 
         <script>
+            function formatFecha(fechaStr) {
+                if (!fechaStr) return '';
+                const d = new Date(fechaStr.replace(' ', 'T'));
+                if (isNaN(d)) return fechaStr;
+                const mes  = String(d.getMonth() + 1).padStart(2, '0');
+                const dia  = String(d.getDate()).padStart(2, '0');
+                const anio = d.getFullYear();
+                let h = d.getHours();
+                const min = String(d.getMinutes()).padStart(2, '0');
+                const ampm = h >= 12 ? 'PM' : 'AM';
+                h = h % 12 || 12;
+                return `${mes}/${dia}/${anio} ${String(h).padStart(2,'0')}:${min} ${ampm}`;
+            }
+
             function exploreUI() {
                 return {
+                    ent: { q:'', desde:'', hasta:'', vista:'tarjetas' },
+                    entradas: [],
+                    detallesEntradaId: null,
+                    entradaDetalle: null,
+                    imgModal: { show:false, url:'' },
+
+                    trans: { q:'', desde:'', hasta:'', dir:'todas' },
+                    transferencias: [],
+                    detallesTransId: null,
+                    transDetalle: null,
+
+
                     tab: 'mov',
                     loading: false,
 
-                    mov: { q:'', desde:'', hasta:'' },
-                    inv: { q:'' },
+                    mov: { q:'', desde:'', hasta:'', vista:'tarjetas' },
+                    salidasTablaData: [],
+                    salidasTablaExpandidos: {},
+                    entradasTablaExpandidos: {},
+                    inventarioFamiliaExpandidos: {},
+                    inv: { q:'', vista:'tarjetas' },
                     oc:  { q:'', estado:'todas' },
                     graf: { q:'', desde:'', hasta:'', soloObraActual:true },
 
                     pdf: { show:false, loading:false, ok:false, error:'' },
 
+                    escom: { desde: '', hasta: '' },
+                    escombros: [],
+                    loadingEscom: false,
+                    escomImgModal: { show: false, url: '', label: '' },
+                    escomExpandidos: {},
+
                     movimientos: [],
                     detallesMovId: null,
                     detalles: [],
+                    movimientoCabecera: null,
+
 
                     inventario: [],
                     ordenesCompra: [],
@@ -577,6 +1494,7 @@
                         this.loading = true;
                         this.detallesMovId = null;
                         this.detalles = [];
+                        this.movimientoCabecera = null;
                         try {
                             const params = new URLSearchParams();
                             if (this.mov.q) params.set('q', this.mov.q);
@@ -597,31 +1515,45 @@
                     },
 
                     async verDetalles(movId) {
-                        if (this.detallesMovId === movId) {
-                            this.detallesMovId = null;
-                            this.detalles = [];
-                            return;
-                        }
+    if (this.detallesMovId === movId) {
+        this.detallesMovId = null;
+        this.detalles = [];
+        this.movimientoCabecera = null; // ? limpiamos cabecera
+        return;
+    }
 
-                        this.loading = true;
-                        try {
-                            const res = await fetch("/explore/movimientos/" + movId + "/detalles", {
-                                headers: {'Accept':'application/json'},
-                                cache: 'no-store'
-                            });
-                            this.detalles = await res.json();
-                            this.detallesMovId = movId;
-                        } catch (e) {
-                            console.error(e);
-                            this.detalles = [];
-                            this.detallesMovId = movId;
-                        } finally {
-                            this.loading = false;
-                        }
-                    },
+    this.loading = true;
+
+    try {
+        const res = await fetch("/explore/movimientos/" + movId + "/detalles", {
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
+        });
+
+        const data = await res.json(); // ? ahora recibimos objeto
+
+        // ? detalles del movimiento
+        this.detalles = Array.isArray(data.detalles) ? data.detalles : [];
+
+        // ? informaci�n general del movimiento (obra, destino, etc.)
+        this.movimientoCabecera = data.movimiento ?? null;
+
+        this.detallesMovId = movId;
+
+    } catch (e) {
+        console.error(e);
+        this.detalles = [];
+        this.movimientoCabecera = null;
+        this.detallesMovId = movId;
+    } finally {
+        this.loading = false;
+    }
+},
+
 
                     async cargarInventario() {
                         this.loading = true;
+                        this.inventarioFamiliaExpandidos = {};
                         try {
                             const params = new URLSearchParams();
                             if (this.inv.q) params.set('q', this.inv.q);
@@ -659,30 +1591,485 @@
                     },
 
                     async cargarGraficas() {
+    this.loading = true;
+    try {
+        const params = new URLSearchParams();
+        if (this.graf.q) params.set('q', this.graf.q);
+        if (this.graf.desde) params.set('desde', this.graf.desde);
+        if (this.graf.hasta) params.set('hasta', this.graf.hasta);
+        params.set('solo_obra_actual', this.graf.soloObraActual ? '1' : '0');
+
+        const res = await fetch("{{ route('explore.graficas') }}?" + params.toString(), {
+            headers: {'Accept':'application/json'},
+            cache: 'no-store'
+        });
+
+        const data = await res.json();
+        this.familias = Array.isArray(data.familias) ? data.familias : [];
+        this.insumos  = Array.isArray(data.insumos) ? data.insumos : [];
+    } catch (e) {
+        console.error(e);
+        this.familias = [];
+        this.insumos = [];
+    } finally {
+        this.loading = false;
+    }
+}, // ✅ ESTA COMA ES LA QUE TE FALTABA
+                    async cargarEntradas() {
+    this.loading = true;
+    this.detallesEntradaId = null;
+    this.entradaDetalle = null;
+    this.entradasTablaExpandidos = {};
+
+    try {
+        const params = new URLSearchParams();
+        if (this.ent.q) params.set('q', this.ent.q);
+        if (this.ent.desde) params.set('desde', this.ent.desde);
+        if (this.ent.hasta) params.set('hasta', this.ent.hasta);
+
+        const res = await fetch("{{ route('explore.entradas') }}?" + params.toString(), {
+            headers: {'Accept':'application/json'},
+            cache: 'no-store'
+        });
+
+        this.entradas = await res.json();
+    } catch (e) {
+        console.error(e);
+        this.entradas = [];
+    } finally {
+        this.loading = false;
+    }
+},
+
+                    async verEntradaDetalles(id) {
+    if (this.detallesEntradaId === id) {
+        this.detallesEntradaId = null;
+        this.entradaDetalle = null;
+        return;
+    }
+
+    this.loading = true;
+    this.entradaDetalle = null;
+
+    try {
+        const res = await fetch("{{ url('/explore/entradas') }}/" + id + "/detalles", {
+            headers: {'Accept':'application/json'},
+            cache: 'no-store'
+        });
+
+        this.entradaDetalle = await res.json();
+        this.detallesEntradaId = id;
+    } catch (e) {
+        console.error(e);
+        this.entradaDetalle = null;
+        this.detallesEntradaId = null;
+    } finally {
+        this.loading = false;
+    }
+},
+
+                    transferenciasFiltered() {
+                        if (this.trans.dir === 'todas') return this.transferencias;
+                        return this.transferencias.filter(tr => tr.direccion === this.trans.dir);
+                    },
+
+                    async cargarTransferencias() {
                         this.loading = true;
+                        this.detallesTransId = null;
+                        this.transDetalle = null;
                         try {
                             const params = new URLSearchParams();
-                            if (this.graf.q) params.set('q', this.graf.q);
-                            if (this.graf.desde) params.set('desde', this.graf.desde);
-                            if (this.graf.hasta) params.set('hasta', this.graf.hasta);
-                            params.set('solo_obra_actual', this.graf.soloObraActual ? '1' : '0');
+                            if (this.trans.q)     params.set('q',     this.trans.q);
+                            if (this.trans.desde) params.set('desde', this.trans.desde);
+                            if (this.trans.hasta) params.set('hasta', this.trans.hasta);
 
-                            const res = await fetch("{{ route('explore.graficas') }}?" + params.toString(), {
-                                headers: {'Accept':'application/json'},
+                            const res = await fetch("{{ route('explore.transferencias') }}?" + params.toString(), {
+                                headers: { 'Accept': 'application/json' },
                                 cache: 'no-store'
                             });
-
-                            const data = await res.json();
-                            this.familias = Array.isArray(data.familias) ? data.familias : [];
-                            this.insumos  = Array.isArray(data.insumos) ? data.insumos : [];
+                            this.transferencias = await res.json();
                         } catch (e) {
                             console.error(e);
-                            this.familias = [];
-                            this.insumos = [];
+                            this.transferencias = [];
                         } finally {
                             this.loading = false;
                         }
-                    }
+                    },
+
+                    formatHoraEscom(h24) {
+                        if (!h24) return '—';
+                        const parts = h24.split(':');
+                        let h = parseInt(parts[0]);
+                        const min = parts[1] || '00';
+                        const ampm = h >= 12 ? 'PM' : 'AM';
+                        h = (h % 12) || 12;
+                        return String(h).padStart(2,'0') + ':' + min + ' ' + ampm;
+                    },
+
+                    escomFechaHoy() {
+                        const d = new Date();
+                        return d.getFullYear() + '-'
+                            + String(d.getMonth() + 1).padStart(2, '0') + '-'
+                            + String(d.getDate()).padStart(2, '0');
+                    },
+
+                    async cargarEscombro() {
+                        this.loadingEscom = true;
+                        this.escomExpandidos = {};
+                        try {
+                            const params = new URLSearchParams();
+                            if (this.escom.desde) params.set('desde', this.escom.desde);
+                            if (this.escom.hasta) params.set('hasta', this.escom.hasta);
+                            const res = await fetch('/control-camiones/explore?' + params.toString(), {
+                                headers: { 'Accept': 'application/json' },
+                                cache: 'no-store'
+                            });
+                            this.escombros = await res.json();
+                        } catch (e) {
+                            console.error(e);
+                            this.escombros = [];
+                        } finally {
+                            this.loadingEscom = false;
+                        }
+                    },
+
+                    async verTransDetalles(id) {
+                        if (this.detallesTransId === id) {
+                            this.detallesTransId = null;
+                            this.transDetalle = null;
+                            return;
+                        }
+                        this.loading = true;
+                        this.transDetalle = null;
+                        try {
+                            const res = await fetch("/explore/transferencias/" + id + "/detalles", {
+                                headers: { 'Accept': 'application/json' },
+                                cache: 'no-store'
+                            });
+                            this.transDetalle = await res.json();
+                            this.detallesTransId = id;
+                        } catch (e) {
+                            console.error(e);
+                            this.transDetalle = null;
+                            this.detallesTransId = null;
+                        } finally {
+                            this.loading = false;
+                        }
+                    },
+
+                    // ─── TABLA: cargar datos de salidas ───────────────────────
+                    async cargarSalidasTabla() {
+                        this.loading = true;
+                        this.salidasTablaExpandidos = {};
+                        try {
+                            const params = new URLSearchParams();
+                            if (this.mov.q)     params.set('q',     this.mov.q);
+                            if (this.mov.desde) params.set('desde', this.mov.desde);
+                            if (this.mov.hasta) params.set('hasta', this.mov.hasta);
+                            const res = await fetch('/explore/salidas/tabla?' + params.toString(), {
+                                headers: {'Accept':'application/json'},
+                                cache: 'no-store'
+                            });
+                            this.salidasTablaData = await res.json();
+                        } catch (e) {
+                            console.error(e);
+                            this.salidasTablaData = [];
+                        } finally {
+                            this.loading = false;
+                        }
+                    },
+
+                    // ─── TABLA: agrupar por familia ───────────────────────────
+                    agruparPorFamilia(items, claveQty) {
+                        const grupos = {};
+                        for (const row of items) {
+                            const familia = ((row.familia || '').trim()) || 'SIN FAMILIA';
+                            if (!grupos[familia]) {
+                                grupos[familia] = {
+                                    familia,
+                                    cantidad_total: 0,
+                                    importe_total:  0,
+                                    filas: [],
+                                };
+                            }
+                            grupos[familia].cantidad_total += parseFloat(row[claveQty] || 0);
+                            if (row.importe !== null && row.importe !== undefined) {
+                                grupos[familia].importe_total += parseFloat(row.importe || 0);
+                            }
+                            grupos[familia].filas.push(row);
+                        }
+                        return Object.values(grupos).sort((a, b) => {
+                            if (a.familia === 'SIN FAMILIA') return 1;
+                            if (b.familia === 'SIN FAMILIA') return -1;
+                            return a.familia.localeCompare(b.familia, 'es-MX');
+                        });
+                    },
+
+                    // ─── TABLA: agrupar por insumo (legacy) ───────────────────
+                    agruparPorInsumo(items, claveInsumo, claveQty) {
+                        const grupos = {};
+                        for (const row of items) {
+                            const key = (row[claveInsumo] || '') + '|' + (row.descripcion || '');
+                            if (!grupos[key]) {
+                                grupos[key] = {
+                                    insumo_id:      row[claveInsumo] || '',
+                                    descripcion:    row.descripcion || '',
+                                    unidad:         row.unidad || '',
+                                    cantidad_total: 0,
+                                    precio_unitario: row.precio_unitario ?? null,
+                                    importe_total:  0,
+                                    filas: [],
+                                };
+                            }
+                            grupos[key].cantidad_total += parseFloat(row[claveQty] || 0);
+                            if (row.importe !== null && row.importe !== undefined) {
+                                grupos[key].importe_total += parseFloat(row.importe || 0);
+                            }
+                            grupos[key].filas.push(row);
+                        }
+                        return Object.values(grupos);
+                    },
+
+                    salidasGruposFlat() {
+                        const result = [];
+                        const grupos = this.agruparPorFamilia(this.salidasTablaData, 'cantidad');
+                        for (const grupo of grupos) {
+                            result.push({
+                                _tipo: 'familia', _key: 'f_' + grupo.familia,
+                                familia: grupo.familia,
+                                cantidad_total: grupo.cantidad_total,
+                                importe_total: grupo.importe_total,
+                                count: grupo.filas.length,
+                            });
+                            if (this.salidasTablaExpandidos[grupo.familia]) {
+                                for (const fila of grupo.filas) {
+                                    result.push({ _tipo: 'detalle', _key: 'd_' + fila.id, ...fila });
+                                }
+                            }
+                        }
+                        return result;
+                    },
+
+                    entradasGruposFlat() {
+                        const mapped = this.entradas.map(e => ({
+                            id:              e.id,
+                            familia:         e.familia || 'SIN FAMILIA',
+                            insumo_id:       e.insumo,
+                            descripcion:     e.descripcion,
+                            unidad:          e.unidad,
+                            cantidad:        e.cantidad_llego,
+                            cantidad_llego:  e.cantidad_llego,
+                            fecha_recibido:  e.fecha_recibido,
+                            precio_unitario: e.precio_unitario ?? null,
+                            importe:         e.importe ?? null,
+                        }));
+                        const result = [];
+                        const grupos = this.agruparPorFamilia(mapped, 'cantidad');
+                        for (const grupo of grupos) {
+                            result.push({
+                                _tipo: 'familia', _key: 'f_' + grupo.familia,
+                                familia: grupo.familia,
+                                cantidad_total: grupo.cantidad_total,
+                                importe_total: grupo.importe_total,
+                                count: grupo.filas.length,
+                            });
+                            if (this.entradasTablaExpandidos[grupo.familia]) {
+                                for (const fila of grupo.filas) {
+                                    result.push({ _tipo: 'detalle', _key: 'd_' + fila.id, ...fila });
+                                }
+                            }
+                        }
+                        return result;
+                    },
+
+                    inventarioGruposFlat() {
+                        const result = [];
+                        const grupos = this.agruparPorFamilia(this.inventario, 'cantidad');
+                        for (const grupo of grupos) {
+                            result.push({
+                                _tipo: 'familia', _key: 'f_' + grupo.familia,
+                                familia: grupo.familia,
+                                cantidad_total: grupo.cantidad_total,
+                                importe_total: grupo.importe_total,
+                                count: grupo.filas.length,
+                            });
+                            if (this.inventarioFamiliaExpandidos[grupo.familia]) {
+                                for (const fila of grupo.filas) {
+                                    result.push({ _tipo: 'detalle', _key: 'd_' + fila.id, ...fila });
+                                }
+                            }
+                        }
+                        return result;
+                    },
+
+                    totalSalidas() {
+                        return this.salidasTablaData.reduce((s, r) => s + (r.importe ?? 0), 0);
+                    },
+
+                    totalEntradas() {
+                        return this.entradas.reduce((s, e) => s + (e.importe ?? 0), 0);
+                    },
+
+                    totalInventario() {
+                        return this.inventario.reduce((s, p) => s + (p.importe ?? 0), 0);
+                    },
+
+                    toggleSalidaGrupo(familia) {
+                        this.salidasTablaExpandidos = {
+                            ...this.salidasTablaExpandidos,
+                            [familia]: !this.salidasTablaExpandidos[familia]
+                        };
+                    },
+
+                    toggleEntradaGrupo(familia) {
+                        this.entradasTablaExpandidos = {
+                            ...this.entradasTablaExpandidos,
+                            [familia]: !this.entradasTablaExpandidos[familia]
+                        };
+                    },
+
+                    toggleInventarioFamilia(familia) {
+                        this.inventarioFamiliaExpandidos = {
+                            ...this.inventarioFamiliaExpandidos,
+                            [familia]: !this.inventarioFamiliaExpandidos[familia]
+                        };
+                    },
+
+                    todosSalidasExpandidos() {
+                        const grupos = this.agruparPorFamilia(this.salidasTablaData, 'cantidad');
+                        return grupos.length > 0 && grupos.every(g => this.salidasTablaExpandidos[g.familia]);
+                    },
+
+                    toggleExpandirTodoSalidas() {
+                        const grupos = this.agruparPorFamilia(this.salidasTablaData, 'cantidad');
+                        const expandir = !this.todosSalidasExpandidos();
+                        const nuevo = {};
+                        for (const g of grupos) nuevo[g.familia] = expandir;
+                        this.salidasTablaExpandidos = nuevo;
+                    },
+
+                    todosEntradasExpandidos() {
+                        const mapped = this.entradas.map(e => ({ familia: e.familia || 'SIN FAMILIA', cantidad: e.cantidad_llego }));
+                        const grupos = this.agruparPorFamilia(mapped, 'cantidad');
+                        return grupos.length > 0 && grupos.every(g => this.entradasTablaExpandidos[g.familia]);
+                    },
+
+                    toggleExpandirTodoEntradas() {
+                        const mapped = this.entradas.map(e => ({ familia: e.familia || 'SIN FAMILIA', cantidad: e.cantidad_llego }));
+                        const grupos = this.agruparPorFamilia(mapped, 'cantidad');
+                        const expandir = !this.todosEntradasExpandidos();
+                        const nuevo = {};
+                        for (const g of grupos) nuevo[g.familia] = expandir;
+                        this.entradasTablaExpandidos = nuevo;
+                    },
+
+                    todosInventarioExpandidos() {
+                        const grupos = this.agruparPorFamilia(this.inventario, 'cantidad');
+                        return grupos.length > 0 && grupos.every(g => this.inventarioFamiliaExpandidos[g.familia]);
+                    },
+
+                    toggleExpandirTodoInventario() {
+                        const grupos = this.agruparPorFamilia(this.inventario, 'cantidad');
+                        const expandir = !this.todosInventarioExpandidos();
+                        const nuevo = {};
+                        for (const g of grupos) nuevo[g.familia] = expandir;
+                        this.inventarioFamiliaExpandidos = nuevo;
+                    },
+
+                    // ─── Formatters ───────────────────────────────────────────
+                    formatNum(v) {
+                        const n = parseFloat(v || 0);
+                        if (isNaN(n)) return '0';
+                        return n.toLocaleString('es-MX', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    },
+
+                    formatMoney(v) {
+                        const n = parseFloat(v || 0);
+                        if (isNaN(n)) return '0.00';
+                        return n.toLocaleString('es-MX', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    },
+
+                    formatFechaCorta(fechaStr) {
+                        if (!fechaStr) return '';
+                        const d = new Date(fechaStr.replace(' ', 'T'));
+                        if (isNaN(d)) return fechaStr;
+                        return String(d.getDate()).padStart(2,'0') + '/' +
+                               String(d.getMonth()+1).padStart(2,'0') + '/' +
+                               d.getFullYear();
+                    },
+
+                    // ─── Exportar a Excel ─────────────────────────────────────
+                    exportarEntradas() {
+                        const params = new URLSearchParams();
+                        if (this.ent.q)     params.set('q',     this.ent.q);
+                        if (this.ent.desde) params.set('desde', this.ent.desde);
+                        if (this.ent.hasta) params.set('hasta', this.ent.hasta);
+                        window.open('/explore/exportar/entradas?' + params.toString(), '_blank');
+                    },
+
+                    exportarSalidas() {
+                        const params = new URLSearchParams();
+                        if (this.mov.q)     params.set('q',     this.mov.q);
+                        if (this.mov.desde) params.set('desde', this.mov.desde);
+                        if (this.mov.hasta) params.set('hasta', this.mov.hasta);
+                        window.open('/explore/exportar/salidas?' + params.toString(), '_blank');
+                    },
+
+                    exportarInventario() {
+                        const params = new URLSearchParams();
+                        if (this.inv.q) params.set('q', this.inv.q);
+                        window.open('/explore/exportar/inventario?' + params.toString(), '_blank');
+                    },
+
+                    exportarEscombro() {
+                        const params = new URLSearchParams();
+                        if (this.escom.desde) params.set('desde', this.escom.desde);
+                        if (this.escom.hasta) params.set('hasta', this.escom.hasta);
+                        window.open('/control-camiones/exportar?' + params.toString(), '_blank');
+                    },
+
+                    urlPdfEscombro() {
+                        const params = new URLSearchParams();
+                        if (this.escom.desde) params.set('desde', this.escom.desde);
+                        if (this.escom.hasta) params.set('hasta', this.escom.hasta);
+                        const qs = params.toString();
+                        return '/control-camiones/pdf' + (qs ? '?' + qs : '');
+                    },
+
+                    // ─── Agrupación por día ───────────────────────────────────
+                    // Devuelve array de grupos: { fecha, total, count, filas[] }
+                    // Preserva el orden DESC que viene del servidor usando Map
+                    escomGrupos() {
+                        const gruposMap = new Map();
+                        for (const r of this.escombros) {
+                            if (!gruposMap.has(r.fecha)) {
+                                gruposMap.set(r.fecha, { fecha: r.fecha, total: 0, count: 0, filas: [] });
+                            }
+                            const g = gruposMap.get(r.fecha);
+                            g.total += parseFloat(r.metros_cubicos || 0);
+                            g.count++;
+                            g.filas.push(r);
+                        }
+                        return [...gruposMap.values()];
+                    },
+
+                    toggleEscomDia(fecha) {
+                        this.escomExpandidos = { ...this.escomExpandidos, [fecha]: !this.escomExpandidos[fecha] };
+                    },
+
+                    todosEscomExpandidos() {
+                        const dias = [...new Set(this.escombros.map(r => r.fecha))];
+                        return dias.length > 0 && dias.every(f => this.escomExpandidos[f]);
+                    },
+
+                    toggleExpandirTodoEscombro() {
+                        const dias = [...new Set(this.escombros.map(r => r.fecha))];
+                        const expandir = !this.todosEscomExpandidos();
+                        const nuevo = {};
+                        for (const d of dias) nuevo[d] = expandir;
+                        this.escomExpandidos = nuevo;
+                    },
+
                 }
             }
         </script>

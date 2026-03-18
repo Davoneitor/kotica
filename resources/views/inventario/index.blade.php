@@ -23,7 +23,25 @@
                         {{ $obraActual?->nombre ?? 'Sin obra asignada' }}
                     </strong>
                 </div>
+
+                @if($isMultiobra)
+                <form method="POST" action="{{ route('inventario.cambiarObra') }}" class="mt-2">
+                    @csrf
+                    <select name="obra_id"
+                            onchange="this.form.submit()"
+                            class="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                        <option value="">— Selecciona una obra —</option>
+                        @foreach($obras as $obra)
+                            <option value="{{ $obra->id }}"
+                                {{ $obraActual?->id == $obra->id ? 'selected' : '' }}>
+                                {{ $obra->nombre }}
+                            </option>
+                        @endforeach
+                    </select>
+                </form>
+                @endif
             </div>
+            
 
             <div class="flex items-center gap-2">
                 @if($isAdmin)
@@ -133,6 +151,7 @@
                             <th class="py-2 pr-3">Obra</th>
                             <th class="py-2 pr-3">Proveedor</th>
                             <th class="py-2 pr-3">Cantidad</th>
+                            <th class="py-2 pr-3">P.U</th>
                             <th class="py-2 pr-3">Acciones</th>
                         </tr>
                         </thead>
@@ -167,6 +186,7 @@
                                 <td class="py-2 pr-3">{{ optional($inv->obra)->nombre }}</td>
                                 <td class="py-2 pr-3">{{ $inv->proveedor }}</td>
                                 <td class="py-2 pr-3">{{ $inv->cantidad }}</td>
+                                <td class="py-2 pr-3">{{ $inv->costo_promedio }}</td>
 
                                 <td class="py-2 pr-3">
                                     <div class="flex items-center gap-2">
@@ -226,13 +246,12 @@
     x-cloak
     class="fixed inset-0 z-50 flex items-center justify-center"
 >
-    {{-- fondo --}}
-    <div class="absolute inset-0 bg-black/50" @click="$store.salidas.close()"></div>
+    {{-- fondo (sin @click para evitar cierre accidental) --}}
+    <div class="absolute inset-0 bg-black/50"></div>
 
     {{-- caja (✅ NO CRECE INFINITO: alto fijo + layout flex) --}}
     <div class="relative bg-white w-full max-w-3xl mx-4 rounded-lg shadow-lg p-5
-                max-h-[90vh] overflow-hidden flex flex-col"
-         @keydown.escape.window="$store.salidas.close()">
+                max-h-[90vh] overflow-hidden flex flex-col">
 
         {{-- header --}}
         <div class="flex items-center justify-between border-b pb-3 shrink-0">
@@ -309,8 +328,19 @@
                                 <option value="S5">S5</option>
                             </optgroup>
 
+                            <optgroup label="Áreas comunes (sin departamento)">
+                                <option value="ROOFTOP">ROOFTOP GARDEN</option>
+                                <option value="PASILLOS">PASILLOS</option>
+                                <option value="CIMENTACION">CIMENTACIÓN</option>
+                                <option value="PB">PB</option>
+                                <option value="GYM">GYM</option>
+                                <option value="AREAS_COMUNES">ÁREAS COMUNES</option>
+                            </optgroup>
+
                             <optgroup label="Niveles">
                                 <option value="L1">L1</option>
+                                <option value="L2">L2</option>
+                                <option value="L3">L3</option>
                                 <option value="L4">L4</option>
                                 <option value="L5">L5</option>
                                 <option value="L6">L6</option>
@@ -331,11 +361,11 @@
 
                         <select name="departamento"
                                 x-model="departamento"
-                                :disabled="esSotano"
-                                :required="!esSotano"
+                                :disabled="sinDepartamento"
+                                :required="!sinDepartamento"
                                 class="w-full border rounded px-3 py-2 text-sm">
                             <option value="">
-                                -- <span x-text="esSotano ? 'No aplica en sótano' : 'Selecciona departamento'"></span> --
+                                -- <span x-text="sinDepartamento ? 'No aplica' : 'Selecciona departamento'"></span> --
                             </option>
                             <option value="D1">D1</option>
                             <option value="D2">D2</option>
@@ -347,8 +377,8 @@
                             <option value="D8">D8</option>
                         </select>
 
-                        <div class="text-xs text-gray-500 mt-1" x-show="esSotano">
-                            Para S1–S5 no aplica departamento.
+                        <div class="text-xs text-gray-500 mt-1" x-show="sinDepartamento">
+                            Este nivel no requiere departamento.
                         </div>
                     </div>
 
@@ -560,8 +590,10 @@
                 nivel: '',
                 departamento: '',
 
-                get esSotano() {
-                    return /^S[1-5]$/.test(this.nivel || '');
+                get sinDepartamento() {
+                    const nivel = this.nivel || '';
+                    if (/^S[1-5]$/.test(nivel)) return true;
+                    return ['ROOFTOP', 'PASILLOS', 'CIMENTACION', 'PB', 'GYM', 'AREAS_COMUNES'].includes(nivel);
                 },
 
                 // ✅ firma
@@ -571,7 +603,7 @@
 
                 init() {
                     this.$watch('nivel', (v) => {
-                        if ((v || '').startsWith('S')) {
+                        if (this.sinDepartamento) {
                             this.departamento = '';
                         }
                     });
@@ -664,7 +696,7 @@
                     if (!this.selected) return alert('Selecciona un producto de la lista.');
                     if (!this.nivel) return alert('Selecciona un nivel.');
 
-                    const deptoFinal = this.esSotano ? null : (this.departamento ? this.departamento : null);
+                    const deptoFinal = this.sinDepartamento ? null : (this.departamento ? this.departamento : null);
 
                     const qty = parseFloat(this.qty);
                     if (!qty || qty <= 0) return alert('Pon una cantidad válida.');

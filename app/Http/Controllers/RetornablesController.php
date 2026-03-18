@@ -52,6 +52,7 @@ class RetornablesController extends Controller
                 'md.cantidad',
                 'm.nombre_cabo',
                 'm.fecha',
+                'm.observaciones',
 
                 // ✅ días exactos (ENTEROS, sin decimales)
                 DB::raw('DATEDIFF(day, m.fecha, GETDATE()) as dias'),

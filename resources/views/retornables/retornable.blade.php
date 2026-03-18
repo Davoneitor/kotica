@@ -146,6 +146,13 @@
                                         <span class="font-medium">Fecha:</span>
                                         {{ \Carbon\Carbon::parse($r->fecha)->format('Y-m-d') }}
                                     </div>
+
+                                    @if(!empty($r->observaciones))
+                                        <div class="text-sm text-gray-600 mt-1">
+                                            <span class="font-medium">Obs.:</span>
+                                            {{ $r->observaciones }}
+                                        </div>
+                                    @endif
                                 </div>
 
                                 <div class="text-right shrink-0">

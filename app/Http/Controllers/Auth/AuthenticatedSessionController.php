@@ -28,8 +28,17 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-     return redirect()->intended(route('inventario.index'));
+        // Si el usuario no tiene obra actual asignada, tomar la primera de obra_user
+        $user = Auth::user();
+        if ($user && is_null($user->obra_actual_id)) {
+            $primeraObra = $user->obras()->orderBy('obra_id')->first();
+            if ($primeraObra) {
+                $user->obra_actual_id = $primeraObra->id;
+                $user->save();
+            }
+        }
 
+        return redirect()->intended(route('inventario.index'));
     }
 
     /**

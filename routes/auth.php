@@ -9,7 +9,6 @@ use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
-use App\Http\Controllers\InventarioController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -19,13 +18,11 @@ use Illuminate\Support\Facades\Route;
 */
 Route::middleware('guest')->group(function () {
 
-    // Login
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
 
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
 
-    // Recuperar contraseña
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
 
@@ -46,7 +43,6 @@ Route::middleware('guest')->group(function () {
 */
 Route::middleware('auth')->group(function () {
 
-    // Verificación de email (Breeze)
     Route::get('verify-email', EmailVerificationPromptController::class)
         ->name('verification.notice');
 
@@ -58,7 +54,6 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:6,1')
         ->name('verification.send');
 
-    // Confirmar / cambiar password
     Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])
         ->name('password.confirm');
 
@@ -67,35 +62,11 @@ Route::middleware('auth')->group(function () {
     Route::put('password', [PasswordController::class, 'update'])
         ->name('password.update');
 
-    // Logout (cualquier usuario logueado)
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');
 
-    /*
-    |--------------------------------------------------------------------------
-    | MÓDULO INVENTARIO (usuarios autenticados)
-    |--------------------------------------------------------------------------
-    */
-    Route::get('inventario', [\App\Http\Controllers\InventarioController::class, 'index'])
-    ->name('inventario.index');
-
-Route::patch('inventario/{inventario}', [\App\Http\Controllers\InventarioController::class, 'update'])
-    ->name('inventario.update');
-
-    //boton de crear producto
-     Route::get('/inventario', [InventarioController::class, 'index'])->name('inventario.index');
-    Route::post('/inventario', [InventarioController::class, 'store'])->name('inventario.store');
-    Route::patch('/inventario/{inventario}', [InventarioController::class, 'update'])->name('inventario.update');
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Rutas SOLO para ADMIN
-    |--------------------------------------------------------------------------
-    */
+    // Admin
     Route::middleware('admin')->group(function () {
-
-        // Registrar usuarios
         Route::get('register', [RegisteredUserController::class, 'create'])
             ->name('register');
 

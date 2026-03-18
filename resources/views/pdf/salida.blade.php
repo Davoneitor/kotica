@@ -71,11 +71,11 @@ salida.blade
     <tr>
         <td style="width:50%;">
             <strong>Fecha:</strong>
-            {{ \Carbon\Carbon::parse($movimiento->fecha)->format('d/m/Y H:i') }}
+            {{ \Carbon\Carbon::parse($movimiento->fecha)->format('d/m/Y h:i A') }}
         </td>
         <td style="width:50%;">
             <strong>Destino:</strong>
-            {{ $movimiento->destino }}
+            {{ $destinoNombre }}
         </td>
     </tr>
 

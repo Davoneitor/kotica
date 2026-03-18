@@ -23,27 +23,20 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
-# Archivos accidentales (no versionar)
-dateTime('fecha')
-first()
-getControllerClass()))
-getFileName()
-getNameWithReadWriteType()
-id()
-isFrameworkController($route))
-isUniqueConstraintError($e)
-name('salidas.destinos')
-name('salidas.store')
-nullable()
-on('obras')
-on('users')
-password
-prepareBindings($bindings)
-save()
-string('destino'
-timestamps()
-unsignedBigInteger('obra_id')
-unsignedBigInteger('user_id')
-unsignedTinyInteger('estatus')
-vite
+# Claude Code (AI assistant config & memory)
+/.claude
 
+# Fotos subidas por usuarios (datos sensibles + archivos grandes)
+/storage/app/public/oc_recepciones
+/storage/app/public/camiones_escombro
+
+# Caché de Laravel generado en runtime
+/bootstrap/cache/*.php
+/storage/framework/cache
+/storage/framework/sessions
+/storage/framework/views
+
+# Archivos de base de datos local (SQLite si aplica)
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm

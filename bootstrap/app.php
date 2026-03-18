@@ -12,7 +12,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
-            'admin' => \App\Http\Middleware\EnsureAdmin::class,
+            'admin'          => \App\Http\Middleware\EnsureAdmin::class,
+            'solo_explore'   => \App\Http\Middleware\RestrictSoloExplore::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

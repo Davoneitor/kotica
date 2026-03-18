@@ -7,6 +7,8 @@ use App\Models\Obra;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+
 
 class InventarioController extends Controller
 {
@@ -22,9 +24,17 @@ class InventarioController extends Controller
 
     public function index(Request $request)
     {
-        $user = auth()->user();
+        $user = Auth::user();
+    if (!$user) {
+        abort(401);
+    }
+        
         $obraActualId = (int) ($user->obra_actual_id ?? 0);
         $obraActual = $obraActualId ? Obra::find($obraActualId) : null;
+
+        // Obras disponibles para el selector (solo multiobra)
+        $isMultiobra = (int) ($user->is_multiobra ?? 0) === 1;
+        $obras = $isMultiobra ? Obra::orderBy('nombre')->get(['id', 'nombre']) : collect();
 
         $q = trim((string) $request->get('q', ''));
 
@@ -63,14 +73,19 @@ class InventarioController extends Controller
                     ->select('Proy.IdProyecto', 'Proy.Proyecto', 'TProy.Texto as Tipo')
                     ->whereIn('TProy.Texto', ['Almacen', '100 Obra', 'Desarrollo'])
                     ->where('Proy.Cerrado', 0)
-                    ->where('UN.IdUnidadNegocio', (int) $obraActual->erp_unidad_negocio_id)
+		    ->where('UN.IdUnidadNegocio', (int) $obraActual->erp_unidad_negocio_id)
                     ->orderBy('TProy.Texto')
                     ->orderBy('Proy.Proyecto')
                     ->get();
             } catch (\Throwable $e) {
-                Log::error('Destinos ERP falló: ' . $e->getMessage());
-                $destinos = [];
-            }
+    try {
+        Log::error('Destinos ERP falló: ' . $e->getMessage());
+    } catch (\Throwable $ignore) {
+        // si logging no puede escribir, no tumbar la pantalla
+    }
+    $destinos = [];
+}
+
         }
 
         /* =====================================================
@@ -84,32 +99,34 @@ class InventarioController extends Controller
             $queryResponsables = function ($conn) use ($unidadNegocioId) {
                 return $conn
                     ->table('ACResponsables as r')
-                    ->join('Proyectos as proy', 'r.IdProyecto', '=', 'proy.IdProyecto')
-                    ->join('AcUnidadesNegocio as un', 'proy.idUnidadNegocio', '=', 'un.IdUnidadNegocio')
-                    ->join('AOTipoProyectos as TProy', 'Proy.IdTipoProyecto', '=', 'TProy.IdTipoProyecto')
-                    ->select(
-                        'r.IdResponsable',
-                        'r.Responsable',
-                        'r.Nombre',
-                        'r.Cargo',
-                        'r.Telefono',
-                        'r.Mail',
-                        'proy.Proyecto',
-                        'proy.idProyecto'
-                    )
-                    ->whereIn('TProy.Texto', ['Almacen', '100 Obra', 'Desarrollo'])
-                    ->where('Proy.Cerrado', 0)
-                    ->where('un.IdUnidadNegocio', $unidadNegocioId)
-                    ->orderBy('proy.Proyecto')
-                    ->orderBy('r.Nombre')
-                    ->get();
+->join('Proyectos as proy', 'r.IdProyecto', '=', 'proy.IdProyecto')
+->join('AcUnidadesNegocio as un', 'proy.IdUnidadNegocio', '=', 'un.IdUnidadNegocio')
+->join('AOTipoProyectos as TProy', 'proy.IdTipoProyecto', '=', 'TProy.IdTipoProyecto')
+->select(
+    'r.IdResponsable',
+    'r.Responsable',
+    'r.Nombre',
+    'r.Cargo',
+    'r.Telefono',
+    'r.Mail',
+    'proy.Proyecto',
+    'proy.IdProyecto'
+)
+->whereIn('TProy.Texto', ['Almacen', '100 Obra', 'Desarrollo'])
+->where('proy.Cerrado', 0)
+->orderBy('proy.Proyecto')
+->orderBy('r.Nombre')
+->get();
+
             };
 
             // 1️⃣ intentar ALMACÉN
             try {
                 $responsables = $queryResponsables($this->almacenConn());
             } catch (\Throwable $e) {
-                Log::error('Responsables ALMACÉN falló: ' . $e->getMessage());
+                try {
+                    Log::error('Responsables ALMACÉN falló: ' . $e->getMessage());
+                } catch (\Throwable $ignore) {}
                 $responsables = collect();
             }
 
@@ -118,7 +135,9 @@ class InventarioController extends Controller
                 try {
                     $responsables = $queryResponsables(DB::connection('erp'));
                 } catch (\Throwable $e) {
-                    Log::error('Responsables ERP falló: ' . $e->getMessage());
+                    try {
+                        Log::error('Responsables ERP falló: ' . $e->getMessage());
+                    } catch (\Throwable $ignore) {}
                     $responsables = collect();
                 }
             }
@@ -128,7 +147,9 @@ class InventarioController extends Controller
             'obraActual',
             'inventarios',
             'destinos',
-            'responsables'
+            'responsables',
+            'isMultiobra',
+            'obras'
         ));
     }
 
@@ -139,7 +160,8 @@ class InventarioController extends Controller
     public function create()
     {
         $obras = Obra::orderBy('nombre')->get(['id', 'nombre']);
-        return view('inventario.create', compact('obras'));
+        $isMultiobra = (int) (Auth::user()->is_multiobra ?? 0) === 1;
+        return view('inventario.create', compact('obras', 'isMultiobra'));
     }
 
     /**
@@ -201,6 +223,7 @@ class InventarioController extends Controller
             'unidad'         => ['nullable','string','max:50'],
             'proveedor'      => ['nullable','string','max:255'],
             'cantidad'       => ['required','numeric'],
+            'costo_promedio' => ['nullable','numeric','min:0'],
             'destino'        => ['nullable','string','max:255'],
             'devolvible'     => ['nullable'],
             'guardar_en_erp' => ['nullable'], // checkbox
@@ -213,6 +236,15 @@ class InventarioController extends Controller
             $rules['subfamilia'] = ['required','string','max:150'];
             $rules['unidad']     = ['required','string','max:50'];
         }
+
+        Log::info('INVENTARIO STORE DEBUG', [
+    'user_id' => Auth::id(),
+    'email' => Auth::user()?->email,
+    'obra_actual_id' => Auth::user()?->obra_actual_id,
+    'obra_id_request' => $request->input('obra_id'),
+    'guardar_en_erp' => $request->boolean('guardar_en_erp', false),
+]);
+
 
         $data = $request->validate($rules);
 
@@ -254,7 +286,7 @@ class InventarioController extends Controller
 
             // 2) Guardar en ERP (si aplica)
             if ($guardarEnErp) {
-                $correo = (string)(auth()->user()->email ?? 'sistemas@kotica.com.mx');
+               $correo = (string) (Auth::user()?->email ?? 'sistemas@kotica.com.mx');
 
                 $resp = $this->erpInsertarInsumo([
                     'Insumo'        => $data['insumo_id'],
@@ -311,6 +343,7 @@ class InventarioController extends Controller
     {
         $obras = Obra::orderBy('nombre')->get(['id','nombre']);
         $familias = config('familias');
+        $isMultiobra = (int) (Auth::user()->is_multiobra ?? 0) === 1;
 
         $unidades = Inventario::query()
             ->select('unidad')
@@ -325,7 +358,8 @@ class InventarioController extends Controller
             'inventario',
             'obras',
             'familias',
-            'unidades'
+            'unidades',
+            'isMultiobra'
         ));
     }
 
@@ -339,9 +373,10 @@ class InventarioController extends Controller
             'descripcion' => ['required','string','max:255'],
             'unidad'      => ['nullable','string','max:50'],
             'proveedor'   => ['nullable','string','max:255'],
-            'cantidad'    => ['required','numeric'],
-            'destino'     => ['nullable','string','max:255'],
-            'devolvible'  => ['nullable'],
+            'cantidad'       => ['required','numeric'],
+            'costo_promedio' => ['nullable','numeric','min:0'],
+            'destino'        => ['nullable','string','max:255'],
+            'devolvible'     => ['nullable'],
         ]);
 
         // ✅ FIX: destino nunca NULL
@@ -371,4 +406,89 @@ class InventarioController extends Controller
             ->route('inventario.index')
             ->with('success', "Producto eliminado (ID {$id}).");
     }
+public function cambiarObra(Request $request): \Illuminate\Http\RedirectResponse
+{
+    $request->validate([
+        'obra_id' => ['required', 'integer', 'exists:obras,id'],
+    ]);
+
+    $user = Auth::user();
+    $obraId = (int) $request->input('obra_id');
+
+    // Actualizar obra actual en users
+    $user->obra_actual_id = $obraId;
+    $user->save();
+
+    // Asegurar que la obra esté en obra_user para este usuario
+    $user->obras()->syncWithoutDetaching([$obraId]);
+
+    return redirect()->route('inventario.index');
+}
+
+public function buscarPorInsumo(Request $request)
+{
+    $codigo = trim((string) $request->query('codigo', ''));
+
+    if ($codigo === '') {
+        return response()->json([
+            'ok' => false,
+            'found' => false,
+            'msg' => 'Código vacío'
+        ], 422);
+    }
+
+    $sql = "
+        SELECT  FI.idFamilia, FI.FamiliaPrincipal AS Familia, FI.Familia AS SubFamilia, 
+I.idInsumo, I.INSUMO, I.DescripcionLarga,
+'INVENTARIO INICIAL' AS PROVEDOR,
+U.IdUnidad, U.Unidad, TI.tipo
+FROM AcCatInsumos I 
+INNER JOIN AcFamilias FI ON I.idFamilia = FI.idFamilia
+INNER JOIN AcCatUnidades U ON I.idUnidad = U.IdUnidad
+INNER JOIN ACtiposInsumos TI on I.idTipoInsumo=TI.idTipoInsumo
+        WHERE TI.tipo IN (1,3)
+          AND I.INSUMO = ?
+        ORDER BY I.idInsumo DESC
+    ";
+
+    try {
+        $row = collect(DB::connection('erp')->select($sql, [$codigo]))->first();
+    } catch (\Throwable $e) {
+        Log::error('Autocomplete ERP falló', [
+            'codigo' => $codigo,
+            'error' => $e->getMessage(),
+        ]);
+
+        return response()->json([
+            'ok' => false,
+            'found' => false,
+            'msg' => 'Error consultando ERP'
+        ], 500);
+    }
+
+    if (!$row) {
+        return response()->json(['ok' => true, 'found' => false]);
+    }
+
+    $descripcion = (string) ($row->DescripcionLarga ?: $row->INSUMO);
+
+    return response()->json([
+        'ok' => true,
+        'found' => true,
+        'data' => [
+            'insumo_id'   => (string) $row->INSUMO,
+            'descripcion' => $descripcion,
+            'unidad'      => (string) ($row->Unidad ?? 'PZA'),
+            'proveedor'   => 'INVENTARIO INICIAL',
+            'familia'     => (string) ($row->Familia ?? ''),
+            'subfamilia'  => (string) ($row->SubFamilia ?? ''),
+            'tipo'        => (int) ($row->tipo ?? 0),
+        ],
+    ]);
+}
+
+
+
+
+
 }

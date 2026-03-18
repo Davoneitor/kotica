@@ -36,6 +36,8 @@
         $subsIniciales = $familias[$familiaSeleccionada] ?? [];
     @endphp
 
+    @php $bloqueado = !$isMultiobra; @endphp
+
     <div class="py-6">
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white shadow-sm sm:rounded-lg p-6">
@@ -49,6 +51,12 @@
                                 <li>{{ $e }}</li>
                             @endforeach
                         </ul>
+                    </div>
+                @endif
+
+                @if($bloqueado)
+                    <div class="mb-3 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
+                        Solo puedes modificar la Cantidad.
                     </div>
                 @endif
 
@@ -69,8 +77,9 @@
 
                         <input type="text"
                                name="insumo_id"
-                               class="w-full border rounded px-3 py-2"
+                               class="w-full border rounded px-3 py-2 {{ $bloqueado ? 'bg-gray-100' : '' }}"
                                value="{{ $oldInsumoId }}"
+                               @if($bloqueado) readonly @endif
                                required>
 
                         @error('insumo_id')
@@ -85,7 +94,8 @@
                             <label class="block text-sm text-gray-700 mb-1">Familia</label>
                             <select id="familiaSelect"
                                     name="familia"
-                                    class="w-full border rounded px-3 py-2"
+                                    class="w-full border rounded px-3 py-2 {{ $bloqueado ? 'bg-gray-100 text-gray-500' : '' }}"
+                                    @if($bloqueado) style="pointer-events:none;" tabindex="-1" @endif
                                     required>
                                 <option value="">-- Selecciona --</option>
                                 @foreach($familias as $fam => $subs)
@@ -100,7 +110,8 @@
                             <label class="block text-sm text-gray-700 mb-1">Subfamilia</label>
                             <select id="subfamiliaSelect"
                                     name="subfamilia"
-                                    class="w-full border rounded px-3 py-2"
+                                    class="w-full border rounded px-3 py-2 {{ $bloqueado ? 'bg-gray-100 text-gray-500' : '' }}"
+                                    @if($bloqueado) style="pointer-events:none;" tabindex="-1" @endif
                                     required>
                                 <option value="">-- Selecciona --</option>
                                 @foreach($subsIniciales as $s)
@@ -111,13 +122,14 @@
                             </select>
                         </div>
 
-                        {{-- UNIDAD (LIBRE, SIN CATÁLOGO) --}}
+                        {{-- UNIDAD --}}
                         <div>
                             <label class="block text-sm text-gray-700 mb-1">Unidad</label>
                             <input type="text"
                                    name="unidad"
-                                   class="w-full border rounded px-3 py-2"
+                                   class="w-full border rounded px-3 py-2 {{ $bloqueado ? 'bg-gray-100' : '' }}"
                                    value="{{ old('unidad', $inventario->unidad) }}"
+                                   @if($bloqueado) readonly @endif
                                    required>
                         </div>
 
@@ -126,8 +138,9 @@
                             <label class="block text-sm text-gray-700 mb-1">Proveedor</label>
                             <input type="text"
                                    name="proveedor"
-                                   class="w-full border rounded px-3 py-2"
+                                   class="w-full border rounded px-3 py-2 {{ $bloqueado ? 'bg-gray-100' : '' }}"
                                    value="{{ old('proveedor', $inventario->proveedor) }}"
+                                   @if($bloqueado) readonly @endif
                                    required>
                         </div>
                     </div>
@@ -137,8 +150,9 @@
                         <label class="block text-sm text-gray-700 mb-1">Descripción</label>
                         <input type="text"
                                name="descripcion"
-                               class="w-full border rounded px-3 py-2"
+                               class="w-full border rounded px-3 py-2 {{ $bloqueado ? 'bg-gray-100' : '' }}"
                                value="{{ old('descripcion', $inventario->descripcion) }}"
+                               @if($bloqueado) readonly @endif
                                required>
                     </div>
 
@@ -175,13 +189,14 @@
                         </div>
                     </div>
 
-                    {{-- COSTO (SOLO LECTURA) --}}
+                    {{-- COSTO: editable solo para multiobra --}}
                     <div class="mt-4">
                         <label class="block text-sm text-gray-700 mb-1">Costo promedio</label>
                         <input type="number" step="0.01"
-                               class="w-full border rounded px-3 py-2 bg-gray-100"
+                               name="{{ $isMultiobra ? 'costo_promedio' : '_costo_promedio_readonly' }}"
+                               class="w-full border rounded px-3 py-2 {{ $bloqueado ? 'bg-gray-100' : '' }}"
                                value="{{ $inventario->costo_promedio }}"
-                               readonly>
+                               @if($bloqueado) readonly @endif>
                     </div>
 
                     {{-- BOTONES --}}

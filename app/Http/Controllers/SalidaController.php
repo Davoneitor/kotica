@@ -149,8 +149,8 @@ class SalidaController extends Controller
         $request->validate([
             'nombre_cabo' => ['required', 'string', 'max:255'],
             'destino_proyecto_id' => ['required'],
-            'nivel' => ['required', 'string', 'max:10'],
-            'departamento' => ['nullable', 'string', 'max:10'],
+            'nivel' => ['required', 'string', 'max:20'],
+            'departamento' => ['nullable', 'string', 'max:20'],
             'observaciones' => ['nullable', 'string', 'max:500'],
 
             'items' => ['required', 'array', 'min:1'],
@@ -279,6 +279,7 @@ class SalidaController extends Controller
                     'descripcion'     => $inv->descripcion,
                     'unidad'          => $inv->unidad,
                     'cantidad'        => $cantidad,
+                    'precio_unitario' => $inv->costo_promedio !== null ? (float) $inv->costo_promedio : null,
                     'devolvible'      => $devolvible,
                     'clasificacion'   => $nivel,
                     'clasificacion_d' => $depto,
@@ -308,16 +309,32 @@ class SalidaController extends Controller
     public function pdf(Movimiento $movimiento)
     {
         $movimiento->load('detalles');
-        $encargado = auth()->user()?->name ?? 'Encargado de almacén';
 
-        // ✅ ESTA ES LA CLAVE:
-        // DomPDF normalmente necesita una ruta local absoluta para mostrar imágenes
+        // ✅ Encargado = usuario que REGISTRÓ la salida (no el usuario de sesión actual)
+        $encargado = \App\Models\User::find($movimiento->user_id)?->name ?? 'Encargado de almacén';
+
+        // ✅ Resolver nombre legible del destino desde ERP
+        $destinoNombre = $movimiento->destino;
+        try {
+            $erpProy = DB::connection('erp')
+                ->table('PROYECTOS as Proy')
+                ->join('AOTipoProyectos as TProy', 'Proy.IdTipoProyecto', '=', 'TProy.IdTipoProyecto')
+                ->where('Proy.IdProyecto', $movimiento->destino)
+                ->select('Proy.Proyecto')
+                ->first();
+            if ($erpProy) {
+                $destinoNombre = $erpProy->Proyecto;
+            }
+        } catch (\Throwable $e) {
+            // fallback al ID si ERP no responde
+        }
+
+        // ✅ DomPDF necesita ruta local absoluta para imágenes
         $firmaAbsPath = null;
 
         if (!empty($movimiento->firma_recibe_path)) {
             $firmaAbsPath = public_path('storage/' . ltrim($movimiento->firma_recibe_path, '/'));
 
-            // si no existe en public/storage, intentamos con storage_path (por si no hay symlink)
             if (!file_exists($firmaAbsPath)) {
                 $alt = storage_path('app/public/' . ltrim($movimiento->firma_recibe_path, '/'));
                 if (file_exists($alt)) {
@@ -329,8 +346,9 @@ class SalidaController extends Controller
         }
 
         $pdf = \PDF::loadView('pdf.salida', [
-            'movimiento' => $movimiento,
-            'encargado' => $encargado,
+            'movimiento'     => $movimiento,
+            'encargado'      => $encargado,
+            'destinoNombre'  => $destinoNombre,
             'firma_abs_path' => $firmaAbsPath,
         ])->setPaper('letter', 'portrait');
 
