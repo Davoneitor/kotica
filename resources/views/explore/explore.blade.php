@@ -59,11 +59,6 @@
                         Ordenes compra (ERP)
                     </button>
 
-                    <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
-                            :class="tab==='graf' ? 'bg-gray-900 text-white' : 'bg-white'"
-                            @click="tab='graf'; cargarGraficas()">
-                        Graficas
-                    </button>
                 </div>
             </div>
 

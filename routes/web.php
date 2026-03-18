@@ -45,7 +45,9 @@ Route::get('/inventario/buscar', [InventarioController::class, 'buscar'])->name(
     // =========================
     // SALIDAS
     // =========================
+    Route::get('/salidas', [SalidaController::class, 'index'])->name('salidas.index');
     Route::get('/salidas/destinos', [SalidaController::class, 'destinos'])->name('salidas.destinos');
+    Route::get('/salidas/responsables', [SalidaController::class, 'responsables'])->name('salidas.responsables');
     Route::get('/salidas/buscar-productos', [SalidaController::class, 'buscarProductos'])->name('salidas.buscar');
     Route::post('/salidas', [SalidaController::class, 'store'])->name('salidas.store');
 

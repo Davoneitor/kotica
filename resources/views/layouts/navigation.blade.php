@@ -35,6 +35,12 @@
                     </x-nav-link>
 
                     <x-nav-link
+                        :href="route('salidas.index')"
+                        :active="request()->routeIs('salidas.*')">
+                        Salidas
+                    </x-nav-link>
+
+                    <x-nav-link
                         :href="route('ordenes-compra.index')"
                         :active="request()->routeIs('ordenes-compra.*')">
                         Entradas
@@ -170,6 +176,12 @@
                 :href="route('inventario.index')"
                 :active="request()->routeIs('inventario.*')">
                 Inventario
+            </x-responsive-nav-link>
+
+            <x-responsive-nav-link
+                :href="route('salidas.index')"
+                :active="request()->routeIs('salidas.*')">
+                Salidas
             </x-responsive-nav-link>
 
             <x-responsive-nav-link

@@ -13,6 +13,14 @@ use Illuminate\Support\Str;
 class SalidaController extends Controller
 {
     /**
+     * ✅ 0) Página principal del módulo Salidas
+     */
+    public function index()
+    {
+        return view('salidas.index');
+    }
+
+    /**
      * ✅ CONEXIÓN PARA "ALMACÉN"
      */
     private function almacenConn()
@@ -54,7 +62,8 @@ class SalidaController extends Controller
     }
 
     /**
-     * ✅ 1.1) Responsables (combo "Quién recibe") desde BD almacén
+     * ✅ 1.1) Responsables (combo "Quién recibe")
+     * Combina: historial de movimientos + ACResponsables del ERP (sin filtro de unidad)
      */
     public function responsables(Request $request)
     {
@@ -63,26 +72,41 @@ class SalidaController extends Controller
             return response()->json([]);
         }
 
-        $obra = Obra::find($user->obra_actual_id);
-        if (!$obra || !$obra->erp_unidad_negocio_id) {
-            return response()->json([]);
+        $nombres = collect();
+
+        // 1️⃣ Historial de nombres ya usados en esta obra
+        try {
+            $historial = DB::table('movimientos')
+                ->where('obra_id', $user->obra_actual_id)
+                ->whereNotNull('nombre_cabo')
+                ->where('nombre_cabo', '!=', '')
+                ->distinct()
+                ->pluck('nombre_cabo');
+            $nombres = $nombres->merge($historial);
+        } catch (\Throwable $e) {
+            // silencioso
         }
 
-        $unidadNegocioId = (int) $obra->erp_unidad_negocio_id;
+        // 2️⃣ ACResponsables del ERP (sin filtro de unidad de negocio)
+        try {
+            $erp = DB::connection('erp')
+                ->table('ACResponsables')
+                ->whereNotNull('Nombre')
+                ->where('Nombre', '!=', '')
+                ->distinct()
+                ->pluck('Nombre');
+            $nombres = $nombres->merge($erp);
+        } catch (\Throwable $e) {
+            // silencioso
+        }
 
-        $rows = $this->almacenConn()
-            ->table('ACResponsables as r')
-            ->join('Proyectos as proy', 'r.IdProyecto', '=', 'proy.IdProyecto')
-            ->join('AcUnidadesNegocio as un', 'proy.IdUnidadNegocio', '=', 'un.IdUnidadNegocio')
-            ->join('AOTipoProyectos as tproy', 'proy.IdTipoProyecto', '=', 'tproy.IdTipoProyecto')
-            ->whereIn('tproy.Texto', ['Almacen', '100 Obra', 'Desarrollo'])
-            ->where('proy.Cerrado', 0)
-            ->where('un.IdUnidadNegocio', $unidadNegocioId)
-            ->orderBy('r.Nombre')
-            ->distinct()
-            ->pluck('r.Nombre');
+        $resultado = $nombres
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values();
 
-        return response()->json($rows);
+        return response()->json($resultado);
     }
 
     /**
