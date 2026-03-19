@@ -129,6 +129,12 @@
                         </div>
                     @endif
 
+                    @if(session('error'))
+                        <div class="mb-3 p-3 bg-red-100 text-red-800 rounded">
+                            {{ session('error') }}
+                        </div>
+                    @endif
+
                     @if($errors->any())
                         <div class="mb-3 p-3 bg-red-100 text-red-800 rounded">
                             <div class="font-semibold mb-1">Revisa los errores:</div>
@@ -266,12 +272,12 @@
 
         {{-- ✅ CONTENIDO SCROLL (solo esta parte hace scroll) --}}
         <div class="mt-4 overflow-y-auto pr-1 grow">
-            {{-- ✅ IMPORTANTE: x-ref="form" y submit manda el ref --}}
+            {{-- x-ref="form" para leer el FormData en guardarSalida --}}
             <form x-ref="form"
                   method="POST"
                   action="{{ route('salidas.store') }}"
                   class="space-y-4"
-                  @submit.prevent="guardarSalida($refs.form)">
+                  @submit.prevent>
 
                 @csrf
 
@@ -745,14 +751,19 @@
                 },
 
                 async guardarSalida(form) {
+                    if (this._guardando) return;
+                    this._guardando = true;
+
                     // 1) evitar submit vacío
                     if (!this.$store.salidas.items.length) {
+                        this._guardando = false;
                         alert('Agrega al menos un producto.');
                         return;
                     }
 
                     // ✅ firma obligatoria
                     if (!this.$refs.firmaBase64?.value) {
+                        this._guardando = false;
                         alert('Falta la firma. Firma y presiona “Usar firma”.');
                         this.showFirma = true;
                         return;
@@ -764,17 +775,17 @@
                     // 3) POST por AJAX esperando JSON
                     let res;
                     try {
-                        res = await fetch(form.action, {
+                        res = await fetchConCsrf(form.action, {
                             method: 'POST',
                             headers: {
                                 'Accept': 'application/json',
-                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
                                 'X-Requested-With': 'XMLHttpRequest',
                             },
                             body: fd,
                         });
                     } catch (err) {
                         console.error(err);
+                        this._guardando = false;
                         alert('Error de red.');
                         return;
                     }
@@ -784,6 +795,7 @@
                     try { data = await res.json(); } catch (_) {}
 
                     if (!res.ok) {
+                        this._guardando = false;
                         if (res.status === 422 && data?.errors) {
                             const first = Object.values(data.errors)[0]?.[0] || 'Revisa los campos.';
                             alert(first);
@@ -794,7 +806,9 @@
                             return;
                         }
                         if (res.status === 419) {
-                            alert('Tu sesión expiró (CSRF 419). Recarga la página e intenta de nuevo.');
+                            if (confirm('Tu sesión expiró. ¿Recargar la página ahora?\n(No perderás los datos del formulario si cancelas primero)')) {
+                                location.reload();
+                            }
                             return;
                         }
                         alert('Error al guardar salida.');
@@ -803,6 +817,7 @@
 
                     // 5) validar respuesta esperada
                     if (!data?.ok || !data?.pdf_url) {
+                        this._guardando = false;
                         console.error('Respuesta inesperada:', data);
                         alert(data?.message || 'No se recibió pdf_url.');
                         return;
@@ -816,6 +831,8 @@
 
                     // ✅ C) descargar PDF
                     await this.descargarPdf(data.pdf_url);
+
+                    this._guardando = false;
                 },
 
                 async refrescarTablaInventario() {

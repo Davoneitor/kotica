@@ -827,7 +827,6 @@
                 if (this.guardando) return;
                 this.guardando = true;
 
-                const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
                 let primerError = -1;
 
                 for (let i = 0; i < this.tabs.length; i++) {
@@ -843,7 +842,6 @@
 
                     // Construir FormData
                     const fd = new FormData();
-                    fd.append('_token',              csrfToken);
                     fd.append('nombre_cabo',          tab.nombre_cabo);
                     fd.append('destino_proyecto_id',  tab.destino_proyecto_id);
                     fd.append('nivel',                tab.nivel);
@@ -861,12 +859,11 @@
 
                     // POST al backend
                     try {
-                        const res = await fetch("{{ route('salidas.store') }}", {
+                        const res = await fetchConCsrf("{{ route('salidas.store') }}", {
                             method: 'POST',
                             headers: {
-                                'Accept':             'application/json',
-                                'X-CSRF-TOKEN':       csrfToken,
-                                'X-Requested-With':   'XMLHttpRequest',
+                                'Accept':           'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
                             },
                             body: fd,
                         });

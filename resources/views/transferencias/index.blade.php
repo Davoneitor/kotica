@@ -271,18 +271,33 @@
                     <span class="shrink-0">⚠</span>
                     <span>Esta acción actualizará el inventario de ambas obras. La operación es irreversible.</span>
                 </div>
-
-                <div class="flex justify-end">
-                    <button type="button" @click="abrirModal()"
-                            :disabled="!puedeEnviar"
-                            :class="puedeEnviar ? 'bg-gray-800 hover:bg-gray-900 text-white shadow-sm' : 'bg-gray-100 text-gray-400 cursor-not-allowed'"
-                            class="px-7 py-3 rounded-lg font-semibold text-sm transition">
-                        Enviar transferencia →
-                    </button>
-                </div>
             </div>
 
         </div>{{-- /max-w-7xl --}}
+
+        {{-- ── Barra fija inferior: botón Enviar ── --}}
+        <div
+            x-show="carrito.length > 0"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="translate-y-full opacity-0"
+            x-transition:enter-end="translate-y-0 opacity-100"
+            class="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-lg px-4 py-3"
+        >
+            <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+                <div class="text-sm text-gray-600">
+                    <span class="font-semibold text-gray-800" x-text="carrito.length"></span> insumo(s) ·
+                    <span class="font-semibold text-gray-800" x-text="totalPiezas.toFixed(2)"></span> piezas totales
+                </div>
+                <button type="button" @click="abrirModal()"
+                        :disabled="!puedeEnviar"
+                        :class="puedeEnviar ? 'bg-gray-800 hover:bg-gray-900 text-white shadow-sm active:bg-black' : 'bg-gray-100 text-gray-400 cursor-not-allowed'"
+                        class="px-7 py-3 rounded-lg font-semibold text-sm transition">
+                    Enviar transferencia →
+                </button>
+            </div>
+        </div>
+        {{-- Espacio para que la barra fija no tape el contenido --}}
+        <div x-show="carrito.length > 0" class="h-20"></div>
 
         {{-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
              5. MODAL DE CONFIRMACIÓN + FIRMA
@@ -360,14 +375,14 @@
                         <span><span x-text="totalPiezas.toFixed(2)"></span> piezas</span>
                     </div>
 
-                    {{-- ── FIRMA DEL ENCARGADO ── --}}
+                    {{-- ── FIRMA DEL RESPONSABLE ── --}}
                     <div class="border border-gray-200 rounded-xl overflow-hidden">
                         {{-- Cabecera firma --}}
                         <div class="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
                             <div>
-                                <div class="text-sm font-semibold text-gray-700">Firma del encargado de almacén</div>
+                                <div class="text-sm font-semibold text-gray-700">Firma del responsable</div>
                                 <div class="text-xs text-gray-500 mt-0.5">
-                                    {{ auth()->user()->name }}
+                                    Recepcionista o Gerente
                                     &nbsp;·&nbsp;
                                     <span x-show="!firmaCapturada" class="text-amber-600 font-medium">Pendiente</span>
                                     <span x-show="firmaCapturada" class="text-emerald-600 font-semibold">✓ Lista</span>
@@ -404,7 +419,13 @@
                         </div>
                     </div>
 
-                    {{-- Aviso --}}
+                    {{-- Aviso firma --}}
+                    <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 flex gap-2 items-start">
+                        <span class="shrink-0 text-base">✍️</span>
+                        <span><strong>Importante:</strong> Esta transferencia debe ser firmada por el <strong>Gerente</strong> o el <strong>Residente</strong> de obra. No firmar como almacenista.</span>
+                    </div>
+
+                    {{-- Aviso inventario --}}
                     <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex gap-2">
                         <span class="shrink-0">⚠</span>
                         <span>Al confirmar, el inventario de ambas obras se actualizará de forma permanente.</span>

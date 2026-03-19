@@ -150,9 +150,12 @@ class CamionEscombroController extends Controller
     public function foto($id, $tipo)
     {
         $user = Auth::user();
-        $obraId = $user?->obra_actual_id;
 
-        $registro = SalidaCamionEscombro::where('obra_id', $obraId)->findOrFail($id);
+        // Explore muestra registros de todas las obras; solo_explore no tiene obra_actual_id fija.
+        // Se busca solo por id; el acceso ya está protegido por el middleware de auth.
+        $registro = $user?->solo_explore
+            ? SalidaCamionEscombro::findOrFail($id)
+            : SalidaCamionEscombro::where('obra_id', $user?->obra_actual_id)->findOrFail($id);
         $path = $tipo === 'camion' ? $registro->foto_camion : $registro->foto_vale;
 
         if (!$path || !Storage::disk('public')->exists($path)) {

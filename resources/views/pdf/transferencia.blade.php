@@ -127,7 +127,7 @@
             @endif
         </div>
         <div class="small">
-            <strong>Encargado de almacén:</strong><br>{{ $t->usuario }}
+            <strong>Residente / Gerente / Director General</strong>
         </div>
     </div>
 

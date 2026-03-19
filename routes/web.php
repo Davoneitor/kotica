@@ -164,4 +164,9 @@ Route::get('/inventario/buscar', [InventarioController::class, 'buscar'])->name(
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
+// Ruta para renovar el token CSRF sin recargar la página
+Route::get('/csrf-token', function () {
+    return response()->json(['token' => csrf_token()]);
+})->middleware('web')->name('csrf.token');
+
 require __DIR__ . '/auth.php';

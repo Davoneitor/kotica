@@ -399,12 +399,25 @@ class InventarioController extends Controller
 
     public function destroy(Inventario $inventario)
     {
-        $id = $inventario->id;
+        $id          = $inventario->id;
+        $descripcion = $inventario->descripcion;
+
+        // Bloquear si el producto tiene movimientos (salidas) registrados
+        $enMovimientos = \DB::table('movimiento_detalles')
+            ->where('inventario_id', $id)
+            ->exists();
+
+        if ($enMovimientos) {
+            return redirect()
+                ->route('inventario.index')
+                ->with('error', "No se puede eliminar '{$descripcion}' porque tiene salidas registradas en el historial.");
+        }
+
         $inventario->delete();
 
         return redirect()
             ->route('inventario.index')
-            ->with('success', "Producto eliminado (ID {$id}).");
+            ->with('success', "Producto '{$descripcion}' eliminado correctamente.");
     }
 public function cambiarObra(Request $request): \Illuminate\Http\RedirectResponse
 {
