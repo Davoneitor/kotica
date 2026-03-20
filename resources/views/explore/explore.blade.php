@@ -150,6 +150,9 @@
                         <button @click="mov.vista='tabla'; cargarSalidasTabla()"
                                 :class="mov.vista==='tabla' ? 'bg-gray-900 text-white' : 'bg-white hover:bg-gray-50'"
                                 class="px-3 py-1 rounded border text-sm transition-colors">Tabla</button>
+                        <button @click="mov.vista='ajustes'; cargarHistorialAjustes()"
+                                :class="mov.vista==='ajustes' ? 'bg-amber-700 text-white' : 'bg-white hover:bg-amber-50'"
+                                class="px-3 py-1 rounded border text-sm transition-colors">Historial ajustes</button>
 
                         <div class="ml-auto">
                             <button @click="exportarSalidas()"
@@ -176,11 +179,17 @@
                                     </div>
                                 </div>
 
-                                <a class="px-3 py-2 text-sm rounded border bg-gray-50 hover:bg-gray-100"
-                                   :href="'/movimientos/'+m.id+'/pdf'"
-                                   target="_blank">
-                                    PDF
-                                </a>
+                                <div class="flex gap-2 shrink-0">
+                                    <a class="px-3 py-2 text-sm rounded border bg-gray-50 hover:bg-gray-100"
+                                       :href="'/movimientos/'+m.id+'/pdf'"
+                                       target="_blank">
+                                        PDF
+                                    </a>
+                                    <button class="px-3 py-2 text-sm rounded border bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300 font-medium"
+                                            @click="abrirAjuste(m)">
+                                        Ajustar
+                                    </button>
+                                </div>
                             </div>
 
                         <div class="mt-2 text-sm">
@@ -328,6 +337,51 @@
                                                 ? (row.importe_total > 0 ? '$' + formatMoney(row.importe_total) : '—')
                                                 : (row.importe !== null ? '$' + formatMoney(row.importe) : '—')">
                                         </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {{-- ========================= --}}
+                {{-- HISTORIAL DE AJUSTES --}}
+                {{-- ========================= --}}
+                <div x-show="mov.vista==='ajustes'" class="space-y-3">
+                    <div class="bg-white rounded-lg border shadow-sm overflow-hidden">
+                        <div class="px-4 py-3 border-b bg-amber-50 flex items-center justify-between">
+                            <div class="font-semibold text-amber-900">Historial de ajustes / devoluciones</div>
+                            <div class="text-xs text-amber-700" x-text="ajustesHistorial.length + ' registros'"></div>
+                        </div>
+                        <div x-show="loading" class="p-4 text-sm text-gray-500">Cargando...</div>
+                        <div x-show="!loading && ajustesHistorial.length === 0"
+                             class="p-8 text-center text-gray-400 text-sm">
+                            Sin ajustes registrados en el período seleccionado.
+                        </div>
+                        <table x-show="ajustesHistorial.length > 0" class="w-full text-sm">
+                            <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+                                <tr>
+                                    <th class="px-4 py-2 text-left">Fecha</th>
+                                    <th class="px-4 py-2 text-left">Salida #</th>
+                                    <th class="px-4 py-2 text-left">Producto</th>
+                                    <th class="px-4 py-2 text-right">Cant. devuelta</th>
+                                    <th class="px-4 py-2 text-left">Usuario</th>
+                                    <th class="px-4 py-2 text-left">Observaciones</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                <template x-for="a in ajustesHistorial" :key="a.id">
+                                    <tr class="hover:bg-amber-50/40">
+                                        <td class="px-4 py-2 text-gray-600 whitespace-nowrap"
+                                            x-text="formatFecha(a.created_at)"></td>
+                                        <td class="px-4 py-2 font-medium" x-text="'#' + a.movimiento_id"></td>
+                                        <td class="px-4 py-2" x-text="a.descripcion"></td>
+                                        <td class="px-4 py-2 text-right font-semibold text-amber-700">
+                                            <span x-text="a.cantidad_devuelta"></span>
+                                            <span class="text-xs text-gray-400 ml-1" x-text="a.unidad"></span>
+                                        </td>
+                                        <td class="px-4 py-2 text-gray-600" x-text="a.usuario"></td>
+                                        <td class="px-4 py-2 text-gray-500 text-xs" x-text="a.observaciones || '—'"></td>
                                     </tr>
                                 </template>
                             </tbody>
@@ -565,6 +619,101 @@
                     </template>
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+{{-- ✅ Modal Ajuste de Salida --}}
+<div x-show="ajuste.show" x-cloak
+     class="fixed inset-0 z-50 bg-black/60 flex items-start justify-center p-3 pt-6 overflow-y-auto"
+     @keydown.escape.window="ajuste.show = false">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl"
+         @click.stop>
+
+        {{-- Header --}}
+        <div class="flex items-center justify-between px-5 py-4 border-b bg-amber-50 rounded-t-xl">
+            <div>
+                <div class="font-bold text-amber-900 text-base">
+                    Ajustar salida #<span x-text="ajuste.movimiento?.id"></span>
+                </div>
+                <div class="text-xs text-amber-700 mt-0.5">
+                    Quien recibió: <span x-text="ajuste.movimiento?.nombre_cabo"></span>
+                </div>
+            </div>
+            <button @click="ajuste.show = false"
+                    class="text-gray-400 hover:text-gray-700 text-2xl leading-none p-1">✕</button>
+        </div>
+
+        {{-- Productos --}}
+        <div class="px-5 py-4 space-y-3 max-h-[55vh] overflow-y-auto">
+            <div x-show="ajuste.cargando" class="text-sm text-gray-400 py-4 text-center">Cargando productos...</div>
+            <template x-if="!ajuste.cargando">
+                <div class="space-y-2">
+                    <template x-for="item in ajuste.items" :key="item.id">
+                        <div class="border rounded-lg p-3 bg-gray-50">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex-1 min-w-0">
+                                    <div class="font-medium text-sm truncate" x-text="item.descripcion"></div>
+                                    <div class="text-xs text-gray-500 mt-0.5">
+                                        Salida: <span class="font-semibold" x-text="item.cantidad"></span>
+                                        <span x-text="item.unidad"></span>
+                                        <template x-if="item.ya_devuelto > 0">
+                                            <span class="ml-2 text-amber-600">
+                                                · Ya devuelto: <span x-text="item.ya_devuelto"></span>
+                                            </span>
+                                        </template>
+                                        · Disponible:
+                                        <span class="font-semibold text-emerald-700" x-text="item.disponible"></span>
+                                    </div>
+                                </div>
+                                <div class="shrink-0 w-28">
+                                    <input type="number"
+                                           x-model.number="item.cantidad_ajuste"
+                                           :max="item.disponible"
+                                           min="0" step="0.01"
+                                           :disabled="item.disponible <= 0"
+                                           class="w-full border rounded px-2 py-1.5 text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                                           placeholder="0">
+                                    <div class="text-xs text-red-500 mt-1"
+                                         x-show="item.cantidad_ajuste > item.disponible">
+                                        Máximo: <span x-text="item.disponible"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+
+        {{-- Observaciones --}}
+        <div class="px-5 pb-3">
+            <label class="text-xs text-gray-500 font-medium">Observaciones (opcional)</label>
+            <textarea x-model="ajuste.observaciones" rows="2"
+                      class="w-full border rounded px-3 py-2 text-sm mt-1"
+                      placeholder="Motivo del ajuste o devolución..."></textarea>
+        </div>
+
+        {{-- Errores --}}
+        <div x-show="ajuste.error" class="mx-5 mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-700"
+             x-text="ajuste.error"></div>
+        <div x-show="ajuste.exito" class="mx-5 mb-3 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded text-sm text-emerald-700"
+             x-text="ajuste.exito"></div>
+
+        {{-- Footer --}}
+        <div class="px-5 py-4 border-t flex gap-3 justify-end bg-gray-50 rounded-b-xl">
+            <button @click="ajuste.show = false"
+                    :disabled="ajuste.guardando"
+                    class="px-4 py-2 text-sm rounded border bg-white hover:bg-gray-50">
+                Cancelar
+            </button>
+            <button @click="confirmarAjuste()"
+                    :disabled="ajuste.guardando || !ajusteTieneItems()"
+                    :class="ajusteTieneItems() ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'"
+                    class="px-5 py-2 text-sm rounded font-semibold transition-colors">
+                <span x-show="!ajuste.guardando">Guardar ajuste</span>
+                <span x-show="ajuste.guardando">Guardando...</span>
+            </button>
         </div>
     </div>
 </div>
@@ -1402,6 +1551,19 @@
                     detalles: [],
                     movimientoCabecera: null,
 
+                    ajustesHistorial: [],
+
+                    ajuste: {
+                        show: false,
+                        cargando: false,
+                        guardando: false,
+                        movimiento: null,
+                        items: [],
+                        observaciones: '',
+                        error: '',
+                        exito: '',
+                    },
+
 
                     inventario: [],
                     ordenesCompra: [],
@@ -1771,6 +1933,105 @@
                             this.salidasTablaData = [];
                         } finally {
                             this.loading = false;
+                        }
+                    },
+
+                    async cargarHistorialAjustes() {
+                        this.loading = true;
+                        try {
+                            const params = new URLSearchParams();
+                            if (this.mov.desde) params.set('desde', this.mov.desde);
+                            if (this.mov.hasta) params.set('hasta', this.mov.hasta);
+                            const res = await fetch('/explore/ajustes?' + params.toString(), {
+                                headers: {'Accept':'application/json'},
+                                cache: 'no-store'
+                            });
+                            this.ajustesHistorial = await res.json();
+                        } catch (e) {
+                            console.error(e);
+                            this.ajustesHistorial = [];
+                        } finally {
+                            this.loading = false;
+                        }
+                    },
+
+                    async abrirAjuste(movimiento) {
+                        this.ajuste.show        = true;
+                        this.ajuste.cargando    = true;
+                        this.ajuste.movimiento  = movimiento;
+                        this.ajuste.items       = [];
+                        this.ajuste.observaciones = '';
+                        this.ajuste.error       = '';
+                        this.ajuste.exito       = '';
+                        this.ajuste.guardando   = false;
+
+                        try {
+                            const res = await fetch('/explore/movimientos/' + movimiento.id + '/ajuste-detalles', {
+                                headers: {'Accept':'application/json'},
+                                cache: 'no-store'
+                            });
+                            const data = await res.json();
+                            this.ajuste.items = data.map(d => ({
+                                ...d,
+                                cantidad_ajuste: 0,
+                            }));
+                        } catch(e) {
+                            this.ajuste.error = 'Error al cargar productos.';
+                        } finally {
+                            this.ajuste.cargando = false;
+                        }
+                    },
+
+                    ajusteTieneItems() {
+                        return this.ajuste.items.some(i => Number(i.cantidad_ajuste) > 0);
+                    },
+
+                    async confirmarAjuste() {
+                        const itemsValidos = this.ajuste.items.filter(i => Number(i.cantidad_ajuste) > 0);
+                        if (!itemsValidos.length) return;
+
+                        const invalido = itemsValidos.find(i => Number(i.cantidad_ajuste) > Number(i.disponible));
+                        if (invalido) {
+                            this.ajuste.error = invalido.descripcion + ': cantidad supera lo disponible (' + invalido.disponible + ').';
+                            return;
+                        }
+
+                        this.ajuste.guardando = true;
+                        this.ajuste.error     = '';
+                        this.ajuste.exito     = '';
+
+                        try {
+                            const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+                            const res = await fetch('/explore/movimientos/' + this.ajuste.movimiento.id + '/ajustar', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json',
+                                    'X-CSRF-TOKEN': csrfToken,
+                                },
+                                body: JSON.stringify({
+                                    items: itemsValidos.map(i => ({
+                                        detalle_id: i.id,
+                                        cantidad: Number(i.cantidad_ajuste),
+                                    })),
+                                    observaciones: this.ajuste.observaciones,
+                                }),
+                            });
+                            const data = await res.json();
+                            if (!res.ok) {
+                                this.ajuste.error = data.error || 'Error al guardar.';
+                            } else {
+                                const advertencias = data.errores?.length
+                                    ? ' Advertencias: ' + data.errores.join(', ')
+                                    : '';
+                                this.ajuste.exito = data.ajustes + ' ajuste(s) registrado(s) correctamente.' + advertencias;
+                                // Refrescar disponibles
+                                setTimeout(() => this.abrirAjuste(this.ajuste.movimiento), 1200);
+                            }
+                        } catch(e) {
+                            this.ajuste.error = 'Error de conexión.';
+                        } finally {
+                            this.ajuste.guardando = false;
                         }
                     },
 

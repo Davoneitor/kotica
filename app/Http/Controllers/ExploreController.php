@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AjusteSalida;
 use App\Models\Inventario;
 use App\Models\Movimiento;
 use App\Models\MovimientoDetalle;
@@ -1101,4 +1102,141 @@ public function entradaFoto($id)
         return $pdf->download("transferencia_{$id}.pdf");
     }
 
+    /* ─── AJUSTES DE SALIDA ─────────────────────────────────────────────── */
+
+    public function ajustarSalida(Request $request, Movimiento $movimiento)
+    {
+        $obraId = Auth::user()?->obra_actual_id;
+        if ($obraId && (int)$movimiento->obra_id !== (int)$obraId) {
+            abort(403);
+        }
+
+        $items = $request->input('items', []);
+        if (empty($items)) {
+            return response()->json(['error' => 'No hay items para ajustar.'], 422);
+        }
+
+        $errores = [];
+        $registros = [];
+
+        DB::beginTransaction();
+        try {
+            foreach ($items as $item) {
+                $detalleId  = (int)($item['detalle_id'] ?? 0);
+                $cantAjuste = (float)($item['cantidad'] ?? 0);
+
+                if ($cantAjuste <= 0) continue;
+
+                $detalle = MovimientoDetalle::find($detalleId);
+                if (!$detalle || (int)$detalle->movimiento_id !== (int)$movimiento->id) {
+                    $errores[] = "Detalle {$detalleId} no encontrado.";
+                    continue;
+                }
+
+                // Calcular cuánto ya se ha devuelto de este detalle
+                $yaDevuelto = AjusteSalida::where('movimiento_detalle_id', $detalleId)
+                    ->sum('cantidad_devuelta');
+
+                $disponible = (float)$detalle->cantidad - (float)$yaDevuelto;
+
+                if ($cantAjuste > $disponible) {
+                    $errores[] = "{$detalle->descripcion}: máximo a devolver es {$disponible} {$detalle->unidad}.";
+                    continue;
+                }
+
+                // Registrar ajuste
+                $ajuste = AjusteSalida::create([
+                    'movimiento_id'        => $movimiento->id,
+                    'movimiento_detalle_id'=> $detalle->id,
+                    'inventario_id'        => $detalle->inventario_id,
+                    'user_id'              => Auth::id(),
+                    'descripcion'          => $detalle->descripcion,
+                    'unidad'               => $detalle->unidad,
+                    'cantidad_devuelta'    => $cantAjuste,
+                    'observaciones'        => $request->input('observaciones'),
+                ]);
+
+                // Reintegrar al inventario
+                if ($detalle->inventario_id) {
+                    Inventario::where('id', $detalle->inventario_id)
+                        ->increment('cantidad', $cantAjuste);
+                }
+
+                $registros[] = $ajuste->id;
+            }
+
+            if (!empty($errores) && empty($registros)) {
+                DB::rollBack();
+                return response()->json(['error' => implode(' | ', $errores)], 422);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'ok'       => true,
+                'ajustes'  => count($registros),
+                'errores'  => $errores,
+            ]);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('ajustarSalida: ' . $e->getMessage());
+            return response()->json(['error' => 'Error interno al guardar ajuste.'], 500);
+        }
+    }
+
+    public function historialAjustes(Request $request)
+    {
+        $obraId = Auth::user()?->obra_actual_id;
+        $desde  = $request->get('desde');
+        $hasta  = $request->get('hasta');
+        $userId = $request->get('user_id');
+        $q      = trim((string)$request->get('q', ''));
+
+        $rows = AjusteSalida::query()
+            ->join('movimientos', 'movimientos.id', '=', 'ajustes_salida.movimiento_id')
+            ->join('users', 'users.id', '=', 'ajustes_salida.user_id')
+            ->when($obraId, fn($qq) => $qq->where('movimientos.obra_id', $obraId))
+            ->when($desde,  fn($qq) => $qq->whereDate('ajustes_salida.created_at', '>=', $desde))
+            ->when($hasta,  fn($qq) => $qq->whereDate('ajustes_salida.created_at', '<=', $hasta))
+            ->when($userId, fn($qq) => $qq->where('ajustes_salida.user_id', $userId))
+            ->when($q !== '', fn($qq) => $qq->where('ajustes_salida.descripcion', 'like', "%{$q}%"))
+            ->orderByDesc('ajustes_salida.created_at')
+            ->limit(500)
+            ->get([
+                'ajustes_salida.id',
+                'ajustes_salida.movimiento_id',
+                'ajustes_salida.descripcion',
+                'ajustes_salida.unidad',
+                'ajustes_salida.cantidad_devuelta',
+                'ajustes_salida.observaciones',
+                'ajustes_salida.created_at',
+                DB::raw('users.name as usuario'),
+            ]);
+
+        return response()->json($rows->values());
+    }
+
+    public function detallesParaAjuste(Movimiento $movimiento)
+    {
+        $obraId = Auth::user()?->obra_actual_id;
+        if ($obraId && (int)$movimiento->obra_id !== (int)$obraId) {
+            abort(403);
+        }
+
+        $detalles = MovimientoDetalle::where('movimiento_id', $movimiento->id)
+            ->orderBy('id')
+            ->get(['id','inventario_id','descripcion','unidad','cantidad','devolvible']);
+
+        // Agregar cuánto ya se devolvió por detalle
+        $detalles = $detalles->map(function ($d) {
+            $yaDevuelto = AjusteSalida::where('movimiento_detalle_id', $d->id)
+                ->sum('cantidad_devuelta');
+            $d->ya_devuelto  = (float)$yaDevuelto;
+            $d->disponible   = max(0, (float)$d->cantidad - (float)$yaDevuelto);
+            return $d;
+        });
+
+        return response()->json($detalles->values());
+    }
 }

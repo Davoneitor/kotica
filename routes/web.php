@@ -80,6 +80,13 @@ Route::get('/inventario/buscar', [InventarioController::class, 'buscar'])->name(
     Route::get('/explore/movimientos/{movimiento}/detalles', [ExploreController::class, 'movimientoDetalles'])
         ->name('explore.movimientos.detalles');
 
+    Route::get('/explore/movimientos/{movimiento}/ajuste-detalles', [ExploreController::class, 'detallesParaAjuste'])
+        ->name('explore.movimientos.ajuste_detalles');
+    Route::post('/explore/movimientos/{movimiento}/ajustar', [ExploreController::class, 'ajustarSalida'])
+        ->name('explore.movimientos.ajustar');
+    Route::get('/explore/ajustes', [ExploreController::class, 'historialAjustes'])
+        ->name('explore.ajustes');
+
     Route::get('/explore/inventario', [ExploreController::class, 'inventario'])->name('explore.inventario');
 
     // ✅ Foto directa (si la estás usando)
