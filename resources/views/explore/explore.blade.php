@@ -179,16 +179,25 @@
                                     </div>
                                 </div>
 
-                                <div class="flex gap-2 shrink-0">
-                                    <a class="px-3 py-2 text-sm rounded border bg-gray-50 hover:bg-gray-100"
-                                       :href="'/movimientos/'+m.id+'/pdf'"
-                                       target="_blank">
-                                        PDF
-                                    </a>
-                                    <button class="px-3 py-2 text-sm rounded border bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300 font-medium"
-                                            @click="abrirAjuste(m)">
-                                        Ajustar
-                                    </button>
+                                <div class="flex flex-col items-end gap-1.5 shrink-0">
+                                    <div class="flex gap-2">
+                                        <a class="px-3 py-2 text-sm rounded border bg-gray-50 hover:bg-gray-100"
+                                           :href="'/movimientos/'+m.id+'/pdf'"
+                                           target="_blank">
+                                            PDF
+                                        </a>
+                                        <button class="px-3 py-2 text-sm rounded border bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300 font-medium"
+                                                @click="abrirAjuste(m)">
+                                            Ajustar
+                                        </button>
+                                    </div>
+                                    <template x-if="m.tiene_ajustes">
+                                        <button @click="abrirAjuste(m)"
+                                                class="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-800 text-xs font-semibold">
+                                            <span>↩</span>
+                                            <span x-text="m.num_ajustes + ' ajuste' + (m.num_ajustes > 1 ? 's' : '')"></span>
+                                        </button>
+                                    </template>
                                 </div>
                             </div>
 
@@ -738,7 +747,20 @@
                 {{-- Filtros --}}
                 <div class="bg-white shadow-sm sm:rounded-lg p-4">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
-                        <div class="md:col-span-2">
+
+                        {{-- Filtro por obra (solo obras con transferencias cargadas) --}}
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Filtrar por obra</label>
+                            <select class="w-full border rounded px-3 py-2 text-sm"
+                                    x-model="trans.obra_nombre">
+                                <option value="">— Todas —</option>
+                                <template x-for="nombre in obrasEnTransferencias()" :key="nombre">
+                                    <option :value="nombre" x-text="nombre"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <div>
                             <label class="block text-xs text-gray-500 mb-1">Buscar obra / usuario</label>
                             <input class="w-full border rounded px-3 py-2"
                                    placeholder="Ej: Oblatos, Juan García…"
@@ -759,44 +781,48 @@
                         </div>
                     </div>
 
-                    {{-- Selector de dirección --}}
+                    <div class="mt-3 text-xs text-gray-500" x-show="loading">Cargando...</div>
                     <div class="mt-3 flex flex-wrap items-center gap-2">
+
                         <span class="text-xs text-gray-500 font-medium">Mostrar:</span>
                         <button @click="trans.dir = 'todas'"
-                                :class="trans.dir === 'todas'
-                                        ? 'bg-gray-900 text-white border-gray-900'
-                                        : 'bg-white text-gray-700 hover:bg-gray-50'"
-                                class="px-3 py-1.5 rounded border text-sm transition-colors">
+                                :class="trans.dir === 'todas' ? 'bg-gray-900 text-white' : 'bg-white hover:bg-gray-50'"
+                                class="px-3 py-1 rounded border text-sm transition-colors">
                             Todas
                         </button>
                         <button @click="trans.dir = 'enviada'"
-                                :class="trans.dir === 'enviada'
-                                        ? 'bg-blue-600 text-white border-blue-600'
-                                        : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'"
-                                class="px-3 py-1.5 rounded border text-sm transition-colors flex items-center gap-1.5">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"/>
-                            </svg>
+                                :class="trans.dir === 'enviada' ? 'bg-gray-900 text-white' : 'bg-white hover:bg-gray-50'"
+                                class="px-3 py-1 rounded border text-sm transition-colors">
                             Enviadas
                         </button>
                         <button @click="trans.dir = 'recibida'"
-                                :class="trans.dir === 'recibida'
-                                        ? 'bg-amber-500 text-white border-amber-500'
-                                        : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50'"
-                                class="px-3 py-1.5 rounded border text-sm transition-colors flex items-center gap-1.5">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3"/>
-                            </svg>
+                                :class="trans.dir === 'recibida' ? 'bg-gray-900 text-white' : 'bg-white hover:bg-gray-50'"
+                                class="px-3 py-1 rounded border text-sm transition-colors">
                             Recibidas
                         </button>
 
-                        {{-- Contador --}}
-                        <span class="ml-auto text-xs text-gray-400"
-                              x-show="!loading"
-                              x-text="transferenciasFiltered().length + ' transferencia(s)'"></span>
-                    </div>
+                        <span class="text-xs text-gray-500 font-medium ml-2">Vista:</span>
+                        <button @click="trans.vista = 'tarjetas'"
+                                :class="trans.vista === 'tarjetas' ? 'bg-gray-900 text-white' : 'bg-white hover:bg-gray-50'"
+                                class="px-3 py-1 rounded border text-sm transition-colors">
+                            Tarjetas
+                        </button>
+                        <button @click="trans.vista = 'tabla'"
+                                :class="trans.vista === 'tabla' ? 'bg-gray-900 text-white' : 'bg-white hover:bg-gray-50'"
+                                class="px-3 py-1 rounded border text-sm transition-colors">
+                            Tabla
+                        </button>
 
-                    <div class="mt-2 text-xs text-gray-500" x-show="loading">Cargando...</div>
+                        <div class="ml-auto">
+                            <button @click="exportarTransferenciasExcel()"
+                                    class="flex items-center gap-1.5 px-3 py-1.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm font-medium transition-colors whitespace-nowrap">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                                </svg>
+                                Exportar Excel
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 {{-- Sin resultados --}}
@@ -808,56 +834,143 @@
                     </span>
                 </div>
 
-                {{-- Cards --}}
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {{-- ═══════════════════════════ VISTA TABLA ═══════════════════════════ --}}
+                <div x-show="trans.vista === 'tabla' && transferenciasFiltered().length > 0"
+                     class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">#</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fecha</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Dirección</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Obra Origen</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Obra Destino</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Usuario</th>
+                                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Insumos</th>
+                                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Piezas</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Observaciones</th>
+                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Acciones</th>
+                                </tr>
+                            </thead>
+                            <template x-for="tr in transferenciasFiltered()" :key="tr.id">
+                                <tbody class="border-b border-gray-100">
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-4 py-3 font-mono text-gray-500 text-xs" x-text="'#' + tr.id"></td>
+                                            <td class="px-4 py-3 whitespace-nowrap" x-text="tr.fecha"></td>
+                                            <td class="px-4 py-3">
+                                                <span :class="tr.direccion === 'enviada'
+                                                              ? 'bg-blue-100 text-blue-800'
+                                                              : 'bg-amber-100 text-amber-800'"
+                                                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold">
+                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                        <path x-show="tr.direccion === 'enviada'" stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"/>
+                                                        <path x-show="tr.direccion !== 'enviada'" stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3"/>
+                                                    </svg>
+                                                    <span x-text="tr.direccion === 'enviada' ? 'Enviada' : 'Recibida'"></span>
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-3 text-sm font-medium text-gray-800" x-text="tr.obra_origen"></td>
+                                            <td class="px-4 py-3 text-sm font-medium text-gray-800" x-text="tr.obra_destino"></td>
+                                            <td class="px-4 py-3 text-sm text-gray-600" x-text="tr.usuario"></td>
+                                            <td class="px-4 py-3 text-right font-semibold tabular-nums" x-text="tr.total_insumos"></td>
+                                            <td class="px-4 py-3 text-right tabular-nums" x-text="parseFloat(tr.total_piezas || 0).toFixed(2)"></td>
+                                            <td class="px-4 py-3 text-xs text-gray-500 italic max-w-xs truncate" x-text="tr.observaciones || '—'"></td>
+                                            <td class="px-4 py-3 text-center">
+                                                <div class="flex items-center justify-center gap-2">
+                                                    <button @click="verTransDetalles(tr.id)"
+                                                            :class="detallesTransId === tr.id ? 'bg-gray-900 text-white' : 'bg-gray-50 hover:bg-gray-100'"
+                                                            class="px-3 py-2 text-sm rounded border transition-colors">
+                                                        <span x-text="detallesTransId === tr.id ? 'Ocultar' : 'Detalles'"></span>
+                                                    </button>
+                                                    <a :href="'/transferencias/'+tr.id+'/pdf'"
+                                                       target="_blank"
+                                                       class="px-3 py-2 text-sm rounded border bg-gray-50 hover:bg-gray-100">
+                                                        PDF
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+
+                                        {{-- Fila de detalles expandibles --}}
+                                        <tr x-show="detallesTransId === tr.id" class="bg-gray-50">
+                                            <td colspan="10" class="px-6 py-3">
+                                                <template x-if="!transDetalle || !transDetalle.detalles || transDetalle.detalles.length === 0">
+                                                    <div class="text-sm text-gray-500 py-2">Sin detalles registrados.</div>
+                                                </template>
+                                                <template x-if="transDetalle && transDetalle.detalles && transDetalle.detalles.length > 0">
+                                                    <div class="overflow-x-auto">
+                                                        <table class="min-w-full text-xs border rounded">
+                                                            <thead class="bg-white border-b">
+                                                                <tr>
+                                                                    <th class="px-3 py-2 text-left font-semibold text-gray-500">Cód.</th>
+                                                                    <th class="px-3 py-2 text-left font-semibold text-gray-500">Descripción</th>
+                                                                    <th class="px-3 py-2 text-right font-semibold text-gray-500">Cant.</th>
+                                                                    <th class="px-3 py-2 text-right font-semibold text-indigo-400">Orig. antes</th>
+                                                                    <th class="px-3 py-2 text-right font-semibold text-indigo-600">Orig. desp.</th>
+                                                                    <th class="px-3 py-2 text-right font-semibold text-emerald-400">Dest. antes</th>
+                                                                    <th class="px-3 py-2 text-right font-semibold text-emerald-600">Dest. desp.</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody class="divide-y divide-gray-100 bg-white">
+                                                                <template x-for="d in transDetalle.detalles" :key="d.id">
+                                                                    <tr class="hover:bg-gray-50">
+                                                                        <td class="px-3 py-2 font-mono text-gray-400" x-text="d.insumo_id ?? '—'"></td>
+                                                                        <td class="px-3 py-2 font-medium text-gray-800" x-text="d.descripcion"></td>
+                                                                        <td class="px-3 py-2 text-right font-semibold tabular-nums">
+                                                                            <span x-text="parseFloat(d.cantidad).toFixed(2)"></span>
+                                                                            <span class="text-gray-400 ml-0.5" x-text="d.unidad ?? ''"></span>
+                                                                        </td>
+                                                                        <td class="px-3 py-2 text-right text-indigo-500 tabular-nums" x-text="parseFloat(d.origen_stock_antes).toFixed(2)"></td>
+                                                                        <td class="px-3 py-2 text-right text-red-500 font-semibold tabular-nums" x-text="parseFloat(d.origen_stock_despues).toFixed(2)"></td>
+                                                                        <td class="px-3 py-2 text-right text-emerald-500 tabular-nums" x-text="parseFloat(d.destino_stock_antes).toFixed(2)"></td>
+                                                                        <td class="px-3 py-2 text-right text-emerald-700 font-semibold tabular-nums" x-text="parseFloat(d.destino_stock_despues).toFixed(2)"></td>
+                                                                    </tr>
+                                                                </template>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </template>
+                                            </td>
+                                        </tr>
+                                </tbody>
+                            </template>
+                        </table>
+                    </div>
+                </div>
+
+                {{-- ═══════════════════════════ VISTA TARJETAS ═══════════════════════════ --}}
+                <div x-show="trans.vista === 'tarjetas'" class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <template x-for="tr in transferenciasFiltered()" :key="tr.id">
                         <div class="bg-white shadow-sm rounded-lg border p-4">
 
-                            {{-- Encabezado tarjeta --}}
                             <div class="flex items-start justify-between gap-2">
                                 <div>
                                     <div class="font-semibold text-lg">
                                         Transferencia #<span x-text="tr.id"></span>
                                     </div>
-                                    {{-- Badge de dirección --}}
-                                    <span :class="tr.direccion === 'enviada'
-                                                  ? 'bg-blue-100 text-blue-800'
-                                                  : 'bg-amber-100 text-amber-800'"
+                                    <span :class="tr.direccion === 'enviada' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'"
                                           class="inline-flex items-center gap-1 px-2 py-0.5 mt-0.5 rounded-full text-xs font-semibold">
                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                            <path x-show="tr.direccion === 'enviada'"
-                                                  stroke-linecap="round" stroke-linejoin="round"
-                                                  d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"/>
-                                            <path x-show="tr.direccion !== 'enviada'"
-                                                  stroke-linecap="round" stroke-linejoin="round"
-                                                  d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3"/>
+                                            <path x-show="tr.direccion === 'enviada'" stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"/>
+                                            <path x-show="tr.direccion !== 'enviada'" stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3"/>
                                         </svg>
                                         <span x-text="tr.direccion === 'enviada' ? 'ENVIADA' : 'RECIBIDA'"></span>
                                     </span>
                                 </div>
                                 <a class="px-3 py-2 text-sm rounded border bg-gray-50 hover:bg-gray-100 shrink-0"
                                    :href="'/transferencias/'+tr.id+'/pdf'"
-                                   target="_blank">
-                                    PDF
-                                </a>
+                                   target="_blank">PDF</a>
                             </div>
 
-                            {{-- Origen → Destino --}}
                             <div class="mt-3 flex items-center gap-2 flex-wrap text-sm">
-                                <span :class="tr.direccion === 'enviada'
-                                              ? 'bg-blue-50 border-blue-100 text-blue-800'
-                                              : 'bg-indigo-50 border-indigo-100 text-indigo-700'"
-                                      class="px-2.5 py-1 rounded-lg border font-semibold text-xs"
-                                      x-text="tr.obra_origen"></span>
+                                <span :class="tr.direccion === 'enviada' ? 'bg-blue-50 border-blue-100 text-blue-800' : 'bg-indigo-50 border-indigo-100 text-indigo-700'"
+                                      class="px-2.5 py-1 rounded-lg border font-semibold text-xs" x-text="tr.obra_origen"></span>
                                 <span class="text-gray-400 font-light text-lg">→</span>
-                                <span :class="tr.direccion === 'recibida'
-                                              ? 'bg-amber-50 border-amber-200 text-amber-800'
-                                              : 'bg-emerald-50 border-emerald-100 text-emerald-800'"
-                                      class="px-2.5 py-1 rounded-lg border font-semibold text-xs"
-                                      x-text="tr.obra_destino"></span>
+                                <span :class="tr.direccion === 'recibida' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-emerald-50 border-emerald-100 text-emerald-800'"
+                                      class="px-2.5 py-1 rounded-lg border font-semibold text-xs" x-text="tr.obra_destino"></span>
                             </div>
 
-                            {{-- Meta --}}
                             <div class="mt-3 grid grid-cols-3 gap-2 text-sm">
                                 <div>
                                     <div class="text-xs text-gray-400">Fecha</div>
@@ -869,8 +982,7 @@
                                 </div>
                                 <div>
                                     <div class="text-xs text-gray-400">Piezas</div>
-                                    <div class="font-bold text-lg"
-                                         x-text="parseFloat(tr.total_piezas || 0).toFixed(2)"></div>
+                                    <div class="font-bold text-lg" x-text="parseFloat(tr.total_piezas || 0).toFixed(2)"></div>
                                 </div>
                             </div>
 
@@ -884,21 +996,18 @@
                                 <div class="text-gray-600 italic" x-text="tr.observaciones"></div>
                             </div>
 
-                            {{-- Botón detalles --}}
                             <div class="mt-3">
-                                <button class="w-full px-4 py-2 rounded bg-gray-900 text-white text-sm"
+                                <button :class="detallesTransId === tr.id ? 'bg-gray-900 text-white' : 'bg-gray-50 hover:bg-gray-100'"
+                                        class="w-full px-3 py-2 text-sm rounded border transition-colors"
                                         @click="verTransDetalles(tr.id)">
                                     <span x-text="detallesTransId === tr.id ? 'Ocultar detalles' : 'Ver detalles'"></span>
                                 </button>
                             </div>
 
-                            {{-- Detalles inline --}}
                             <div x-show="detallesTransId === tr.id" class="mt-3 border-t pt-3">
-
                                 <template x-if="!transDetalle || !transDetalle.detalles || transDetalle.detalles.length === 0">
                                     <div class="text-sm text-gray-500">Sin detalles registrados.</div>
                                 </template>
-
                                 <template x-if="transDetalle && transDetalle.detalles && transDetalle.detalles.length > 0">
                                     <div class="overflow-x-auto">
                                         <table class="min-w-full text-xs">
@@ -923,14 +1032,10 @@
                                                             <span x-text="parseFloat(d.cantidad).toFixed(2)"></span>
                                                             <span class="text-gray-400 ml-0.5" x-text="d.unidad ?? ''"></span>
                                                         </td>
-                                                        <td class="px-3 py-2 text-right text-indigo-500 tabular-nums"
-                                                            x-text="parseFloat(d.origen_stock_antes).toFixed(2)"></td>
-                                                        <td class="px-3 py-2 text-right text-red-500 font-semibold tabular-nums"
-                                                            x-text="parseFloat(d.origen_stock_despues).toFixed(2)"></td>
-                                                        <td class="px-3 py-2 text-right text-emerald-500 tabular-nums"
-                                                            x-text="parseFloat(d.destino_stock_antes).toFixed(2)"></td>
-                                                        <td class="px-3 py-2 text-right text-emerald-700 font-semibold tabular-nums"
-                                                            x-text="parseFloat(d.destino_stock_despues).toFixed(2)"></td>
+                                                        <td class="px-3 py-2 text-right text-indigo-500 tabular-nums" x-text="parseFloat(d.origen_stock_antes).toFixed(2)"></td>
+                                                        <td class="px-3 py-2 text-right text-red-500 font-semibold tabular-nums" x-text="parseFloat(d.origen_stock_despues).toFixed(2)"></td>
+                                                        <td class="px-3 py-2 text-right text-emerald-500 tabular-nums" x-text="parseFloat(d.destino_stock_antes).toFixed(2)"></td>
+                                                        <td class="px-3 py-2 text-right text-emerald-700 font-semibold tabular-nums" x-text="parseFloat(d.destino_stock_despues).toFixed(2)"></td>
                                                     </tr>
                                                 </template>
                                             </tbody>
@@ -942,6 +1047,7 @@
                         </div>
                     </template>
                 </div>
+
             </div>
 
             {{-- ========================= --}}
@@ -1520,7 +1626,7 @@
                     entradaDetalle: null,
                     imgModal: { show:false, url:'' },
 
-                    trans: { q:'', desde:'', hasta:'', dir:'todas' },
+                    trans: { q:'', desde:'', hasta:'', dir:'todas', obra_nombre:'', vista:'tabla' },
                     transferencias: [],
                     detallesTransId: null,
                     transDetalle: null,
@@ -1826,8 +1932,20 @@
 },
 
                     transferenciasFiltered() {
-                        if (this.trans.dir === 'todas') return this.transferencias;
-                        return this.transferencias.filter(tr => tr.direccion === this.trans.dir);
+                        return this.transferencias.filter(tr => {
+                            if (this.trans.dir !== 'todas' && tr.direccion !== this.trans.dir) return false;
+                            if (this.trans.obra_nombre && tr.obra_origen !== this.trans.obra_nombre && tr.obra_destino !== this.trans.obra_nombre) return false;
+                            return true;
+                        });
+                    },
+
+                    obrasEnTransferencias() {
+                        const set = new Set();
+                        this.transferencias.forEach(tr => {
+                            if (tr.obra_origen) set.add(tr.obra_origen);
+                            if (tr.obra_destino) set.add(tr.obra_destino);
+                        });
+                        return Array.from(set).sort();
                     },
 
                     async cargarTransferencias() {
@@ -1851,6 +1969,15 @@
                         } finally {
                             this.loading = false;
                         }
+                    },
+
+                    exportarTransferenciasExcel() {
+                        const params = new URLSearchParams();
+                        if (this.trans.q)          params.set('q',          this.trans.q);
+                        if (this.trans.desde)      params.set('desde',      this.trans.desde);
+                        if (this.trans.hasta)      params.set('hasta',      this.trans.hasta);
+                        if (this.trans.obra_nombre) params.set('obra_nombre', this.trans.obra_nombre);
+                        window.location.href = "{{ route('explore.exportar.transferencias') }}?" + params.toString();
                     },
 
                     formatHoraEscom(h24) {

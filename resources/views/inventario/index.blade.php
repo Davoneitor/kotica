@@ -162,20 +162,18 @@
                         </tr>
                         </thead>
 
+                        @php
+                            $highlightId   = (string) session('highlight_id');
+                            $highlightType = session('highlight_type');
+                        @endphp
+
                         <tbody>
                         @foreach($inventarios as $inv)
                             @php
-                                $highlightId = session('highlight_id');
-                                $highlightType = session('highlight_type');
-
                                 $style = '';
 
-                                if ($highlightId === $inv->id) {
-                                    if ($highlightType === 'created') {
-                                        $style = 'background-color:#dcfce7;color:#166534;';
-                                    } elseif ($highlightType === 'updated') {
-                                        $style = 'background-color:#fef9c3;color:#854d0e;';
-                                    }
+                                if ($highlightId !== '' && $highlightId === (string) $inv->id) {
+                                    $style = 'background-color:#dcfce7;color:#166534;';
                                 }
 
                                 // ✅ SOLO ADMIN (por correo)
@@ -198,7 +196,7 @@
                                     <div class="flex items-center gap-2">
                                         @if($isAdmin)
                                             {{-- ✅ SOLO ADMIN: Editar --}}
-                                            <a href="{{ route('inventario.edit', $inv) }}"
+                                            <a href="{{ route('inventario.edit', [$inv, 'page' => request('page', 1)]) }}"
                                                class="px-3 py-2 text-sm rounded border bg-gray-50 hover:bg-gray-100">
                                                 Editar
                                             </a>
@@ -873,5 +871,17 @@
     </script>
 </div>
 
+
+@php $highlightId = session('highlight_id'); @endphp
+@if($highlightId)
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var el = document.getElementById('inv-{{ $highlightId }}');
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+</script>
+@endif
 
 </x-app-layout>

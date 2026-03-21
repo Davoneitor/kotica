@@ -18,7 +18,6 @@
             <div
                 class="bg-white shadow-sm sm:rounded-lg p-4 md:p-6"
                 x-data="salidasPageUI()"
-                x-init="init()"
             >
 
                 {{-- ══════════════════════════════════════════════

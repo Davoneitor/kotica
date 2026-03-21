@@ -6,7 +6,7 @@
                 Editar producto (Insumo: {{ $inventario->insumo_id }})
             </h2>
 
-            <a href="{{ route('inventario.index') }}"
+            <a href="{{ route('inventario.index', $page > 1 ? ['page' => $page] : []) }}"
                class="px-3 py-2 border rounded bg-white hover:bg-gray-50">
                 ← Volver
             </a>
@@ -63,6 +63,8 @@
                 <form method="POST" action="{{ route('inventario.update', $inventario) }}">
                     @csrf
                     @method('PUT')
+
+                    <input type="hidden" name="_page" value="{{ $page }}">
 
                     {{-- ✅ OBRA ID (CLAVE PARA QUE GUARDE) --}}
                     <input type="hidden"
@@ -201,7 +203,7 @@
 
                     {{-- BOTONES --}}
                     <div class="flex justify-end gap-2 mt-6">
-                        <a href="{{ route('inventario.index') }}"
+                        <a href="{{ route('inventario.index', $page > 1 ? ['page' => $page] : []) }}"
                            class="px-4 py-2 border rounded bg-white hover:bg-gray-50">
                             Cancelar
                         </a>

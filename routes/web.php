@@ -113,9 +113,10 @@ Route::get('/inventario/buscar', [InventarioController::class, 'buscar'])->name(
         ->name('explore.ordenes_compra_reporte_pdf');
 
     // ── Exportaciones Excel ──────────────────────────────────────────────
-    Route::get('/explore/exportar/entradas',   [ExploreController::class, 'exportarEntradas'])  ->name('explore.exportar.entradas');
-    Route::get('/explore/exportar/salidas',    [ExploreController::class, 'exportarSalidas'])   ->name('explore.exportar.salidas');
-    Route::get('/explore/exportar/inventario', [ExploreController::class, 'exportarInventario'])->name('explore.exportar.inventario');
+    Route::get('/explore/exportar/entradas',        [ExploreController::class, 'exportarEntradas'])       ->name('explore.exportar.entradas');
+    Route::get('/explore/exportar/salidas',         [ExploreController::class, 'exportarSalidas'])        ->name('explore.exportar.salidas');
+    Route::get('/explore/exportar/inventario',      [ExploreController::class, 'exportarInventario'])     ->name('explore.exportar.inventario');
+    Route::get('/explore/exportar/transferencias',  [ExploreController::class, 'exportarTransferencias']) ->name('explore.exportar.transferencias');
 
     // Transferencias en Explore
     Route::get('/explore/transferencias', [ExploreController::class, 'transferencias'])

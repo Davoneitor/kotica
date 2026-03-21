@@ -55,7 +55,7 @@ class InventarioController extends Controller
                       ->orWhere('proveedor', 'like', "%{$clean}%");
                 });
             })
-            ->orderByDesc('updated_at');
+            ->orderBy('insumo_id');
 
         $inventarios = $inventariosQ->paginate(20)->withQueryString();
 
@@ -339,11 +339,12 @@ class InventarioController extends Controller
         }
     }
 
-    public function edit(Inventario $inventario)
+    public function edit(Inventario $inventario, Request $request)
     {
         $obras = Obra::orderBy('nombre')->get(['id','nombre']);
         $familias = config('familias');
         $isMultiobra = (int) (Auth::user()->is_multiobra ?? 0) === 1;
+        $page = (int) $request->query('page', 1);
 
         $unidades = Inventario::query()
             ->select('unidad')
@@ -359,7 +360,8 @@ class InventarioController extends Controller
             'obras',
             'familias',
             'unidades',
-            'isMultiobra'
+            'isMultiobra',
+            'page'
         ));
     }
 
@@ -390,8 +392,10 @@ class InventarioController extends Controller
             'devolvible' => (int) ((bool) ($data['devolvible'] ?? false)),
         ]);
 
+        $page = (int) $request->input('_page', 1);
+
         return redirect()
-            ->route('inventario.index')
+            ->route('inventario.index', $page > 1 ? ['page' => $page] : [])
             ->with('success', 'Producto actualizado.')
             ->with('highlight_id', (string) $inventario->id)
             ->with('highlight_type', 'updated');

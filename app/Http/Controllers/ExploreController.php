@@ -22,11 +22,12 @@ class ExploreController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-     
+
         $obraActualId = $user->obra_actual_id;
         $obraActual = $obraActualId ? Obra::find($obraActualId) : null;
+        $obras = Obra::orderBy('nombre')->get(['id', 'nombre']);
 
-        return view('explore.explore', compact('obraActual'));
+        return view('explore.explore', compact('obraActual', 'obras'));
     }
 
     /**
@@ -103,8 +104,20 @@ public function movimientos(Request $request)
         $rows->pluck('destino')->filter()->unique()->values()->toArray()
     );
 
-    $rows = $rows->map(function ($row) use ($erpNombres) {
-        $row->destino_nombre = $erpNombres[$row->destino] ?? $row->destino;
+    // Contar ajustes por movimiento
+    $ids = $rows->pluck('id')->toArray();
+    $ajustesCounts = AjusteSalida::whereIn('movimiento_id', $ids)
+        ->selectRaw('movimiento_id, COUNT(*) as total, SUM(cantidad_devuelta) as total_devuelto')
+        ->groupBy('movimiento_id')
+        ->get()
+        ->keyBy('movimiento_id');
+
+    $rows = $rows->map(function ($row) use ($erpNombres, $ajustesCounts) {
+        $row->destino_nombre   = $erpNombres[$row->destino] ?? $row->destino;
+        $ajuste = $ajustesCounts->get($row->id);
+        $row->tiene_ajustes    = $ajuste ? true : false;
+        $row->num_ajustes      = $ajuste ? (int)$ajuste->total : 0;
+        $row->total_devuelto   = $ajuste ? (float)$ajuste->total_devuelto : 0;
         return $row;
     });
 
@@ -734,19 +747,35 @@ public function entradaFoto($id)
      */
     public function transferencias(Request $request)
     {
-        $user   = Auth::user();
-        $obraId = $user?->obra_actual_id;
+        $user          = Auth::user();
+        $obraActualId  = $user?->obra_actual_id;
+        $obraFiltroId  = $request->get('obra_id') ? (int) $request->get('obra_id') : null;
+        // Si el usuario seleccionó una obra específica la usamos; si no, la obra actual
+        $obraId        = $obraFiltroId ?? $obraActualId;
 
         $q     = trim((string) $request->get('q', ''));
         $desde = $request->get('desde');
         $hasta = $request->get('hasta');
 
-        $rows = DB::table('transferencias_entre_obras as t')
+        $rows = $this->queryTransferencias($obraId, $q, $desde, $hasta)->limit(200)->get();
+
+        return response()->json($rows->map(fn($r) => array_merge((array) $r, [
+            'direccion' => ($obraId && (int) $r->obra_origen_id === (int) $obraId)
+                          ? 'enviada'
+                          : 'recibida',
+        ])));
+    }
+
+    /**
+     * Construcción reutilizable de la query de transferencias.
+     */
+    private function queryTransferencias(?int $obraId, string $q, ?string $desde, ?string $hasta)
+    {
+        return DB::table('transferencias_entre_obras as t')
             ->join('obras as oo', 'oo.id', '=', 't.obra_origen_id')
             ->join('obras as od', 'od.id', '=', 't.obra_destino_id')
             ->join('users as u',  'u.id',  '=', 't.user_id')
             ->when($obraId, function ($q2) use ($obraId) {
-                // Muestra tanto enviadas (origen) como recibidas (destino)
                 $q2->where(function ($w) use ($obraId) {
                     $w->where('t.obra_origen_id', $obraId)
                       ->orWhere('t.obra_destino_id', $obraId);
@@ -763,7 +792,6 @@ public function entradaFoto($id)
             ->when($hasta, fn($q2) => $q2->whereDate('t.fecha', '<=', $hasta))
             ->orderByDesc('t.fecha')
             ->orderByDesc('t.id')
-            ->limit(200)
             ->select([
                 't.id',
                 't.fecha',
@@ -775,14 +803,66 @@ public function entradaFoto($id)
                 DB::raw('u.name as usuario'),
                 DB::raw('(SELECT COUNT(*) FROM transferencias_entre_obras_detalle WHERE transferencia_id = t.id) as total_insumos'),
                 DB::raw('(SELECT ISNULL(SUM(cantidad), 0) FROM transferencias_entre_obras_detalle WHERE transferencia_id = t.id) as total_piezas'),
-            ])
+            ]);
+    }
+
+    /**
+     * Exportar Transferencias a Excel.
+     */
+    public function exportarTransferencias(Request $request)
+    {
+        $user       = Auth::user();
+        $obraId     = $user?->obra_actual_id;
+        $obra       = $obraId ? Obra::find($obraId) : null;
+
+        $q          = trim((string) $request->get('q', ''));
+        $desde      = $request->get('desde');
+        $hasta      = $request->get('hasta');
+        $obraNombre = trim((string) $request->get('obra_nombre', ''));
+
+        $rows = $this->queryTransferencias($obraId, $q, $desde, $hasta)
+            ->when($obraNombre !== '', function ($q2) use ($obraNombre) {
+                $q2->where(function ($w) use ($obraNombre) {
+                    $w->where('oo.nombre', $obraNombre)
+                      ->orWhere('od.nombre', $obraNombre);
+                });
+            })
             ->get();
 
-        return response()->json($rows->map(fn($r) => array_merge((array) $r, [
-            'direccion' => ($obraId && (int) $r->obra_origen_id === (int) $obraId)
-                          ? 'enviada'
-                          : 'recibida',
-        ])));
+        $data = $rows->map(fn($r) => [
+            (string) $r->fecha,                   // 0 date
+            (int)    $r->id,                       // 1 integer
+            (string) $r->obra_origen,              // 2 text
+            (string) $r->obra_destino,             // 3 text
+            (string) $r->usuario,                  // 4 text
+            (int)    $r->total_insumos,            // 5 integer
+            (float)  $r->total_piezas,             // 6 number
+            (string) ($r->observaciones ?? ''),    // 7 text
+        ])->values()->toArray();
+
+        $filters = array_filter([
+            $obra        ? 'Obra actual: ' . $obra->nombre : null,
+            $obraNombre  ? 'Filtro obra: ' . $obraNombre   : null,
+            $q           ? 'Búsqueda: '   . $q             : null,
+            $desde       ? 'Desde: '      . $desde          : null,
+            $hasta       ? 'Hasta: '      . $hasta           : null,
+        ]);
+
+        Log::info('Excel export: Transferencias', [
+            'user_id'   => Auth::id(),
+            'obra_id'   => $obraId,
+            'registros' => count($data),
+            'filtros'   => $filters,
+        ]);
+
+        return ExcelExporter::download(
+            filename:    'transferencias',
+            moduleName:  'Transferencias',
+            headers:     ['Fecha', '# Trans.', 'Obra Origen', 'Obra Destino', 'Usuario', 'Insumos', 'Piezas', 'Observaciones'],
+            rows:        $data,
+            columnTypes: [0 => 'date', 1 => 'integer', 5 => 'integer', 6 => 'number'],
+            filters:     $filters,
+        );
     }
 
     /**
