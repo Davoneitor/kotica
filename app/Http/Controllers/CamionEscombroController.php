@@ -41,6 +41,21 @@ class CamionEscombroController extends Controller
             'folio_recibo'   => ['required', 'string', 'max:100'],
             'foto_vale'      => ['required', 'image', 'max:8192'],
             'foto_camion'    => ['required', 'image', 'max:8192'],
+        ], [
+            'fecha.required'          => 'La fecha es obligatoria.',
+            'hora_entrada.required'   => 'La hora de entrada es obligatoria.',
+            'hora_salida.required'    => 'La hora de salida es obligatoria.',
+            'tipo_material.required'  => 'El tipo de material es obligatorio.',
+            'placas.required'         => 'Las placas son obligatorias.',
+            'metros_cubicos.required' => 'Los metros cúbicos son obligatorios.',
+            'metros_cubicos.min'      => 'Los metros cúbicos deben ser mayores a 0.',
+            'folio_recibo.required'   => 'El folio del recibo es obligatorio.',
+            'foto_vale.required'      => 'La foto del vale es obligatoria.',
+            'foto_vale.image'         => 'El archivo del vale debe ser una imagen válida.',
+            'foto_vale.max'           => 'La foto del vale no puede superar 8 MB.',
+            'foto_camion.required'    => 'La foto del camión es obligatoria.',
+            'foto_camion.image'       => 'El archivo del camión debe ser una imagen válida.',
+            'foto_camion.max'         => 'La foto del camión no puede superar 8 MB.',
         ]);
 
         $data = [
@@ -63,13 +78,25 @@ class CamionEscombroController extends Controller
             $data['foto_camion'] = $request->file('foto_camion')->store('escombro', 'public');
         }
 
-        $registro = SalidaCamionEscombro::create($data);
+        try {
+            $registro = SalidaCamionEscombro::create($data);
+        } catch (\Exception $e) {
+            Log::error('CamionEscombro store: error al guardar', [
+                'user_id' => Auth::id(),
+                'obra_id' => $obraId,
+                'error'   => $e->getMessage(),
+            ]);
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Error al guardar el registro. Inténtalo de nuevo.',
+            ], 500);
+        }
 
         $total = $this->calcularTotalDia((int) $obraId, $request->fecha);
 
         return response()->json([
-            'ok'       => true,
-            'id'       => $registro->id,
+            'ok'        => true,
+            'id'        => $registro->id,
             'total_dia' => $total,
         ]);
     }

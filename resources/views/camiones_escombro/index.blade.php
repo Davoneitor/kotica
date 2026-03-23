@@ -308,34 +308,41 @@
                 } catch {}
             },
 
+            mostrarError(msg) {
+                this.error = msg;
+                this.$nextTick(() => {
+                    document.querySelector('[x-show="error"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+            },
+
             async guardar() {
                 this.error = '';
 
                 if (!this.hora_entrada) {
-                    this.error = 'Registra la hora de entrada antes de guardar.'; return;
+                    this.mostrarError('Registra la hora de entrada antes de guardar.'); return;
                 }
                 if (!this.hora_salida) {
-                    this.error = 'Registra la hora de salida antes de guardar.'; return;
+                    this.mostrarError('Registra la hora de salida antes de guardar.'); return;
                 }
                 if (!this.tipo_material) {
-                    this.error = 'Selecciona el tipo de material.'; return;
+                    this.mostrarError('Selecciona el tipo de material.'); return;
                 }
                 if (!this.placas.trim()) {
-                    this.error = 'El campo Placas es obligatorio.'; return;
+                    this.mostrarError('El campo Placas es obligatorio.'); return;
                 }
                 if (!this.metros_cubicos || parseFloat(this.metros_cubicos) <= 0) {
-                    this.error = 'Ingresa los metros cúbicos (mayor a 0).'; return;
+                    this.mostrarError('Ingresa los metros cúbicos (mayor a 0).'); return;
                 }
                 if (!this.folio_recibo.trim()) {
-                    this.error = 'El campo Folio del recibo es obligatorio.'; return;
+                    this.mostrarError('El campo Folio del recibo es obligatorio.'); return;
                 }
                 const fotoVale   = this.$refs.inputFotoVale?.files[0];
                 const fotoCamion = this.$refs.inputFotoCamion?.files[0];
                 if (!fotoVale) {
-                    this.error = 'La foto del vale es obligatoria.'; return;
+                    this.mostrarError('La foto del vale es obligatoria.'); return;
                 }
                 if (!fotoCamion) {
-                    this.error = 'La foto del camión es obligatoria.'; return;
+                    this.mostrarError('La foto del camión es obligatoria.'); return;
                 }
 
                 this.guardando = true;
@@ -350,18 +357,20 @@
                     fd.set('metros_cubicos',  this.metros_cubicos);
                     fd.set('folio_recibo',    this.folio_recibo);
 
-                    const res = await fetch('/control-camiones', {
+                    const res = await fetchConCsrf('/control-camiones', {
                         method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
-                            'Accept': 'application/json',
-                        },
+                        headers: { 'Accept': 'application/json' },
                         body: fd,
                     });
 
-                    const data = await res.json();
+                    let data;
+                    try {
+                        data = await res.json();
+                    } catch {
+                        throw new Error('El servidor devolvió una respuesta inesperada. Revisa tu conexión.');
+                    }
 
-                    if (data.ok) {
+                    if (res.ok && data.ok) {
                         this.exito    = true;
                         this.totalDia = data.total_dia;
 
@@ -381,10 +390,22 @@
                         setTimeout(() => this.exito = false, 3000);
                         await this.cargarRegistrosHoy();
                     } else {
-                        this.error = data.message || 'Error al guardar.';
+                        // Mostrar errores de validación campo por campo si los hay
+                        if (data.errors) {
+                            const msgs = Object.values(data.errors).flat();
+                            this.error = msgs.join(' ');
+                        } else {
+                            this.error = data.message || 'Error al guardar. Inténtalo de nuevo.';
+                        }
+                        this.$nextTick(() => {
+                            document.querySelector('[x-show="error"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        });
                     }
                 } catch (e) {
-                    this.error = 'Error de red. Inténtalo de nuevo.';
+                    this.error = e.message || 'Error de conexión. Verifica tu red e inténtalo de nuevo.';
+                    this.$nextTick(() => {
+                        document.querySelector('[x-show="error"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    });
                 } finally {
                     this.guardando = false;
                 }
