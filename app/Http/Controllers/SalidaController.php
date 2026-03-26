@@ -129,14 +129,16 @@ class SalidaController extends Controller
 
         $query = Inventario::query()->where('obra_id', $obraId);
 
-        if (ctype_digit($q)) {
-            $query->where('id', (int) $q);
-        } else {
-            $query->where('descripcion', 'like', "%{$q}%");
-        }
+        $query->where(function ($sub) use ($q) {
+            if (ctype_digit($q)) {
+                $sub->orWhere('id', (int) $q);
+            }
+            $sub->orWhere('insumo_id', 'like', "%{$q}%")
+                ->orWhere('descripcion', 'like', "%{$q}%");
+        });
 
-        $items = $query->orderBy('id', 'desc')
-            ->limit(15)
+        $items = $query->orderBy('descripcion')
+            ->limit(20)
             ->get([
                 'id',
                 'insumo_id',

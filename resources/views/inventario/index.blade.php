@@ -400,110 +400,120 @@
                 {{-- ===================== --}}
                 {{-- BUSCADOR PRODUCTOS --}}
                 {{-- ===================== --}}
-                <div class="border rounded p-3">
-                    <div class="font-semibold text-sm mb-2">Agregar productos</div>
+                <div class="border border-gray-200 rounded-xl p-4 md:p-5">
+                    <h3 class="font-semibold text-gray-800 mb-1">Agregar productos</h3>
+                    <p class="text-sm text-gray-500 mb-4">Busca por código o descripción y agrega la cantidad deseada.</p>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 items-end">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                         <div class="md:col-span-2 relative">
-                            <label class="block text-xs mb-1">Buscar por ID o descripción</label>
+                            <label class="block text-xs text-gray-600 mb-1">Buscar por código o descripción</label>
 
                             <input type="text"
-                                   class="w-full border rounded px-3 py-2 text-sm"
-                                   placeholder="Ej: 120 ó cemento"
+                                   class="w-full border border-gray-300 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+                                   placeholder="Ej: 40IE-VAR-0007 ó varilla"
                                    x-model="q"
+                                   autocomplete="off"
                                    @input.debounce.300ms="buscar()">
 
                             {{-- resultados --}}
                             <div x-show="resultados.length"
-                                 class="absolute mt-1 w-full bg-white border rounded shadow max-h-56 overflow-auto z-50">
+                                 class="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-64 overflow-auto z-50">
                                 <template x-for="p in resultados" :key="p.id">
                                     <button type="button"
-                                            class="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b"
+                                            class="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 border-b border-gray-100 last:border-b-0 first:rounded-t-xl last:rounded-b-xl"
                                             @click="seleccionar(p)">
-                                        <div class="font-semibold">
-                                            #<span x-text="p.id"></span> —
-                                            <span x-text="p.descripcion"></span>
-                                        </div>
-                                        <div class="text-xs text-gray-500">
-                                            Unidad: <span x-text="p.unidad"></span> |
-                                            Existencia: <span x-text="p.cantidad"></span>
-                                            <span x-show="p.devolvible"> | Retornable</span>
+                                        <div class="font-semibold text-gray-800" x-text="p.descripcion"></div>
+                                        <div class="text-xs text-gray-500 mt-0.5">
+                                            <template x-if="p.insumo_id">
+                                                <span>Cód: <strong x-text="p.insumo_id"></strong> &nbsp;|&nbsp;</span>
+                                            </template>
+                                            Unidad: <span x-text="p.unidad"></span> &nbsp;|&nbsp;
+                                            Exist: <span x-text="p.cantidad"></span>
+                                            <span x-show="p.devolvible" class="text-blue-600"> | Retornable</span>
                                         </div>
                                     </button>
                                 </template>
                             </div>
 
-                            <div class="text-xs text-gray-500 mt-1" x-show="buscando">
+                            <div class="text-xs text-gray-400 mt-1" x-show="buscando">
                                 Buscando...
+                            </div>
+
+                            {{-- Mensaje sin resultados --}}
+                            <div class="text-sm text-gray-500 mt-1 px-1"
+                                 x-show="q.trim() && !buscando && !selected && resultados.length === 0">
+                                No se encontraron resultados.
                             </div>
                         </div>
 
                         <div>
-                            <label class="block text-xs mb-1">Cantidad</label>
-                            <input type="number" step="0.01"
-                                   class="w-full border rounded px-3 py-2"
+                            <label class="block text-xs text-gray-600 mb-1">Cantidad</label>
+                            <input type="number" step="0.01" min="0.01"
+                                   class="w-full border border-gray-300 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-gray-400 focus:border-transparent"
                                    x-model="qty"
                                    :max="selected ? selected.cantidad : null"
-                                   placeholder="Ej. 5">
+                                   placeholder="Ej: 5">
                         </div>
                     </div>
 
                     {{-- devolvible --}}
-                    <div class="mt-2 flex items-center gap-2">
-                        <input type="checkbox" x-model="devolvible" class="rounded">
-                        <span class="text-sm">Producto retornable (préstamo)</span>
+                    <div class="mt-4 flex items-center gap-3">
+                        <input type="checkbox" x-model="devolvible"
+                               class="w-5 h-5 rounded border-gray-300 text-gray-900">
+                        <span class="text-sm text-gray-700 cursor-pointer">Producto retornable (préstamo)</span>
                     </div>
 
-                    <div class="mt-3 flex justify-end">
+                    <div class="mt-4 flex justify-end">
                         <button type="button"
-                                class="px-3 py-2 text-sm border rounded bg-gray-800 text-white hover:bg-gray-900"
+                                class="px-5 py-3 text-sm font-medium border rounded-xl bg-gray-800 text-white hover:bg-gray-900 active:bg-black"
                                 @click="agregarItem()">
-                            Agregar
+                            Agregar producto
                         </button>
                     </div>
 
                     {{-- items agregados --}}
                     <template x-if="$store.salidas.items.length">
-                        <table class="min-w-full text-sm border mt-3">
-                            <thead class="bg-gray-50">
-                            <tr>
-                                <th class="p-2 text-left">ID</th>
-                                <th class="p-2 text-left">Descripción</th>
-                                <th class="p-2 text-left">Cantidad</th>
-                                <th class="p-2 text-left">Unidad</th>
-                                <th class="p-2 text-left">Retornable</th>
-                                <th class="p-2 text-left">Acción</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <template x-for="(it, idx) in $store.salidas.items" :key="idx">
-                                <tr class="border-b">
-                                    <td class="p-2" x-text="it.inventario_id"></td>
-                                    <td class="p-2" x-text="it.descripcion"></td>
-                                    <td class="p-2" x-text="it.cantidad"></td>
-                                    <td class="p-2" x-text="it.unidad"></td>
-                                    <td class="p-2" x-text="it.devolvible ? 'Sí' : 'No'"></td>
-                                    <td class="p-2">
-                                        <button type="button"
-                                                class="px-2 py-1 text-xs border rounded"
-                                                @click="$store.salidas.removeItem(idx)">
-                                            Quitar
-                                        </button>
-
-                                        {{-- hidden --}}
-                                        <input type="hidden" :name="`items[${idx}][inventario_id]`" :value="it.inventario_id">
-                                        <input type="hidden" :name="`items[${idx}][cantidad]`" :value="it.cantidad">
-                                        <input type="hidden" :name="`items[${idx}][unidad]`" :value="it.unidad">
-                                        <input type="hidden" :name="`items[${idx}][devolvible]`" :value="it.devolvible ? 1 : 0">
-
-                                        {{-- ✅ ubicación por item --}}
-                                        <input type="hidden" :name="`items[${idx}][nivel]`" :value="it.nivel">
-                                        <input type="hidden" :name="`items[${idx}][departamento]`" :value="it.departamento ?? ''">
-                                    </td>
-                                </tr>
-                            </template>
-                            </tbody>
-                        </table>
+                        <div class="mt-5 overflow-x-auto rounded-xl border border-gray-200">
+                            <table class="min-w-full text-sm">
+                                <thead class="bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Código</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Descripción</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Cant.</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Unidad</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Retornable</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Quitar</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    <template x-for="(it, idx) in $store.salidas.items" :key="idx">
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-4 py-3 text-gray-700" x-text="it.inventario_id"></td>
+                                            <td class="px-4 py-3 text-gray-800 font-medium" x-text="it.descripcion"></td>
+                                            <td class="px-4 py-3 text-gray-700" x-text="it.cantidad"></td>
+                                            <td class="px-4 py-3 text-gray-700" x-text="it.unidad"></td>
+                                            <td class="px-4 py-3">
+                                                <span x-text="it.devolvible ? 'Sí' : 'No'"
+                                                      :class="it.devolvible ? 'text-blue-700 font-medium' : 'text-gray-500'"></span>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <button type="button"
+                                                        class="px-3 py-1.5 text-xs border rounded-lg hover:bg-red-50 hover:border-red-300 hover:text-red-700 transition-colors"
+                                                        @click="$store.salidas.removeItem(idx)">
+                                                    Quitar
+                                                </button>
+                                                <input type="hidden" :name="`items[${idx}][inventario_id]`" :value="it.inventario_id">
+                                                <input type="hidden" :name="`items[${idx}][cantidad]`" :value="it.cantidad">
+                                                <input type="hidden" :name="`items[${idx}][unidad]`" :value="it.unidad">
+                                                <input type="hidden" :name="`items[${idx}][devolvible]`" :value="it.devolvible ? 1 : 0">
+                                                <input type="hidden" :name="`items[${idx}][nivel]`" :value="it.nivel">
+                                                <input type="hidden" :name="`items[${idx}][departamento]`" :value="it.departamento ?? ''">
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
                     </template>
                 </div>
 

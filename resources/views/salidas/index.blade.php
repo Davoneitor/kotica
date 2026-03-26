@@ -310,13 +310,13 @@
                                                 class="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 border-b border-gray-100 last:border-b-0 first:rounded-t-xl last:rounded-b-xl"
                                                 @click="seleccionar(p)"
                                             >
-                                                <div class="font-semibold text-gray-800">
-                                                    #<span x-text="p.id"></span> —
-                                                    <span x-text="p.descripcion"></span>
-                                                </div>
+                                                <div class="font-semibold text-gray-800" x-text="p.descripcion"></div>
                                                 <div class="text-xs text-gray-500 mt-0.5">
-                                                    Unidad: <span x-text="p.unidad"></span> |
-                                                    Existencia: <span x-text="p.cantidad"></span>
+                                                    <template x-if="p.insumo_id">
+                                                        <span>Cód: <strong x-text="p.insumo_id"></strong> &nbsp;|&nbsp;</span>
+                                                    </template>
+                                                    Unidad: <span x-text="p.unidad"></span> &nbsp;|&nbsp;
+                                                    Exist: <span x-text="p.cantidad"></span>
                                                     <span x-show="p.devolvible == 1" class="text-blue-600"> | Retornable</span>
                                                 </div>
                                             </button>
@@ -327,6 +327,16 @@
                                         class="text-xs text-gray-400 mt-1"
                                         x-show="tabs[activeIdx] && tabs[activeIdx].buscando"
                                     >Buscando...</div>
+
+                                    {{-- Mensaje sin resultados --}}
+                                    <div
+                                        class="text-sm text-gray-500 mt-1 px-1"
+                                        x-show="tabs[activeIdx]
+                                            && (tabs[activeIdx].q || '').trim() !== ''
+                                            && !tabs[activeIdx].buscando
+                                            && !tabs[activeIdx].selected
+                                            && (!tabs[activeIdx].resultados || tabs[activeIdx].resultados.length === 0)"
+                                    >No se encontraron resultados.</div>
                                 </div>
 
                                 {{-- Cantidad --}}
