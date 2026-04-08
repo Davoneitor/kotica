@@ -1,60 +1,104 @@
 <?php
 
 return [
-    '02 ONA Varilla' => ['02ONVAR', '02ONGEN'],
 
-    '03 ONA Trefilados' => ['03ONMLL', '03ONALM', '03ONESC', '03ONARM', '03ONGEN'],
+    '02 ONA Varilla' => ['02ON-VAR', '02ON-GEN'],
 
-    '04 ONA Concreto' => ['04ONCON', '04ONADH', '04ONCLZ', '04ONCMR', '04ONEXT', '04ONGEN'],
+    '03 ONA Trefilados' => [
+        '03ON-MLL','03ON-ALM','03ON-ESC','03ON-ARM','03ON-GEN',
+        '03ON-ALE','03ON-ALO'
+    ],
 
-    '05 ONA Bombeo' => ['05ONBOM', '05ONGEN'],
+    '04 ONA Concreto' => [
+        '04ON-CON','04ON-ADH','04ON-CLZ','04ON-CMR','04ON-EXT','04ON-GEN'
+    ],
 
-    '06 ONA Cimbra' => ['06ONCIM', '06ONTIR', '06ONSLL', '06ONREN', '06ONMAD', '06ONEQU', '06ONGEN'],
+    '05 ONA Bombeo' => ['05ON-BOM', '05ON-GEN'],
 
-    '07 ONA Poliestireno' => ['07ONCAS', '07ONPLA', '07ONBOV', '07ONGEN'],
+    '06 ONA Cimbra' => [
+        '06ON-CIM','06ON-TIR','06ON-SLL','06ON-REN','06ON-MAD','06ON-EQU','06ON-GEN',
+        '06ON-COI','06ON-OTR'
+    ],
 
-    '08 ONA Prefabricados' => ['08ONADO', '08ONLAD', '08ONPLA', '08ONTAB', '08ONTUB', '08ONVIG', '08ONBLO', '08ONGEN'],
+    '07 ONA Poliestireno' => [
+        '07ON-CAS','07ON-PLA','07ON-BOV','07ON-GEN','07ON-NOV'
+    ],
 
-    '09 ONA Cementantes' => ['09ONMOR', '09ONADI', '09ONCAL', '09ONCEM', '09ONDES', '09ONGEN'],
+    '08 ONA Prefabricados' => [
+        '08ON-ADO','08ON-LAD','08ON-PLA','08ON-TAB','08ON-TUB','08ON-VIG','08ON-BLO','08ON-GEN'
+    ],
 
-    '10 ONA Clavos' => ['10ONCLA', '10ONGEN'],
+    '09 ONA Cementantes' => [
+        '09ON-MOR','09ON-ADI','09ON-CAL','09ON-CEM','09ON-DES','09ON-GEN'
+    ],
 
-    '11 ONA Agregados' => ['12ONAGR', '12ONGEN'],
+    '10 ONA Clavos' => ['10ON-CLA', '10ON-GEN'],
 
-    '12 ONA Combustibles' => ['12ONCOM', '12GENGEN'],
+    '11 ONA Agregados' => ['11ON-AGR', '11ON-GEN'],
+
+    '12 ONA Combustibles' => ['12ON-COM', '12ON-GEN'],
 
     '13 ONA Hta y Equipo' => [
-        '13ONHTA','13ONBRO','13ONCEP','13ONCIN','13ONCOP','13ONDIS','13ONEQM',
-        '13ONPIN','13ONESC','13ONFLE','13ONFUM','13ONMRR','13ONMRT','13ONPAL',
-        '13ONPIS','13ONPLO','13ONCOR','13ONESP','13ONLLV','13ONJGO','13ONLLA',
-        '13ONNIV','13ONRAS','13ONPUL','13ONCAN','13ONCAR','13ONLLN','13ONVOL',
-        '13ONREN','13ONGEN'
+        '13ON-HTA','13ON-BRO','13ON-CEP','13ON-CIN','13ON-COP','13ON-DIS','13ON-EQM',
+        '13ON-PIN','13ON-ESC','13ON-FLE','13ON-FUM','13ON-MRR','13ON-MRT','13ON-PAL',
+        '13ON-PIS','13ON-PLO','13ON-COR','13ON-ESP','13ON-LLV','13ON-JGO','13ON-LLA',
+        '13ON-NIV','13ON-RAS','13ON-PUL','13ON-CAN','13ON-CAR','13ON-LLN','13ON-VOL',
+        '13ON-REN','13ON-GEN',
+        // nuevos
+        '13ON-TIN','13ON-RTA','13ON-TIJ'
     ],
 
-    '15 ONA Otros' => ['15ONOAL', '15ONOTR', '15ONAME', '15ONVIG'],
+    '15 ONA Otros' => [
+        '15ON-OAL', '15ON-OTR', '15ON-AME', '15ON-VIG', '15ON-ALM', '15ON-MOB'
+    ],
 
-    'ONA Ferret' => ['16ONFRR'],
+    'ONA Ferret' => [
+        '16ON-FRR','16ON-APL','16ON-CMS','16ON-FIJ','16ON-QUI','16ON-OTR'
+    ],
 
-    '20 Recs' => ['20RCACC', '20RCADH', '20RCGEN', '20RCMOS', '20RCCER', '20RCCAN'],
+    '20 Recs' => [
+        '20RC-ACC','20RC-ADH','20RC-GEN','20RC-MOS','20RC-CER','20RC-CAN',
+        '20RE-OTR','20RE-REC'
+    ],
 
-    '22 Yesos y TR' => ['22YTADH','22YTACC','22YTYES','22YTPAN','22YTPER','22YTFIJ','22YTREF','22YTSEL','22YTGEN'],
+    '22 Yesos y TR' => [
+        '22YT-ADH','22YT-ACC','22YT-YES','22YT-PAN','22YT-PER','22YT-FIJ',
+        '22YT-REF','22YT-SEL','22YT-GEN','22YT-EST','22YT-TTR'
+    ],
 
-    '24 Pinturas e Imper' => ['24PNAPL','24PNSEL','24PNPIN','24PNSOL','24PNIMP','24PNGEN'],
+    '24 Pinturas e Imper' => [
+        '24PN-APL','24PN-SEL','24PN-PIN','24PN-SOL','24PN-IMP','24PN-GEN',
+        '24PI-IMP','24PI-OTR','24PI-PIN','24PI-SLL'
+    ],
 
     '26 Acce Sanit' => [
-        '26ACSCAL','26ACSREG','26ACSMON','26ACSLAV','26ACSWCC','26ACSFLX',
-        '26ACSMIN','26ACSTAR','26ACSCES','26ACSCOL','26ACSGEN','26ACSTOA',
-        '26ACSGAN','26ACSPOR'
+        '26ACS-CAL','26ACS-REG','26ACS-MON','26ACS-LAV','26ACS-WCC','26ACS-FLX',
+        '26ACS-MIN','26ACS-TAR','26ACS-CES','26ACS-COL','26ACS-GEN','26ACS-TOA',
+        '26ACS-GAN','26ACS-POR','26AS-ACC','26AS-OTR'
     ],
 
-    '32 Limpieza' => ['32LMLIM', '32LMGEN'],
+    '30 Imprevistos' => ['30IMP-GEN'],
+
+    '32 Limpieza' => [
+        '32LM-LIM','32LM-GEN','32LI-UTE'
+    ],
 
     '40 Instalaciones' => [
-        '40IECAB','40IEVAR','40IECON','40IEACC','40IEPLA','40IHCON','40IELUM',
-        '40IECCA','40IESOP','40ISSEL','40IECAJ','40IGTUB','40IGACC','40IGCON',
-        '40IGSEG','40IGVAL','40IHVAL','40IHACC','40IHTUB','40IHSOP','40IHMED',
-        '40IHBOM','40ISSOP','40ISREG','40ISACC','40ISCON','40ISTUB','40GEINS'
+        '40IE-CAB','40IE-VAR','40IE-CON','40IE-ACC','40IE-PLA','40IH-CON','40IE-LUM',
+        '40IE-CCA','40IE-SOP','40IS-SEL','40IE-CAJ','40IG-TUB','40IG-ACC','40IG-CON',
+        '40IG-SEG','40IG-VAL','40IH-VAL','40IH-ACC','40IH-TUB','40IH-SOP','40IH-MED',
+        '40IH-BOM','40IS-SOP','40IS-REG','40IS-ACC','40IS-CON','40IS-TUB','40GE-INS'
     ],
 
-    '60 Seg e Higiene' => ['60SHDOR','60SHEPP','60SHEQS','60SHACC','60SHCAP','60SHCON','60SHGEN'],
+    '60 Seg e Higiene' => [
+        '60SH-DOR','60SH-EPP','60SH-EQS','60SH-ACC','60SH-CAP','60SH-CON','60SH-GEN',
+        '60SH-CAM','60SH-DPV'
+    ],
+
+    // 🔥 Subcontratos (SC)
+    'SC Subcontratos' => [
+        'SC-AGUA','SC-BAR','SC-CAN','SC-COC','SC-CON','SC-CUB','SC-ELE',
+        'SC-EXC','SC-LOD','SC-MAT','SC-NUM','SC-PER','SC-PUE','SC-SOL'
+    ],
+
 ];
