@@ -222,6 +222,13 @@
                             <div x-text="formatFecha(m.fecha)"></div>
                         </div>
 
+                        <template x-if="m.observaciones">
+                            <div class="mt-2 text-sm">
+                                <div class="text-gray-500 text-xs">Observaciones</div>
+                                <div class="text-gray-700 italic" x-text="m.observaciones"></div>
+                            </div>
+                        </template>
+
                             <div class="mt-3">
                                 <button class="w-full px-4 py-2 rounded bg-gray-900 text-white"
                                         @click="verDetalles(m.id)">

@@ -96,6 +96,7 @@ public function movimientos(Request $request)
             'movimientos.destino',
             'movimientos.nombre_cabo',
             'movimientos.estatus',
+            'movimientos.observaciones',
             DB::raw('o.nombre as obra'), // ? nombre de obra
         ]);
 
