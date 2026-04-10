@@ -30,9 +30,10 @@ class UserController extends Controller
 
     public function update(Request $request, User $user)
     {
-        $isMultiobra  = $request->boolean('is_multiobra');
-        $isSoloExplore = $request->boolean('solo_explore');
-        $isAdmin       = $request->boolean('is_admin');
+        $isMultiobra            = $request->boolean('is_multiobra');
+        $isSoloExplore          = $request->boolean('solo_explore');
+        $isAdmin                = $request->boolean('is_admin');
+        $puedeEditarDescAux     = $request->boolean('puede_editar_desc_auxiliar');
 
         // Exclusión mutua: no puede ser admin Y solo_explore a la vez
         if ($isSoloExplore && $isAdmin) {
@@ -54,9 +55,10 @@ class UserController extends Controller
 
         $user->name         = $validated['name'];
         $user->email        = $validated['email'];
-        $user->is_admin     = $isSoloExplore ? false : $isAdmin; // solo_explore fuerza is_admin = false
-        $user->is_multiobra = $isMultiobra ? 1 : 0;
-        $user->solo_explore = $isSoloExplore;
+        $user->is_admin                    = $isSoloExplore ? false : $isAdmin;
+        $user->is_multiobra                = $isMultiobra ? 1 : 0;
+        $user->solo_explore                = $isSoloExplore;
+        $user->puede_editar_desc_auxiliar  = $puedeEditarDescAux;
 
         if (!empty($validated['password'])) {
             $user->password = Hash::make($validated['password']);

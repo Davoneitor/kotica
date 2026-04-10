@@ -24,6 +24,7 @@ class User extends Authenticatable
         'is_admin',
         'is_multiobra',
         'solo_explore',
+        'puede_editar_desc_auxiliar',
 
         // ✅ para poder guardar/cambiar la obra actual con update()/create()
         'obra_actual_id',
@@ -51,7 +52,8 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_admin'      => 'boolean',
             'is_multiobra'  => 'integer',
-            'solo_explore'  => 'boolean',
+            'solo_explore'               => 'boolean',
+            'puede_editar_desc_auxiliar' => 'boolean',
 
             // ✅ cast para que siempre sea int
             'obra_actual_id' => 'integer',

@@ -201,6 +201,23 @@
                                @if($bloqueado) readonly @endif>
                     </div>
 
+                    {{-- OBSOLETO (solo admin / multiobra) --}}
+                    @if(!$bloqueado)
+                    <div class="mt-4 flex items-center gap-3 p-3 rounded-lg border border-yellow-300 bg-yellow-50">
+                        <input type="hidden" name="obsoleto" value="0">
+                        <input type="checkbox"
+                               id="obsoleto"
+                               name="obsoleto"
+                               value="1"
+                               class="w-4 h-4 accent-yellow-500"
+                               @checked(old('obsoleto', $inventario->obsoleto))>
+                        <label for="obsoleto" class="text-sm font-medium text-yellow-800 cursor-pointer select-none">
+                            Marcar como <b>obsoleto</b>
+                            <span class="ml-1 text-xs font-normal text-yellow-700">(ya no se usa, pero conserva historial)</span>
+                        </label>
+                    </div>
+                    @endif
+
                     {{-- BOTONES --}}
                     <div class="flex justify-end gap-2 mt-6">
                         <a href="{{ route('inventario.index', $page > 1 ? ['page' => $page] : []) }}"

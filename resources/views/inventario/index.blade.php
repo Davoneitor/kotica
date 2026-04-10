@@ -91,7 +91,7 @@
                             </button>
 
                             @if(request('q'))
-                                <a href="{{ route('inventario.index') }}"
+                                <a href="{{ route('inventario.index', $obsoleto ? ['obsoleto' => 1] : []) }}"
                                    class="w-full md:w-auto px-5 py-3 rounded-lg border bg-gray-100 text-gray-800 text-base md:text-sm hover:bg-gray-200 text-center">
                                     Limpiar
                                 </a>
@@ -99,8 +99,8 @@
                         </div>
                     </div>
 
-                    {{-- Chips / ayuda (se ve bonito en tablet) --}}
-                    <div class="mt-3 flex flex-wrap gap-2 text-sm">
+                    {{-- Chips / ayuda + toggle obsoleto --}}
+                    <div class="mt-3 flex flex-wrap gap-2 text-sm items-center">
                         <span class="px-3 py-1 rounded-full bg-gray-100 text-gray-700">
                             Tip: puedes escribir <b>#303-ARF-0201</b>
                         </span>
@@ -114,7 +114,30 @@
                         <span class="px-3 py-1 rounded-full bg-gray-50 text-gray-600">
                             Obra: <b>{{ $obraActual?->nombre ?? 'Sin obra' }}</b>
                         </span>
+
+                        {{-- Botón toggle Inventario obsoleto --}}
+                        @if($obsoleto)
+                            <a href="{{ route('inventario.index', array_filter(['q' => request('q')])) }}"
+                               class="px-3 py-1 rounded-full bg-yellow-400 text-yellow-900 font-semibold border border-yellow-500 hover:bg-yellow-500 transition-colors">
+                                Inventario obsoleto ✕
+                            </a>
+                        @else
+                            <a href="{{ route('inventario.index', array_filter(['q' => request('q'), 'obsoleto' => 1])) }}"
+                               class="px-3 py-1 rounded-full border border-yellow-400 text-yellow-700 bg-yellow-50 hover:bg-yellow-100 font-medium transition-colors">
+                                Inventario obsoleto
+                            </a>
+                        @endif
                     </div>
+
+                    {{-- Banner cuando se está viendo solo obsoletos --}}
+                    @if($obsoleto)
+                        <div class="mt-3 flex items-center gap-2 px-4 py-2 rounded-lg bg-yellow-50 border border-yellow-300 text-yellow-800 text-sm">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/>
+                            </svg>
+                            Mostrando <b class="mx-1">solo inventario obsoleto</b> — estos insumos ya no están en uso activo pero conservan su historial de movimientos.
+                        </div>
+                    @endif
                 </form>
 
 
@@ -153,6 +176,7 @@
                             <th class="py-2 pr-3">Familia</th>
                             <th class="py-2 pr-3">Subfamilia</th>
                             <th class="py-2 pr-3">Descripción</th>
+                            <th class="py-2 pr-3">Desc. auxiliar</th>
                             <th class="py-2 pr-3">Unidad</th>
                             <th class="py-2 pr-3">Obra</th>
                             <th class="py-2 pr-3">Proveedor</th>
@@ -181,11 +205,97 @@
 
                             @endphp
 
-                            <tr class="border-b" id="inv-{{ $inv->id }}" style="{{ $style }}">
+                            @php
+                                // Prioridad visual: verde (editado recientemente) > amarillo (obsoleto) > blanco
+                                $rowStyle = $style ?: ($inv->obsoleto ? 'background-color:#fefce8;' : '');
+                            @endphp
+                            <tr class="border-b" id="inv-{{ $inv->id }}" style="{{ $rowStyle }}"
+                                x-data="{
+                                    editing: false,
+                                    val: {{ json_encode($inv->descripcionauxiliar ?? '') }},
+                                    saving: false,
+                                    saved: false,
+                                    error: '',
+                                    async guardar() {
+                                        this.saving = true;
+                                        this.error  = '';
+                                        try {
+                                            const r = await fetch('{{ route('inventario.desc_auxiliar', $inv) }}', {
+                                                method: 'PATCH',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                                                    'Accept': 'application/json',
+                                                },
+                                                body: JSON.stringify({ descripcionauxiliar: this.val }),
+                                            });
+                                            const data = await r.json();
+                                            if (!r.ok) throw new Error(data.error ?? 'Error al guardar.');
+                                            this.val     = data.descripcionauxiliar;
+                                            this.editing = false;
+                                            this.saved   = true;
+                                            this.$el.style.backgroundColor = '#dcfce7';
+                                        } catch(e) {
+                                            this.error = e.message;
+                                        } finally {
+                                            this.saving = false;
+                                        }
+                                    },
+                                    cancelar() {
+                                        this.val     = {{ json_encode($inv->descripcionauxiliar ?? '') }};
+                                        this.editing = false;
+                                        this.error   = '';
+                                    }
+                                }">
                                 <td class="py-2 pr-3">{{ $inv->insumo_id }}</td>
                                 <td class="py-2 pr-3">{{ $inv->familia }}</td>
                                 <td class="py-2 pr-3">{{ $inv->subfamilia }}</td>
-                                <td class="py-2 pr-3">{{ $inv->descripcion }}</td>
+                                <td class="py-2 pr-3">
+                                    {{ $inv->descripcion }}
+                                    @if($inv->obsoleto)
+                                        <span class="ml-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-yellow-200 text-yellow-800 border border-yellow-300">OBSOLETO</span>
+                                    @endif
+                                </td>
+
+                                {{-- Columna: Descripción auxiliar --}}
+                                <td class="py-2 pr-3 min-w-[160px]">
+                                    @if($puedeEditarAuxiliar && !$inv->obsoleto)
+                                        {{-- Modo lectura: clic para editar --}}
+                                        <div x-show="!editing" class="flex items-center gap-1 group cursor-pointer" @click="editing = true">
+                                            <span x-text="val || '—'" class="text-gray-700"></span>
+                                            <svg class="w-3 h-3 text-gray-300 group-hover:text-gray-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z"/>
+                                            </svg>
+                                        </div>
+                                        {{-- Modo edición --}}
+                                        <div x-show="editing" class="flex flex-col gap-1" @keydown.escape.window="cancelar()">
+                                            <input x-model="val"
+                                                   x-ref="inputAux"
+                                                   x-init="$watch('editing', v => v && $nextTick(() => $refs.inputAux.focus()))"
+                                                   type="text"
+                                                   maxlength="450"
+                                                   class="border rounded px-2 py-1 text-sm w-full"
+                                                   @keydown.enter.prevent="guardar()"
+                                                   @keydown.escape.prevent="cancelar()">
+                                            <div class="flex gap-1">
+                                                <button @click="guardar()"
+                                                        :disabled="saving"
+                                                        class="px-2 py-0.5 rounded bg-gray-800 text-white text-xs hover:bg-gray-900 disabled:opacity-50">
+                                                    <span x-text="saving ? 'Guardando...' : 'Guardar'"></span>
+                                                </button>
+                                                <button @click="cancelar()"
+                                                        class="px-2 py-0.5 rounded border text-xs hover:bg-gray-100">
+                                                    Cancelar
+                                                </button>
+                                            </div>
+                                            <span x-show="error" x-text="error" class="text-red-600 text-xs"></span>
+                                        </div>
+                                    @else
+                                        {{-- Solo lectura --}}
+                                        <span class="text-gray-600">{{ $inv->descripcionauxiliar ?: '—' }}</span>
+                                    @endif
+                                </td>
+
                                 <td class="py-2 pr-3">{{ $inv->unidad }}</td>
                                 <td class="py-2 pr-3">{{ optional($inv->obra)->nombre }}</td>
                                 <td class="py-2 pr-3">{{ $inv->proveedor }}</td>
@@ -194,14 +304,14 @@
 
                                 <td class="py-2 pr-3">
                                     <div class="flex items-center gap-2">
-                                        @if($isAdmin)
-                                            {{-- ✅ SOLO ADMIN: Editar --}}
-                                            <a href="{{ route('inventario.edit', [$inv, 'page' => request('page', 1)]) }}"
+                                        @if($isAdmin && !$inv->obsoleto)
+                                            {{-- ✅ SOLO ADMIN + NO OBSOLETO: Editar --}}
+                                            <a href="{{ route('inventario.edit', array_filter(['inventario' => $inv->id, 'page' => request('page', 1), 'obsoleto' => request('obsoleto')])) }}"
                                                class="px-3 py-2 text-sm rounded border bg-gray-50 hover:bg-gray-100">
                                                 Editar
                                             </a>
 
-                                            {{-- ✅ SOLO ADMIN: Eliminar --}}
+                                            {{-- ✅ SOLO ADMIN + NO OBSOLETO: Eliminar --}}
                                             <form method="POST"
                                                   action="{{ route('inventario.destroy', $inv) }}"
                                                   onsubmit="return confirm('¿Seguro que quieres eliminar este registro (ID {{ $inv->id }})?');">
@@ -223,7 +333,7 @@
 
                         @if($inventarios->count() === 0)
                             <tr>
-                                <td colspan="13" class="py-6 text-center text-gray-500">
+                                <td colspan="11" class="py-6 text-center text-gray-500">
                                     No hay productos en inventario todavía.
                                 </td>
                             </tr>
@@ -532,9 +642,9 @@
                     </div>
 
                     <div x-show="showFirma" class="mt-3">
-                        <div class="border rounded p-2 bg-white inline-block">
-                            <canvas x-ref="firmaCanvas" class="border rounded w-full"
-                                    width="520" height="160"></canvas>
+                        <div class="rounded-xl p-2 w-full" style="border: 2px solid #3b82f6;">
+                            <canvas x-ref="firmaCanvas" class="rounded-lg w-full bg-white touch-none block"
+                                    width="700" height="300"></canvas>
                         </div>
 
                         <div class="mt-2 flex gap-2">

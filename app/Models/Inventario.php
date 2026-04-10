@@ -22,6 +22,13 @@ class Inventario extends Model
     'costo_promedio',
     'destino',
     'devolvible',
+    'obsoleto',
+    'descripcionauxiliar',
+];
+
+protected $casts = [
+    'devolvible' => 'boolean',
+    'obsoleto'   => 'boolean',
 ];
 
 

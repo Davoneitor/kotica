@@ -120,6 +120,29 @@
                         </div>
                     </div>
 
+                    <!-- Permiso: Editar descripción auxiliar -->
+                    <div class="mt-4">
+                        <div class="p-5 rounded-xl border border-blue-200 bg-blue-50">
+                            <div class="flex items-start justify-between gap-4">
+                                <div>
+                                    <h3 class="text-base font-semibold text-gray-800">Editar desc. auxiliar</h3>
+                                    <p class="text-sm text-gray-600 mt-1">
+                                        Permite editar el campo <em>Descripción auxiliar</em> directamente desde la tabla de inventario.
+                                    </p>
+                                </div>
+
+                                <label class="inline-flex items-center cursor-pointer select-none">
+                                    <input type="checkbox" name="puede_editar_desc_auxiliar" value="1" class="sr-only peer"
+                                        {{ old('puede_editar_desc_auxiliar', $user->puede_editar_desc_auxiliar) ? 'checked' : '' }}>
+                                    <div class="w-14 h-8 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-200 rounded-full peer peer-checked:bg-blue-500 relative transition">
+                                        <div class="absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition peer-checked:translate-x-6"></div>
+                                    </div>
+                                    <span class="ml-3 text-sm font-medium text-gray-800">Activo</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Multiobra -->
                     <div class="mt-4">
                         <div class="p-5 rounded-xl border border-gray-200 bg-gray-50">

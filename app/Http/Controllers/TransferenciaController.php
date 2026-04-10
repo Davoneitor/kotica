@@ -42,7 +42,8 @@ class TransferenciaController extends Controller
             ->when($q !== '', function ($query) use ($q) {
                 $query->where(function ($w) use ($q) {
                     $w->where('descripcion', 'like', "%{$q}%")
-                      ->orWhere('insumo_id', 'like', "%{$q}%");
+                      ->orWhere('insumo_id', 'like', "%{$q}%")
+                      ->orWhere('descripcionauxiliar', 'like', "%{$q}%");
                 });
             })
             ->select(['id', 'insumo_id', 'descripcion', 'unidad', 'cantidad', 'familia'])

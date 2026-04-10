@@ -446,12 +446,12 @@
 
                             {{-- Canvas area (visible cuando showFirma = true) --}}
                             <div x-show="tabs[activeIdx] && tabs[activeIdx].showFirma">
-                                <div class="border-2 border-dashed border-gray-300 rounded-xl p-2 bg-gray-50 inline-block w-full max-w-xl">
+                                <div class="rounded-xl p-2 inline-block w-full" style="border: 2px solid #3b82f6;">
                                     <canvas
                                         :id="'firma-canvas-' + (tabs[activeIdx] ? tabs[activeIdx].id : 'none')"
-                                        class="border border-gray-200 rounded-lg w-full bg-white touch-none block"
-                                        width="560"
-                                        height="180"
+                                        class="rounded-lg w-full bg-white touch-none block"
+                                        width="700"
+                                        height="300"
                                     ></canvas>
                                 </div>
                                 <p class="text-xs text-gray-400 mt-1">Firma con el dedo o el mouse en el recuadro blanco.</p>

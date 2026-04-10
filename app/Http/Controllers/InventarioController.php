@@ -36,7 +36,8 @@ class InventarioController extends Controller
         $isMultiobra = (int) ($user->is_multiobra ?? 0) === 1;
         $obras = $isMultiobra ? Obra::orderBy('nombre')->get(['id', 'nombre']) : collect();
 
-        $q = trim((string) $request->get('q', ''));
+        $q         = trim((string) $request->get('q', ''));
+        $obsoleto  = $request->boolean('obsoleto');   // true = solo obsoletos
 
         /* =====================================================
          * INVENTARIO
@@ -44,12 +45,14 @@ class InventarioController extends Controller
         $inventariosQ = Inventario::query()
             ->with('obra:id,nombre')
             ->when($obraActualId > 0, fn ($qq) => $qq->where('obra_id', $obraActualId))
+            ->when($obsoleto, fn ($qq) => $qq->where('obsoleto', 1))   // filtro solo cuando ?obsoleto=1
             ->when($q !== '', function ($qq) use ($q) {
                 $clean = str_starts_with($q, '#') ? trim(substr($q, 1)) : $q;
 
                 $qq->where(function ($w) use ($clean) {
                     $w->where('insumo_id', 'like', "%{$clean}%")
                       ->orWhere('descripcion', 'like', "%{$clean}%")
+                      ->orWhere('descripcionauxiliar', 'like', "%{$clean}%")
                       ->orWhere('familia', 'like', "%{$clean}%")
                       ->orWhere('subfamilia', 'like', "%{$clean}%")
                       ->orWhere('proveedor', 'like', "%{$clean}%");
@@ -143,13 +146,17 @@ class InventarioController extends Controller
             }
         }
 
+        $puedeEditarAuxiliar = $user->is_admin || $user->puede_editar_desc_auxiliar;
+
         return view('inventario.index', compact(
             'obraActual',
             'inventarios',
             'destinos',
             'responsables',
             'isMultiobra',
-            'obras'
+            'obras',
+            'obsoleto',
+            'puedeEditarAuxiliar'
         ));
     }
 
@@ -341,6 +348,11 @@ class InventarioController extends Controller
 
     public function edit(Inventario $inventario, Request $request)
     {
+        if ($inventario->obsoleto) {
+            return redirect()->route('inventario.index')
+                ->with('error', "El insumo \"{$inventario->descripcion}\" es obsoleto y no puede editarse.");
+        }
+
         $obras = Obra::orderBy('nombre')->get(['id','nombre']);
         $familias = config('familias');
         $isMultiobra = (int) (Auth::user()->is_multiobra ?? 0) === 1;
@@ -379,6 +391,7 @@ class InventarioController extends Controller
             'costo_promedio' => ['nullable','numeric','min:0'],
             'destino'        => ['nullable','string','max:255'],
             'devolvible'     => ['nullable'],
+            'obsoleto'       => ['nullable'],
         ]);
 
         // ✅ FIX: destino nunca NULL
@@ -390,12 +403,19 @@ class InventarioController extends Controller
         $inventario->update([
             ...$data,
             'devolvible' => (int) ((bool) ($data['devolvible'] ?? false)),
+            'obsoleto'   => (int) ((bool) ($data['obsoleto']   ?? false)),
         ]);
 
-        $page = (int) $request->input('_page', 1);
+        $page     = (int) $request->input('_page', 1);
+        $obsoleto = (bool) ($data['obsoleto'] ?? false);
+
+        $params = array_filter([
+            'page'    => $page > 1 ? $page : null,
+            'obsoleto' => $obsoleto ? 1 : null,
+        ]);
 
         return redirect()
-            ->route('inventario.index', $page > 1 ? ['page' => $page] : [])
+            ->route('inventario.index', $params)
             ->with('success', 'Producto actualizado.')
             ->with('highlight_id', (string) $inventario->id)
             ->with('highlight_type', 'updated');
@@ -403,6 +423,11 @@ class InventarioController extends Controller
 
     public function destroy(Inventario $inventario)
     {
+        if ($inventario->obsoleto) {
+            return redirect()->route('inventario.index')
+                ->with('error', "El insumo \"{$inventario->descripcion}\" es obsoleto y no puede eliminarse.");
+        }
+
         $id          = $inventario->id;
         $descripcion = $inventario->descripcion;
 
@@ -423,7 +448,33 @@ class InventarioController extends Controller
             ->route('inventario.index')
             ->with('success', "Producto '{$descripcion}' eliminado correctamente.");
     }
-public function cambiarObra(Request $request): \Illuminate\Http\RedirectResponse
+
+    /**
+     * PATCH /inventario/{inventario}/desc-auxiliar
+     * Actualización inline de descripcionauxiliar — solo para usuarios con permiso.
+     */
+    public function actualizarDescAuxiliar(Request $request, Inventario $inventario)
+    {
+        $user = Auth::user();
+
+        if (! $user || (! $user->is_admin && ! $user->puede_editar_desc_auxiliar)) {
+            return response()->json(['error' => 'Sin permiso para editar descripción auxiliar.'], 403);
+        }
+
+        $request->validate([
+            'descripcionauxiliar' => ['nullable', 'string', 'max:450'],
+        ]);
+
+        $inventario->descripcionauxiliar = $request->input('descripcionauxiliar') ?? '';
+        $inventario->save();
+
+        return response()->json([
+            'ok'                  => true,
+            'descripcionauxiliar' => $inventario->descripcionauxiliar,
+        ]);
+    }
+
+    public function cambiarObra(Request $request): \Illuminate\Http\RedirectResponse
 {
     $request->validate([
         'obra_id' => ['required', 'integer', 'exists:obras,id'],

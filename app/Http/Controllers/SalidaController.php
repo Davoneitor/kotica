@@ -134,7 +134,8 @@ class SalidaController extends Controller
                 $sub->orWhere('id', (int) $q);
             }
             $sub->orWhere('insumo_id', 'like', "%{$q}%")
-                ->orWhere('descripcion', 'like', "%{$q}%");
+                ->orWhere('descripcion', 'like', "%{$q}%")
+                ->orWhere('descripcionauxiliar', 'like', "%{$q}%");
         });
 
         $items = $query->orderBy('descripcion')
