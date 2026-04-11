@@ -195,10 +195,10 @@ if ($obraLocalId <= 0) abort(403);
         'items.0.descripcion'    => ['required', 'string'],
         'items.0.unidad'         => ['required', 'string'],
 
-        'items.0.cantidad_pedida'=> ['required', 'numeric', 'min:0.01'],
+        'items.0.cantidad_pedida'=> ['required', 'numeric', 'min:0.001'],
         'items.0.parcial_actual' => ['required', 'numeric', 'min:0'],
 
-        'items.0.llego'          => ['required', 'numeric', 'min:0.01'],
+        'items.0.llego'          => ['required', 'numeric', 'min:0.001'],
         'items.0.razonSocial'    => ['nullable', 'string'],
         'items.0.pu'             => ['nullable', 'numeric', 'min:0'],
 
@@ -218,11 +218,9 @@ if ($obraLocalId <= 0) abort(403);
     $parcialActual  = round((float) $it['parcial_actual'], 4);
     $llego          = round((float) $it['llego'], 4);
 
-    $faltante = round($cantidadPedida - $parcialActual, 4);
-
-    if ($llego > $faltante) {
+    if ($llego > $cantidadPedida) {
         return back()->withErrors([
-            'items.0.llego' => 'No puedes recibir más de lo faltante. Faltan: ' . number_format($faltante, 2),
+            'items.0.llego' => 'No puedes recibir más de la cantidad pedida (' . number_format($cantidadPedida, 4) . ').',
         ]);
     }
 
