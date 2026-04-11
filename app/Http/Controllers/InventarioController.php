@@ -394,16 +394,14 @@ class InventarioController extends Controller
             'obsoleto'       => ['nullable'],
         ]);
 
-        // ✅ FIX: destino nunca NULL
-        $data['destino'] = trim((string)($data['destino'] ?? ''));
-        if ($data['destino'] === '') {
-            $data['destino'] = 'SIN DESTINO';
-        }
+        // Preservar destino existente si no viene en el form
+        $destino = trim((string)($data['destino'] ?? ''));
+        $data['destino'] = $destino !== '' ? $destino : ($inventario->destino ?: 'SIN DESTINO');
 
         $inventario->update([
             ...$data,
-            'devolvible' => (int) ((bool) ($data['devolvible'] ?? false)),
-            'obsoleto'   => (int) ((bool) ($data['obsoleto']   ?? false)),
+            'devolvible' => $inventario->devolvible, // preservar — no hay campo en el form
+            'obsoleto'   => (int) ((bool) ($data['obsoleto'] ?? false)),
         ]);
 
         $page     = (int) $request->input('_page', 1);

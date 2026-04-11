@@ -81,8 +81,7 @@
                                name="insumo_id"
                                class="w-full border rounded px-3 py-2 {{ $bloqueado ? 'bg-gray-100' : '' }}"
                                value="{{ $oldInsumoId }}"
-                               @if($bloqueado) readonly @endif
-                               required>
+                               @if($bloqueado) readonly @endif>
 
                         @error('insumo_id')
                             <div class="text-red-600 text-xs mt-1">{{ $message }}</div>
@@ -97,8 +96,7 @@
                             <select id="familiaSelect"
                                     name="familia"
                                     class="w-full border rounded px-3 py-2 {{ $bloqueado ? 'bg-gray-100 text-gray-500' : '' }}"
-                                    @if($bloqueado) style="pointer-events:none;" tabindex="-1" @endif
-                                    required>
+                                    @if($bloqueado) style="pointer-events:none;" tabindex="-1" @endif>
                                 <option value="">-- Selecciona --</option>
                                 @foreach($familias as $fam => $subs)
                                     <option value="{{ $fam }}" @selected($familiaSeleccionada === $fam)>
@@ -113,8 +111,7 @@
                             <select id="subfamiliaSelect"
                                     name="subfamilia"
                                     class="w-full border rounded px-3 py-2 {{ $bloqueado ? 'bg-gray-100 text-gray-500' : '' }}"
-                                    @if($bloqueado) style="pointer-events:none;" tabindex="-1" @endif
-                                    required>
+                                    @if($bloqueado) style="pointer-events:none;" tabindex="-1" @endif>
                                 <option value="">-- Selecciona --</option>
                                 @foreach($subsIniciales as $s)
                                     <option value="{{ $s }}" @selected($subfamiliaSeleccionada === $s)>
@@ -131,8 +128,7 @@
                                    name="unidad"
                                    class="w-full border rounded px-3 py-2 {{ $bloqueado ? 'bg-gray-100' : '' }}"
                                    value="{{ old('unidad', $inventario->unidad) }}"
-                                   @if($bloqueado) readonly @endif
-                                   required>
+                                   @if($bloqueado) readonly @endif>
                         </div>
 
                         {{-- PROVEEDOR --}}
@@ -142,8 +138,7 @@
                                    name="proveedor"
                                    class="w-full border rounded px-3 py-2 {{ $bloqueado ? 'bg-gray-100' : '' }}"
                                    value="{{ old('proveedor', $inventario->proveedor) }}"
-                                   @if($bloqueado) readonly @endif
-                                   required>
+                                   @if($bloqueado) readonly @endif>
                         </div>
                     </div>
 
