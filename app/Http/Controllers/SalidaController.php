@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 class SalidaController extends Controller
 {
     /**
-     * ✅ 0) Página principal del módulo Salidas
+     * ✅ 0) Página principal del módulo Salidas (web)
      */
     public function index()
     {
@@ -62,51 +62,67 @@ class SalidaController extends Controller
     }
 
     /**
-     * ✅ 1.1) Responsables (combo "Quién recibe")
-     * Combina: historial de movimientos + ACResponsables del ERP (sin filtro de unidad)
+     * ✅ 1.1) Responsables para WEB — devuelve array de strings
      */
     public function responsables(Request $request)
     {
-        $user = auth()->user();
-        if (!$user || !$user->obra_actual_id) {
-            return response()->json([]);
-        }
-
-        $nombres = collect();
-
-        // 1️⃣ Historial de nombres ya usados en esta obra
         try {
-            $historial = DB::table('movimientos')
-                ->where('obra_id', $user->obra_actual_id)
-                ->whereNotNull('nombre_cabo')
-                ->where('nombre_cabo', '!=', '')
+            $nombres = DB::connection('erp')
+                ->table('ACResponsables as r')
+                ->join('Proyectos as proy', 'r.IdProyecto', '=', 'proy.IdProyecto')
+                ->join('AcUnidadesNegocio as un', 'proy.idUnidadNegocio', '=', 'un.IdUnidadNegocio')
+                ->join('AOTipoProyectos as TProy', 'Proy.IdTipoProyecto', '=', 'TProy.IdTipoProyecto')
+                ->whereIn('TProy.Texto', ['Almacen', '100 Obra', 'Desarrollo'])
+                ->where('Proy.Cerrado', 0)
+                ->whereNotNull('r.Nombre')
+                ->where('r.Nombre', '!=', '')
+                ->orderBy('r.Nombre')
                 ->distinct()
-                ->pluck('nombre_cabo');
-            $nombres = $nombres->merge($historial);
+                ->pluck('r.Nombre');
         } catch (\Throwable $e) {
-            // silencioso
+            \Illuminate\Support\Facades\Log::warning('Responsables ERP falló: ' . $e->getMessage());
+            $nombres = collect();
         }
 
-        // 2️⃣ ACResponsables del ERP (sin filtro de unidad de negocio)
+        return response()->json($nombres->values());
+    }
+
+    /**
+     * ✅ 1.2) Responsables para MÓVIL — devuelve objetos completos
+     */
+    public function responsablesMovil(Request $request)
+    {
         try {
-            $erp = DB::connection('erp')
-                ->table('ACResponsables')
-                ->whereNotNull('Nombre')
-                ->where('Nombre', '!=', '')
-                ->distinct()
-                ->pluck('Nombre');
-            $nombres = $nombres->merge($erp);
+            $rows = DB::connection('erp')
+                ->table('ACResponsables as r')
+                ->join('Proyectos as proy', 'r.IdProyecto', '=', 'proy.IdProyecto')
+                ->join('AcUnidadesNegocio as un', 'proy.idUnidadNegocio', '=', 'un.IdUnidadNegocio')
+                ->join('AOTipoProyectos as TProy', 'Proy.IdTipoProyecto', '=', 'TProy.IdTipoProyecto')
+                ->whereIn('TProy.Texto', ['Almacen', '100 Obra', 'Desarrollo'])
+                ->where('Proy.Cerrado', 0)
+                ->whereNotNull('r.Nombre')
+                ->where('r.Nombre', '!=', '')
+                ->select(
+                    'un.IdUnidadNegocio',
+                    'un.UnidadNegocio',
+                    'un.Descripcion',
+                    'proy.IdProyecto',
+                    'proy.Proyecto',
+                    'r.IdResponsable',
+                    'r.Responsable',
+                    'r.Nombre',
+                    'r.Cargo',
+                    'r.Telefono',
+                    'r.Mail'
+                )
+                ->orderBy('r.Nombre')
+                ->get();
         } catch (\Throwable $e) {
-            // silencioso
+            \Illuminate\Support\Facades\Log::warning('Responsables ERP (móvil) falló: ' . $e->getMessage());
+            $rows = collect();
         }
 
-        $resultado = $nombres
-            ->filter()
-            ->unique()
-            ->sort()
-            ->values();
-
-        return response()->json($resultado);
+        return response()->json($rows);
     }
 
     /**
@@ -129,17 +145,14 @@ class SalidaController extends Controller
 
         $query = Inventario::query()->where('obra_id', $obraId);
 
-        $query->where(function ($sub) use ($q) {
-            if (ctype_digit($q)) {
-                $sub->orWhere('id', (int) $q);
-            }
-            $sub->orWhere('insumo_id', 'like', "%{$q}%")
-                ->orWhere('descripcion', 'like', "%{$q}%")
-                ->orWhere('descripcionauxiliar', 'like', "%{$q}%");
-        });
+        if (ctype_digit($q)) {
+            $query->where('id', (int) $q);
+        } else {
+            $query->where('descripcion', 'like', "%{$q}%");
+        }
 
-        $items = $query->orderBy('descripcion')
-            ->limit(20)
+        $items = $query->orderBy('id', 'desc')
+            ->limit(15)
             ->get([
                 'id',
                 'insumo_id',
@@ -176,8 +189,8 @@ class SalidaController extends Controller
         $request->validate([
             'nombre_cabo' => ['required', 'string', 'max:255'],
             'destino_proyecto_id' => ['required'],
-            'nivel' => ['required', 'string', 'max:20'],
-            'departamento' => ['nullable', 'string', 'max:20'],
+            'nivel' => ['required', 'string', 'max:50'],
+            'departamento' => ['nullable', 'string', 'max:50'],
             'observaciones' => ['nullable', 'string', 'max:500'],
 
             'items' => ['required', 'array', 'min:1'],
@@ -306,7 +319,6 @@ class SalidaController extends Controller
                     'descripcion'     => $inv->descripcion,
                     'unidad'          => $inv->unidad,
                     'cantidad'        => $cantidad,
-                    'precio_unitario' => $inv->costo_promedio !== null ? (float) $inv->costo_promedio : null,
                     'devolvible'      => $devolvible,
                     'clasificacion'   => $nivel,
                     'clasificacion_d' => $depto,
@@ -335,28 +347,26 @@ class SalidaController extends Controller
      */
     public function pdf(Movimiento $movimiento)
     {
-        $movimiento->load('detalles');
+        $movimiento->load(['detalles', 'user']);
 
-        // ✅ Encargado = usuario que REGISTRÓ la salida (no el usuario de sesión actual)
-        $encargado = \App\Models\User::find($movimiento->user_id)?->name ?? 'Encargado de almacén';
+        // Encargado desde el registro en BD, no desde la sesión actual
+        $encargado = $movimiento->user?->name ?? 'Encargado de almacén';
 
-        // ✅ Resolver nombre legible del destino desde ERP
-        $destinoNombre = $movimiento->destino;
+        // Nombre del destino desde ERP (destino guarda el IdProyecto)
+        $destinoNombre = (string) $movimiento->destino;
         try {
-            $erpProy = DB::connection('erp')
-                ->table('PROYECTOS as Proy')
-                ->join('AOTipoProyectos as TProy', 'Proy.IdTipoProyecto', '=', 'TProy.IdTipoProyecto')
-                ->where('Proy.IdProyecto', $movimiento->destino)
-                ->select('Proy.Proyecto')
-                ->first();
-            if ($erpProy) {
-                $destinoNombre = $erpProy->Proyecto;
+            $proy = DB::connection('erp')
+                ->table('PROYECTOS')
+                ->where('IdProyecto', $movimiento->destino)
+                ->value('Proyecto');
+            if ($proy) {
+                $destinoNombre = (string) $proy;
             }
         } catch (\Throwable $e) {
-            // fallback al ID si ERP no responde
+            // Si el ERP no responde, se muestra el ID como fallback
         }
 
-        // ✅ DomPDF necesita ruta local absoluta para imágenes
+        // DomPDF necesita ruta local absoluta para imágenes
         $firmaAbsPath = null;
 
         if (!empty($movimiento->firma_recibe_path)) {
