@@ -18,7 +18,7 @@ class MobileAuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Credenciales invalidas'], 401);
+            return response()->json(['message' => 'Credenciales inválidas'], 401);
         }
 
         $token = $user->createToken('mobile')->plainTextToken;
@@ -26,13 +26,14 @@ class MobileAuthController extends Controller
         return response()->json([
             'token' => $token,
             'user'  => [
-                'id'             => $user->id,
-                'name'           => $user->name,
-                'email'          => $user->email,
-                'is_admin'       => (bool) $user->is_admin,
-                'is_multiobra'   => (int) $user->is_multiobra,
-                'solo_explore'   => (bool) $user->solo_explore,
-                'obra_actual_id' => $user->obra_actual_id,
+                'id'                 => $user->id,
+                'name'               => $user->name,
+                'email'              => $user->email,
+                'is_admin'           => (bool) $user->is_admin,
+                'is_multiobra'       => (int) $user->is_multiobra,
+                'solo_explore'       => (bool) $user->solo_explore,
+                'obra_actual_id'     => $user->obra_actual_id,
+                'obra_actual_nombre' => $user->obraActual?->nombre,
             ],
         ]);
     }
@@ -43,7 +44,7 @@ class MobileAuthController extends Controller
             $request->user()->currentAccessToken()->delete();
         } catch (\Throwable $e) {}
 
-        return response()->json(['message' => 'Sesion cerrada']);
+        return response()->json(['message' => 'Sesión cerrada']);
     }
 
     public function me(Request $request)
@@ -51,13 +52,14 @@ class MobileAuthController extends Controller
         $user = $request->user();
 
         return response()->json([
-            'id'             => $user->id,
-            'name'           => $user->name,
-            'email'          => $user->email,
-            'is_admin'       => (bool) $user->is_admin,
-            'is_multiobra'   => (int) $user->is_multiobra,
-            'solo_explore'   => (bool) $user->solo_explore,
-            'obra_actual_id' => $user->obra_actual_id,
+            'id'                 => $user->id,
+            'name'               => $user->name,
+            'email'              => $user->email,
+            'is_admin'           => (bool) $user->is_admin,
+            'is_multiobra'       => (int) $user->is_multiobra,
+            'solo_explore'       => (bool) $user->solo_explore,
+            'obra_actual_id'     => $user->obra_actual_id,
+            'obra_actual_nombre' => $user->obraActual?->nombre,
         ]);
     }
 }

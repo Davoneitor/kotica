@@ -146,7 +146,7 @@
                          :class="fotoValeNombre ? 'border-green-400 bg-green-50' : ''">
                         <div x-show="!fotoValeNombre" class="text-gray-400">
                             <div class="text-2xl">📷</div>
-                            <div class="text-xs mt-1">Tomar / subir</div>
+                            <div class="text-xs mt-1">Tomar foto</div>
                         </div>
                         <div x-show="fotoValeNombre" class="text-green-700 text-xs font-medium break-all" x-text="fotoValeNombre"></div>
                         <input type="file" name="foto_vale" x-ref="inputFotoVale"
@@ -163,7 +163,7 @@
                          :class="fotoCamionNombre ? 'border-green-400 bg-green-50' : ''">
                         <div x-show="!fotoCamionNombre" class="text-gray-400">
                             <div class="text-2xl">🚛</div>
-                            <div class="text-xs mt-1">Tomar / subir</div>
+                            <div class="text-xs mt-1">Tomar foto</div>
                         </div>
                         <div x-show="fotoCamionNombre" class="text-green-700 text-xs font-medium break-all" x-text="fotoCamionNombre"></div>
                         <input type="file" name="foto_camion" x-ref="inputFotoCamion"

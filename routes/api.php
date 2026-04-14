@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\CamionMovilController;
+use App\Http\Controllers\InventarioMovilController;
+use App\Http\Controllers\RetornableMovilController;
+use App\Http\Controllers\TransferenciaMovilController;
 use App\Http\Controllers\EntradaController;
 use App\Http\Controllers\MobileAuthController;
 use App\Http\Controllers\SalidaController;
@@ -23,4 +27,21 @@ Route::middleware('auth:sanctum')->group(function () {
     // Entradas (Órdenes de Compra)
     Route::get('/entradas/ordenes-compra',  [EntradaController::class, 'index']);
     Route::post('/entradas/recibir',        [EntradaController::class, 'recibir']);
+
+    // Inventario
+    Route::get('/inventario', [InventarioMovilController::class, 'index']);
+
+    // Retornables
+    Route::get('/retornables',                        [RetornableMovilController::class, 'index']);
+    Route::post('/retornables/{detalle}/recuperar',   [RetornableMovilController::class, 'recuperar']);
+
+    // Transferencias entre obras
+    Route::get('/transferencias/obras',  [TransferenciaMovilController::class, 'obras']);
+    Route::get('/transferencias/buscar', [TransferenciaMovilController::class, 'buscar']);
+    Route::post('/transferencias',       [TransferenciaMovilController::class, 'store']);
+
+    // Camiones escombro
+    Route::get('/camiones/hoy',    [CamionMovilController::class, 'hoy']);
+    Route::get('/camiones/placas', [CamionMovilController::class, 'placas']);
+    Route::post('/camiones',       [CamionMovilController::class, 'store']);
 });

@@ -340,6 +340,7 @@
                                                                     type="file"
                                                                     name="items[0][foto]"
                                                                     accept="image/*"
+                                                                    capture="environment"
                                                                     class="w-full border rounded px-4 py-3"
                                                                     required
                                                                     @change="
