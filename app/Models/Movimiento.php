@@ -23,4 +23,9 @@ class Movimiento extends Model
     {
         return $this->hasMany(\App\Models\MovimientoDetalle::class, 'movimiento_id');
     }
+
+    public function user()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'user_id');
+    }
 }

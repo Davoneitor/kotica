@@ -168,6 +168,23 @@ class SalidaController extends Controller
     }
 
     /**
+     * ✅ 2.1) Catálogo completo para caché offline (móvil)
+     */
+    public function catalogoProductos(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user || !$user->obra_actual_id) {
+            return response()->json([]);
+        }
+
+        $items = Inventario::where('obra_id', (int) $user->obra_actual_id)
+            ->orderBy('descripcion')
+            ->get(['id', 'insumo_id', 'descripcion', 'unidad', 'cantidad', 'devolvible']);
+
+        return response()->json($items);
+    }
+
+    /**
      * ✅ 3) Guardar salida
      */
     public function store(Request $request)
@@ -184,6 +201,19 @@ class SalidaController extends Controller
                 'ok' => false,
                 'message' => 'No tienes obra actual asignada. Selecciona una obra antes de registrar la salida.'
             ], 422);
+        }
+
+        // ✅ Anti-duplicado por UUID (móvil offline)
+        $uuid = $request->input('uuid');
+        if ($uuid) {
+            $existente = \App\Models\Movimiento::where('uuid', $uuid)->first();
+            if ($existente) {
+                return response()->json([
+                    'ok'      => true,
+                    'pdf_url' => route('salidas.pdf', $existente->id),
+                    'duplicado' => true,
+                ]);
+            }
         }
 
         $request->validate([
@@ -203,7 +233,7 @@ class SalidaController extends Controller
             'firma_base64' => ['required', 'string'],
         ]);
 
-        return DB::transaction(function () use ($request, $obraId) {
+        return DB::transaction(function () use ($request, $obraId, $uuid) {
 
             /* =========================
                1) GUARDAR FIRMA (PNG)
@@ -256,6 +286,7 @@ class SalidaController extends Controller
                2) CREAR MOVIMIENTO
                ========================= */
             $mov = Movimiento::create([
+                'uuid'              => $uuid ?: null,
                 'obra_id'           => (int) $obraId,
                 'user_id'           => auth()->id(),
                 'fecha'             => now(),

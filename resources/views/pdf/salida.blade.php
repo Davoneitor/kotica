@@ -23,13 +23,11 @@ salida.blade
         .right { text-align: right; }
         .center { text-align: center; }
 
-        .sign { width: 100%; margin-top: 25px; border-collapse: collapse; }
-        .sign td { padding: 18px 6px; vertical-align: top; }
-
-        /* Ajustes para firma */
-        .signbox { margin-top: 10px; height: 80px; }
-        .sigimg { height: 80px; width: auto; display: block; }
-        .line { border-top: 1px solid #111; width: 90%; height: 1px; margin-top: 10px; }
+        .sign { width: 100%; margin-top: 30px; border-collapse: collapse; }
+        .sign td { padding: 10px; vertical-align: bottom; }
+        .signbox { height: 170px; text-align: center; }
+        .sigimg { width: 300px; height: 150px; display: block; margin: 0 auto; }
+        .line { border-top: 2px solid #111; width: 85%; margin: 0 auto; margin-top: 8px; }
 
         .small { font-size: 11px; color: #222; margin-top: 6px; }
 
@@ -167,7 +165,7 @@ salida.blade
 
         <td style="width: 50%;">
             <div class="signbox">
-                {{-- sin raya --}}
+                <div class="line"></div>
             </div>
 
             <div class="small">
