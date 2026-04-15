@@ -19,6 +19,8 @@ class MobileAuthController extends Controller
             'is_admin'           => (bool) $user->is_admin,
             'is_multiobra'       => (int) $user->is_multiobra,
             'solo_explore'       => (bool) $user->solo_explore,
+            'gestion_usuarios'   => (bool) $user->gestion_usuarios,
+            'explore'            => (bool) $user->explore,
             'obra_actual_id'     => $user->obra_actual_id,
             'obra_actual_nombre' => $user->obraActual?->nombre,
         ];
@@ -37,6 +39,10 @@ class MobileAuthController extends Controller
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Credenciales inválidas'], 401);
+        }
+
+        if (isset($user->estatus) && ! $user->estatus) {
+            return response()->json(['message' => 'Tu cuenta está desactivada. Contacta al administrador.'], 403);
         }
 
         $token = $user->createToken('mobile')->plainTextToken;

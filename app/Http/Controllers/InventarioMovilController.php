@@ -61,4 +61,61 @@ class InventarioMovilController extends Controller
             ],
         ]);
     }
+
+    /**
+     * PUT /api/inventario/{id}
+     * Solo administradores (is_admin = 1).
+     */
+    public function update(Request $request, $id)
+    {
+        $user = Auth::user();
+        if (!$user?->is_admin) {
+            return response()->json(['ok' => false, 'message' => 'Sin permisos de administrador.'], 403);
+        }
+
+        $obraId = (int) ($user->obra_actual_id ?? 0);
+        $insumo = Inventario::where('obra_id', $obraId)->findOrFail($id);
+
+        $request->validate([
+            'descripcion'         => ['sometimes', 'string', 'max:500'],
+            'descripcionauxiliar' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'familia'             => ['sometimes', 'nullable', 'string', 'max:100'],
+            'subfamilia'          => ['sometimes', 'nullable', 'string', 'max:100'],
+            'unidad'              => ['sometimes', 'nullable', 'string', 'max:20'],
+            'proveedor'           => ['sometimes', 'nullable', 'string', 'max:200'],
+            'cantidad'            => ['sometimes', 'numeric', 'min:0'],
+            'devolvible'          => ['sometimes', 'boolean'],
+            'obsoleto'            => ['sometimes', 'boolean'],
+        ]);
+
+        $insumo->fill($request->only([
+            'descripcion', 'descripcionauxiliar', 'familia',
+            'subfamilia', 'unidad', 'proveedor', 'cantidad', 'devolvible', 'obsoleto',
+        ]));
+        $insumo->save();
+
+        return response()->json(['ok' => true, 'insumo' => $insumo->only([
+            'id', 'insumo_id', 'descripcion', 'descripcionauxiliar',
+            'familia', 'subfamilia', 'unidad', 'proveedor',
+            'cantidad', 'costo_promedio', 'devolvible', 'obsoleto',
+        ])]);
+    }
+
+    /**
+     * DELETE /api/inventario/{id}
+     * Solo administradores. Elimina el registro permanentemente.
+     */
+    public function destroy($id)
+    {
+        $user = Auth::user();
+        if (!$user?->is_admin) {
+            return response()->json(['ok' => false, 'message' => 'Sin permisos de administrador.'], 403);
+        }
+
+        $obraId = (int) ($user->obra_actual_id ?? 0);
+        $insumo = Inventario::where('obra_id', $obraId)->findOrFail($id);
+        $insumo->delete();
+
+        return response()->json(['ok' => true]);
+    }
 }

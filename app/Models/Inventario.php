@@ -13,6 +13,7 @@ class Inventario extends Model
     'familia',
     'subfamilia',
     'descripcion',
+    'descripcionauxiliar',
     'unidad',
     'obra_id',
     'proveedor',
@@ -23,12 +24,6 @@ class Inventario extends Model
     'destino',
     'devolvible',
     'obsoleto',
-    'descripcionauxiliar',
-];
-
-protected $casts = [
-    'devolvible' => 'boolean',
-    'obsoleto'   => 'boolean',
 ];
 
 
