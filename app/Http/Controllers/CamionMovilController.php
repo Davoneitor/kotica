@@ -11,11 +11,10 @@ class CamionMovilController extends Controller
 {
     /**
      * GET /api/camiones/hoy
-     * Registros de hoy + total m³ para la obra actual.
      */
     public function hoy(Request $request)
     {
-        $user = Auth::user();
+        $user   = Auth::user();
         $obraId = (int) ($user?->obra_actual_id ?? 0);
         if (!$obraId) return response()->json(['total' => 0, 'registros' => []]);
 
@@ -24,46 +23,57 @@ class CamionMovilController extends Controller
         $registros = SalidaCamionEscombro::where('obra_id', $obraId)
             ->whereDate('fecha', $fecha)
             ->orderBy('id', 'desc')
-            ->get(['id', 'hora_entrada', 'hora_salida', 'tipo_material', 'placas', 'metros_cubicos', 'folio_recibo', 'foto_vale', 'foto_camion', 'created_at']);
-
-        $total = $registros->sum('metros_cubicos');
+            ->get(['id', 'uuid', 'hora_entrada', 'hora_salida', 'tipo_material',
+                   'placas', 'metros_cubicos', 'folio_recibo', 'created_at']);
 
         return response()->json([
-            'total'     => (float) $total,
+            'total'     => (float) $registros->sum('metros_cubicos'),
             'registros' => $registros->values(),
         ]);
     }
 
     /**
      * GET /api/camiones/placas
-     * Placas usadas anteriormente (autocomplete).
      */
     public function placas()
     {
-        $user = Auth::user();
+        $user   = Auth::user();
         $obraId = (int) ($user?->obra_actual_id ?? 0);
         if (!$obraId) return response()->json([]);
 
         $placas = SalidaCamionEscombro::where('obra_id', $obraId)
-            ->whereNotNull('placas')
-            ->where('placas', '!=', '')
-            ->distinct()
-            ->orderBy('placas')
-            ->pluck('placas');
+            ->whereNotNull('placas')->where('placas', '!=', '')
+            ->distinct()->orderBy('placas')->pluck('placas');
 
         return response()->json($placas);
     }
 
     /**
      * POST /api/camiones
-     * Guarda un nuevo registro. Fotos llegan como base64 en JSON.
+     * Acepta uuid opcional para deduplicación offline.
      */
     public function store(Request $request)
     {
-        $user = Auth::user();
+        $user   = Auth::user();
         $obraId = (int) ($user?->obra_actual_id ?? 0);
         if (!$obraId) {
             return response()->json(['ok' => false, 'message' => 'Sin obra asignada.'], 422);
+        }
+
+        // ── Deduplicación por UUID (modo offline) ─────────────────────────────
+        $uuid = $request->get('uuid');
+        if ($uuid) {
+            $existing = SalidaCamionEscombro::where('uuid', $uuid)->first();
+            if ($existing) {
+                $total = (float) SalidaCamionEscombro::where('obra_id', $obraId)
+                    ->whereDate('fecha', $existing->fecha)->sum('metros_cubicos');
+                return response()->json([
+                    'ok'        => true,
+                    'duplicado' => true,
+                    'id'        => $existing->id,
+                    'total_dia' => $total,
+                ]);
+            }
         }
 
         $request->validate([
@@ -78,6 +88,14 @@ class CamionMovilController extends Controller
             'foto_camion'    => ['required', 'string'],
         ]);
 
+        // Validar que hora_salida >= hora_entrada
+        if ($request->hora_salida < $request->hora_entrada) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'La hora de salida debe ser posterior a la hora de entrada.',
+            ], 422);
+        }
+
         $fotoValePath   = $this->guardarFotoBase64($request->foto_vale,   "escombro/obra_{$obraId}");
         $fotoCamionPath = $this->guardarFotoBase64($request->foto_camion, "escombro/obra_{$obraId}");
 
@@ -86,6 +104,7 @@ class CamionMovilController extends Controller
         }
 
         $registro = SalidaCamionEscombro::create([
+            'uuid'           => $uuid ?: null,
             'obra_id'        => $obraId,
             'user_id'        => Auth::id(),
             'fecha'          => $request->fecha,
@@ -100,14 +119,16 @@ class CamionMovilController extends Controller
         ]);
 
         $total = (float) SalidaCamionEscombro::where('obra_id', $obraId)
-            ->whereDate('fecha', $request->fecha)
-            ->sum('metros_cubicos');
+            ->whereDate('fecha', $request->fecha)->sum('metros_cubicos');
 
         return response()->json([
             'ok'        => true,
             'id'        => $registro->id,
             'total_dia' => $total,
-            'registro'  => $registro->only(['id', 'hora_entrada', 'hora_salida', 'tipo_material', 'placas', 'metros_cubicos', 'folio_recibo', 'foto_vale', 'foto_camion', 'created_at']),
+            'registro'  => $registro->only([
+                'id', 'uuid', 'hora_entrada', 'hora_salida',
+                'tipo_material', 'placas', 'metros_cubicos', 'folio_recibo', 'created_at',
+            ]),
         ]);
     }
 

@@ -9,6 +9,7 @@ class SalidaCamionEscombro extends Model
     protected $table = 'salida_camiones_escombro';
 
     protected $fillable = [
+        'uuid',
         'obra_id',
         'user_id',
         'fecha',

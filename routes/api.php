@@ -14,8 +14,10 @@ Route::post('/mobile/login', [MobileAuthController::class, 'login']);
 
 // ── Rutas protegidas ────────────────────────────────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/mobile/logout', [MobileAuthController::class, 'logout']);
-    Route::get('/mobile/me',     [MobileAuthController::class, 'me']);
+    Route::post('/mobile/logout',   [MobileAuthController::class, 'logout']);
+    Route::get('/mobile/me',        [MobileAuthController::class, 'me']);
+    Route::get('/mobile/obras',     [MobileAuthController::class, 'obras']);
+    Route::put('/mobile/obra',      [MobileAuthController::class, 'cambiarObra']);
 
     // Salidas
     Route::get('/salidas/destinos',         [SalidaController::class, 'destinos']);
