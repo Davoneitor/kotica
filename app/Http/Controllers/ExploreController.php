@@ -636,14 +636,32 @@ $user = Auth::user();
         ->limit(200)
         ->get();
 
-    // Obtener familia de cada insumo buscando en inventarios de la misma obra
+    // Obtener familia de cada insumo buscando en cualquier obra (sin restricción de obra_id)
     $insumosList = $rows->pluck('insumo')->unique()->filter()->values()->toArray();
     $familiasMap = [];
-    if (!empty($insumosList) && $obraId) {
+    if (!empty($insumosList)) {
         $familiasMap = Inventario::whereIn('insumo_id', $insumosList)
-            ->where('obra_id', $obraId)
+            ->whereNotNull('familia')
+            ->where('familia', '!=', '')
             ->pluck('familia', 'insumo_id')
             ->toArray();
+    }
+
+    // Fallback: derivar familia desde el código (ej: "02ON-VAR-0002" → subfamilia "02ON-VAR")
+    $subfamiliaToFamilia = [];
+    foreach (config('familias', []) as $fam => $subs) {
+        foreach ($subs as $sub) {
+            $subfamiliaToFamilia[$sub] = $fam;
+        }
+    }
+    foreach ($insumosList as $ins) {
+        if (!isset($familiasMap[$ins]) || $familiasMap[$ins] === '') {
+            $parts = explode('-', (string) $ins);
+            $subPrefix = count($parts) >= 2 ? $parts[0] . '-' . $parts[1] : '';
+            if ($subPrefix !== '' && isset($subfamiliaToFamilia[$subPrefix])) {
+                $familiasMap[$ins] = $subfamiliaToFamilia[$subPrefix];
+            }
+        }
     }
 
     // ⚠️ Nota: aquí mandamos resumen. El desglose va en /detalles
@@ -939,14 +957,32 @@ public function entradaFoto($id)
             ->orderByDesc('fecha_recibido')
             ->get();
 
-        // Lookup de familia desde inventarios
+        // Lookup de familia desde inventarios (sin restricción de obra)
         $insumosList = $rows->pluck('insumo')->unique()->filter()->values()->toArray();
         $familiasMap = [];
-        if (!empty($insumosList) && $obraId) {
+        if (!empty($insumosList)) {
             $familiasMap = Inventario::whereIn('insumo_id', $insumosList)
-                ->where('obra_id', $obraId)
+                ->whereNotNull('familia')
+                ->where('familia', '!=', '')
                 ->pluck('familia', 'insumo_id')
                 ->toArray();
+        }
+
+        // Fallback: derivar familia desde el código del insumo
+        $subfamiliaToFamilia = [];
+        foreach (config('familias', []) as $fam => $subs) {
+            foreach ($subs as $sub) {
+                $subfamiliaToFamilia[$sub] = $fam;
+            }
+        }
+        foreach ($insumosList as $ins) {
+            if (!isset($familiasMap[$ins]) || $familiasMap[$ins] === '') {
+                $parts = explode('-', (string) $ins);
+                $subPrefix = count($parts) >= 2 ? $parts[0] . '-' . $parts[1] : '';
+                if ($subPrefix !== '' && isset($subfamiliaToFamilia[$subPrefix])) {
+                    $familiasMap[$ins] = $subfamiliaToFamilia[$subPrefix];
+                }
+            }
         }
 
         $data = $rows->map(fn($r) => [
