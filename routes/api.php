@@ -9,6 +9,7 @@ use App\Http\Controllers\MobileAuthController;
 use App\Http\Controllers\SalidaController;
 use App\Http\Controllers\ExploreMovilController;
 use App\Http\Controllers\GraficasMovilController;
+use App\Http\Controllers\HistorialController;
 use App\Http\Controllers\UserManagementController;
 use Illuminate\Support\Facades\Route;
 
@@ -34,9 +35,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/entradas/recibir',        [EntradaController::class, 'recibir']);
 
     // Inventario
-    Route::get('/inventario',        [InventarioMovilController::class, 'index']);
-    Route::put('/inventario/{id}',   [InventarioMovilController::class, 'update']);
-    Route::delete('/inventario/{id}',[InventarioMovilController::class, 'destroy']);
+    Route::get('/inventario',                    [InventarioMovilController::class, 'index']);
+    Route::get('/inventario/{id}/historial',     [HistorialController::class,       'index']);
+    Route::put('/inventario/{id}',               [InventarioMovilController::class, 'update']);
+    Route::delete('/inventario/{id}',            [InventarioMovilController::class, 'destroy']);
 
     // Retornables
     Route::get('/retornables',                        [RetornableMovilController::class, 'index']);

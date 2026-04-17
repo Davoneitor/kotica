@@ -304,27 +304,29 @@
 
                                 <td class="py-2 pr-3">
                                     <div class="flex items-center gap-2">
+                                        {{-- Historial (todos los usuarios) --}}
+                                        <button type="button"
+                                                onclick="abrirHistorial({{ $inv->id }}, '{{ addslashes($inv->descripcion) }}')"
+                                                class="px-3 py-2 text-sm rounded border bg-blue-50 hover:bg-blue-100 text-blue-700">
+                                            Historial
+                                        </button>
+
                                         @if($isAdmin && !$inv->obsoleto)
-                                            {{-- ✅ SOLO ADMIN + NO OBSOLETO: Editar --}}
                                             <a href="{{ route('inventario.edit', array_filter(['inventario' => $inv->id, 'page' => request('page', 1), 'obsoleto' => request('obsoleto')])) }}"
                                                class="px-3 py-2 text-sm rounded border bg-gray-50 hover:bg-gray-100">
                                                 Editar
                                             </a>
 
-                                            {{-- ✅ SOLO ADMIN + NO OBSOLETO: Eliminar --}}
                                             <form method="POST"
                                                   action="{{ route('inventario.destroy', $inv) }}"
                                                   onsubmit="return confirm('¿Seguro que quieres eliminar este registro (ID {{ $inv->id }})?');">
                                                 @csrf
                                                 @method('DELETE')
-
                                                 <button type="submit"
                                                         class="px-3 py-2 text-sm rounded border bg-gray-50 hover:bg-gray-100">
                                                     Eliminar
                                                 </button>
                                             </form>
-                                        @else
-                                            <span class="text-xs text-gray-400">—</span>
                                         @endif
                                     </div>
                                 </td>
@@ -349,6 +351,191 @@
             </div>
         </div>
     </div>
+
+    {{-- ===================== --}}
+    {{-- MODAL HISTORIAL --}}
+    {{-- ===================== --}}
+    <div id="modalHistorial"
+         style="display:none; position:fixed; inset:0; z-index:60; background:rgba(0,0,0,0.5);"
+         onclick="if(event.target===this) cerrarHistorial()">
+
+        <div style="background:#fff; width:100%; max-width:680px; max-height:90vh;
+                    margin:5vh auto; border-radius:10px; display:flex; flex-direction:column; overflow:hidden;">
+
+            {{-- Header --}}
+            <div style="padding:16px 20px; border-bottom:1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:flex-start;">
+                <div>
+                    <div style="font-weight:700; font-size:16px;">Historial de trazabilidad</div>
+                    <div id="historialSubtitulo" style="font-size:13px; color:#6b7280; margin-top:2px;"></div>
+                </div>
+                <button onclick="cerrarHistorial()"
+                        style="padding:4px 10px; border:1px solid #d1d5db; border-radius:6px; background:#f9fafb; cursor:pointer;">
+                    ✕
+                </button>
+            </div>
+
+            {{-- Stats --}}
+            <div id="historialStats" style="padding:10px 20px; background:#f9fafb; border-bottom:1px solid #e5e7eb; font-size:12px; color:#374151; display:none;">
+            </div>
+
+            {{-- Cuerpo scrollable --}}
+            <div style="overflow-y:auto; padding:20px; flex:1;">
+
+                <div id="historialLoading" style="text-align:center; color:#9ca3af; padding:30px;">
+                    Cargando...
+                </div>
+
+                <div id="historialTimeline" style="display:none;">
+                    {{-- generado por JS --}}
+                </div>
+
+                <div id="historialVacio" style="display:none; text-align:center; color:#9ca3af; padding:30px;">
+                    Sin eventos registrados.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const _historialUrls = {};
+    @foreach($inventarios as $inv)
+        _historialUrls[{{ $inv->id }}] = "{{ route('inventario.historial', $inv) }}";
+    @endforeach
+
+    function abrirHistorial(id, descripcion) {
+        document.getElementById('modalHistorial').style.display = 'block';
+        document.getElementById('historialSubtitulo').textContent = descripcion;
+        document.getElementById('historialLoading').style.display = 'block';
+        document.getElementById('historialTimeline').style.display = 'none';
+        document.getElementById('historialVacio').style.display = 'none';
+        document.getElementById('historialStats').style.display = 'none';
+
+        fetch(_historialUrls[id], { headers: { 'Accept': 'application/json' } })
+            .then(r => r.json())
+            .then(data => renderHistorial(data))
+            .catch(() => {
+                document.getElementById('historialLoading').textContent = 'Error al cargar.';
+            });
+    }
+
+    function cerrarHistorial() {
+        document.getElementById('modalHistorial').style.display = 'none';
+    }
+
+    function renderHistorial(data) {
+        document.getElementById('historialLoading').style.display = 'none';
+
+        const eventos   = data.eventos || [];
+        const unidad    = data.unidad  || '';
+        const actual    = parseFloat(data.cantidad) || 0;
+
+        // Totales por tipo
+        const sumaEntradas = eventos.filter(e => e.tipo === 'entrada').reduce((s, e) => s + (parseFloat(e.cantidad) || 0), 0);
+        const sumaSalidas  = eventos.filter(e => e.tipo === 'salida' ).reduce((s, e) => s + (parseFloat(e.cantidad) || 0), 0);
+        const sumaAjustes  = eventos.filter(e => e.tipo === 'ajuste' ).reduce((s, e) => s + (parseFloat(e.cantidad) || 0), 0);
+        const netoMovs     = sumaEntradas - sumaSalidas + sumaAjustes;
+        const diferencia   = parseFloat((actual - netoMovs).toFixed(4));
+
+        // Indicador de cuadre
+        let cuadreHtml;
+        if (diferencia === 0) {
+            cuadreHtml = `<span style="background:#dcfce7; color:#166534; border:1px solid #16a34a;
+                                       border-radius:6px; padding:3px 10px; font-weight:700; font-size:12px;">
+                            ✅ CUADRA
+                          </span>`;
+        } else if (diferencia > 0) {
+            cuadreHtml = `<span style="background:#fef9c3; color:#713f12; border:1px solid #ca8a04;
+                                       border-radius:6px; padding:3px 10px; font-weight:700; font-size:12px;">
+                            ⚠️ NO CUADRA — stock inicial no registrado en OC: +${diferencia} ${unidad}
+                          </span>`;
+        } else {
+            cuadreHtml = `<span style="background:#fee2e2; color:#991b1b; border:1px solid #dc2626;
+                                       border-radius:6px; padding:3px 10px; font-weight:700; font-size:12px;">
+                            ❌ NO CUADRA — faltante: ${diferencia} ${unidad}
+                          </span>`;
+        }
+
+        // Barra de stats
+        const statsEl = document.getElementById('historialStats');
+        statsEl.style.display = 'block';
+        statsEl.innerHTML = `
+            <div style="display:flex; gap:20px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">
+                <span>📦 Entradas: <b>+${sumaEntradas} ${unidad}</b></span>
+                <span>🔴 Salidas: <b>-${sumaSalidas} ${unidad}</b></span>
+                <span>↩️ Devoluciones: <b>+${sumaAjustes} ${unidad}</b></span>
+                <span style="margin-left:auto;">Existencia actual: <b>${actual} ${unidad}</b></span>
+            </div>
+            <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                <span style="font-size:12px; color:#6b7280;">
+                    Neto por movimientos: <b>${netoMovs} ${unidad}</b>
+                </span>
+                ${cuadreHtml}
+            </div>`;
+
+        if (!eventos.length) {
+            document.getElementById('historialVacio').style.display = 'block';
+            return;
+        }
+
+        const colores = {
+            creacion : { bg:'#dcfce7', border:'#16a34a', text:'#166534' },
+            entrada  : { bg:'#dbeafe', border:'#2563eb', text:'#1e40af' },
+            salida   : { bg:'#fee2e2', border:'#dc2626', text:'#991b1b' },
+            ajuste   : { bg:'#fef9c3', border:'#ca8a04', text:'#713f12' },
+        };
+
+        const tl = document.getElementById('historialTimeline');
+        tl.innerHTML = '';
+
+        // Saldo acumulado (recorremos en orden cronológico)
+        let saldo = 0;
+        eventos.forEach((ev, idx) => {
+            const c = colores[ev.tipo] || colores.creacion;
+            const fecha   = ev.fecha ? ev.fecha.substring(0, 16).replace('T', ' ') : '';
+            const usuario = ev.usuario ? `<span style="color:#6b7280; font-size:11px;"> · ${ev.usuario}</span>` : '';
+
+            // Actualizar saldo acumulado
+            if (ev.tipo === 'entrada') saldo += parseFloat(ev.cantidad) || 0;
+            if (ev.tipo === 'salida')  saldo -= parseFloat(ev.cantidad) || 0;
+            if (ev.tipo === 'ajuste')  saldo += parseFloat(ev.cantidad) || 0;
+
+            const saldoTag = ev.tipo !== 'creacion'
+                ? `<span style="display:inline-block; background:#f3f4f6; border:1px solid #d1d5db;
+                                border-radius:4px; padding:1px 7px; font-size:11px; color:#374151;
+                                margin-top:3px;">
+                       Saldo: <b>${parseFloat(saldo.toFixed(4))} ${unidad}</b>
+                   </span>`
+                : '';
+
+            const item = document.createElement('div');
+            item.style.cssText = 'display:flex; gap:12px; margin-bottom:16px;';
+            item.innerHTML = `
+                <div style="display:flex; flex-direction:column; align-items:center;">
+                    <div style="width:36px; height:36px; border-radius:50%; background:${c.bg};
+                                border:2px solid ${c.border}; display:flex; align-items:center;
+                                justify-content:center; font-size:16px; flex-shrink:0;">
+                        ${ev.icono}
+                    </div>
+                    ${idx < eventos.length - 1
+                        ? `<div style="width:2px; flex:1; background:#e5e7eb; margin-top:4px;"></div>`
+                        : ''}
+                </div>
+                <div style="flex:1; padding-bottom:8px;">
+                    <div style="font-weight:600; font-size:13px; color:${c.text};">${ev.titulo}</div>
+                    <div style="font-size:12px; color:#374151; margin-top:2px;">${ev.detalle}</div>
+                    <div style="font-size:11px; color:#9ca3af; margin-top:2px;">${fecha}${usuario}</div>
+                    ${saldoTag}
+                </div>`;
+            tl.appendChild(item);
+        });
+
+        tl.style.display = 'block';
+    }
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') cerrarHistorial();
+    });
+    </script>
 
     {{-- ===================== --}}
     {{-- ✅ MODAL SALIDAS --}}

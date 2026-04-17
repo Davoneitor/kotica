@@ -42,6 +42,7 @@ Route::patch('/inventario/{inventario}', [InventarioController::class, 'update']
 Route::delete('/inventario/{inventario}', [InventarioController::class, 'destroy'])->name('inventario.destroy');
 Route::get('/inventario/buscar', [InventarioController::class, 'buscar'])->name('inventario.buscar');
 Route::patch('/inventario/{inventario}/desc-auxiliar', [InventarioController::class, 'actualizarDescAuxiliar'])->name('inventario.desc_auxiliar');
+Route::get('/inventario/{inventario}/historial', [InventarioController::class, 'historial'])->name('inventario.historial');
 
     // =========================
     // SALIDAS

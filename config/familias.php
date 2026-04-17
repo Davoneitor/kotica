@@ -34,12 +34,12 @@ return [
 
     '10 ONA Clavos' => ['10ON-CLA', '10ON-GEN'],
 
-    '11 ONA Agregados' => ['11ON-AGR', '11ON-GEN'],
+    '11 ONA Agregados' => ['11ON-AGR', '11ON-GEN', '12ON-AGR'],
 
     '12 ONA Combustibles' => ['12ON-COM', '12ON-GEN'],
 
     '13 ONA Hta y Equipo' => [
-        '13ON-HTA','13ON-BRO','13ON-CEP','13ON-CIN','13ON-COP','13ON-DIS','13ON-EQM',
+        '13ON-HTA','130N-HTA','13ON-BRO','13ON-CEP','13ON-CIN','13ON-COP','13ON-DIS','13ON-EQM',
         '13ON-PIN','13ON-ESC','13ON-FLE','13ON-FUM','13ON-MRR','13ON-MRT','13ON-PAL',
         '13ON-PIS','13ON-PLO','13ON-COR','13ON-ESP','13ON-LLV','13ON-JGO','13ON-LLA',
         '13ON-NIV','13ON-RAS','13ON-PUL','13ON-CAN','13ON-CAR','13ON-LLN','13ON-VOL',
@@ -63,7 +63,7 @@ return [
 
     '22 Yesos y TR' => [
         '22YT-ADH','22YT-ACC','22YT-YES','22YT-PAN','22YT-PER','22YT-FIJ',
-        '22YT-REF','22YT-SEL','22YT-GEN','22YT-EST','22YT-TTR'
+        '22YT-REF','22YT-SEL','22YT-GEN','22YT-EST','22YT-TTR','22YT-OTR'
     ],
 
     '24 Pinturas e Imper' => [
@@ -98,7 +98,8 @@ return [
     // 🔥 Subcontratos (SC)
     'SC Subcontratos' => [
         'SC-AGUA','SC-BAR','SC-CAN','SC-COC','SC-CON','SC-CUB','SC-ELE',
-        'SC-EXC','SC-LOD','SC-MAT','SC-NUM','SC-PER','SC-PUE','SC-SOL'
+        'SC-EXC','SC-LOD','SC-MAT','SC-NUM','SC-PER','SC-PUE','SC-SOL',
+        'SCEX-MTR','SCEX-PDR'
     ],
 
 ];

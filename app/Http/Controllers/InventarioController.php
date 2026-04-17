@@ -472,6 +472,104 @@ class InventarioController extends Controller
         ]);
     }
 
+    public function historial(Inventario $inventario)
+    {
+        $eventos = collect();
+
+        // 1) Creación del registro (cantidad = 0, es el punto de partida en el sistema)
+        $eventos->push([
+            'tipo'     => 'creacion',
+            'fecha'    => (string) $inventario->created_at,
+            'icono'    => '🟢',
+            'titulo'   => 'Insumo creado en inventario',
+            'detalle'  => "Registro creado en el sistema",
+            'cantidad' => 0,
+            'usuario'  => null,
+        ]);
+
+        // 2) Entradas (OC recibidas)
+        $entradas = \App\Models\OcRecepcion::where('insumo', $inventario->insumo_id)
+            ->where('obra_id', $inventario->obra_id)
+            ->orderBy('fecha_recibido')
+            ->get();
+
+        foreach ($entradas as $e) {
+            $pu     = $e->precio_unitario ? ' | PU: $' . number_format((float)$e->precio_unitario, 2) : '';
+            $titulo = ($e->id_pedido && (int)$e->id_pedido > 0)
+                ? 'Entrada (OC ' . $e->id_pedido . ')'
+                : 'Entrada directa (sin OC)';
+            $eventos->push([
+                'tipo'     => 'entrada',
+                'fecha'    => (string) $e->fecha_recibido,
+                'icono'    => '📦',
+                'titulo'   => $titulo,
+                'detalle'  => "Cantidad: {$e->cantidad_llego} {$e->unidad}{$pu}",
+                'cantidad' => (float) $e->cantidad_llego,
+                'usuario'  => null,
+            ]);
+        }
+
+        // 3) Salidas (movimientos)
+        $salidas = DB::table('movimiento_detalles as md')
+            ->join('movimientos as m', 'm.id', '=', 'md.movimiento_id')
+            ->leftJoin('users as u', 'u.id', '=', 'm.user_id')
+            ->where('md.inventario_id', $inventario->id)
+            ->orderBy('m.fecha')
+            ->get([
+                'md.cantidad', 'md.unidad', 'md.devolvible',
+                'm.fecha', 'm.nombre_cabo', 'm.id as mov_id',
+                'u.name as usuario',
+            ]);
+
+        foreach ($salidas as $s) {
+            $ret = $s->devolvible ? ' (retornable)' : '';
+            $eventos->push([
+                'tipo'     => 'salida',
+                'fecha'    => (string) $s->fecha,
+                'icono'    => '🔴',
+                'titulo'   => "Salida #" . $s->mov_id . " — " . $s->nombre_cabo,
+                'detalle'  => "Cantidad: {$s->cantidad} {$s->unidad}{$ret}",
+                'cantidad' => (float) $s->cantidad,
+                'usuario'  => $s->usuario,
+            ]);
+        }
+
+        // 4) Ajustes / devoluciones
+        $ajustes = DB::table('ajustes_salida as a')
+            ->leftJoin('users as u', 'u.id', '=', 'a.user_id')
+            ->where('a.inventario_id', $inventario->id)
+            ->orderBy('a.created_at')
+            ->get([
+                'a.cantidad_devuelta', 'a.unidad', 'a.observaciones',
+                'a.created_at', 'a.movimiento_id',
+                'u.name as usuario',
+            ]);
+
+        foreach ($ajustes as $a) {
+            $obs = $a->observaciones ? " — {$a->observaciones}" : '';
+            $eventos->push([
+                'tipo'     => 'ajuste',
+                'fecha'    => (string) $a->created_at,
+                'icono'    => '↩️',
+                'titulo'   => "Devolución (salida #{$a->movimiento_id})",
+                'detalle'  => "Devuelto: {$a->cantidad_devuelta} {$a->unidad}{$obs}",
+                'cantidad' => (float) $a->cantidad_devuelta,
+                'usuario'  => $a->usuario,
+            ]);
+        }
+
+        // Ordenar cronológicamente
+        $eventos = $eventos->sortBy('fecha')->values();
+
+        return response()->json([
+            'insumo'     => $inventario->insumo_id,
+            'descripcion'=> $inventario->descripcion,
+            'unidad'     => $inventario->unidad,
+            'cantidad'   => $inventario->cantidad,
+            'eventos'    => $eventos,
+        ]);
+    }
+
     public function cambiarObra(Request $request): \Illuminate\Http\RedirectResponse
 {
     $request->validate([
