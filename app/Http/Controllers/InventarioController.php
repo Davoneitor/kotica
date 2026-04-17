@@ -476,15 +476,17 @@ class InventarioController extends Controller
     {
         $eventos = collect();
 
-        // 1) Creación del registro (cantidad = 0, es el punto de partida en el sistema)
+        // 1) Creación
         $eventos->push([
             'tipo'     => 'creacion',
             'fecha'    => (string) $inventario->created_at,
             'icono'    => '🟢',
             'titulo'   => 'Insumo creado en inventario',
-            'detalle'  => "Registro creado en el sistema",
+            'detalle'  => 'Registro dado de alta en el sistema',
             'cantidad' => 0,
             'usuario'  => null,
+            'via'      => 'Sistema',
+            'alertas'  => [],
         ]);
 
         // 2) Entradas (OC recibidas)
@@ -493,19 +495,49 @@ class InventarioController extends Controller
             ->orderBy('fecha_recibido')
             ->get();
 
+        // Agrupar por fecha_recibido truncada al segundo para detectar duplicados
+        $dupGroups = $entradas->groupBy(fn($e) => substr((string)$e->fecha_recibido, 0, 19));
+
+        // Timestamps de entradas para cruzar con updated_at después
+        $sistemaTs = collect();
+
         foreach ($entradas as $e) {
-            $pu     = $e->precio_unitario ? ' | PU: $' . number_format((float)$e->precio_unitario, 2) : '';
-            $titulo = ($e->id_pedido && (int)$e->id_pedido > 0)
+            $pu      = $e->precio_unitario ? ' | PU: $' . number_format((float)$e->precio_unitario, 2) : '';
+            $titulo  = ($e->id_pedido && (int)$e->id_pedido > 0)
                 ? 'Entrada (OC ' . $e->id_pedido . ')'
                 : 'Entrada directa (sin OC)';
+
+            // Detectar alertas
+            $alertas     = [];
+            $fechaRec    = strtotime((string)$e->fecha_recibido);
+            $fechaCreate = strtotime((string)$e->created_at);
+            $diffDias    = abs($fechaRec - $fechaCreate) / 86400;
+
+            $esDirectaBD = empty($e->user_id);
+            $esBackdate  = $diffDias > 0.1; // más de ~2.4 horas de diferencia
+            $esCeroQty   = (float)$e->cantidad_llego == 0;
+            $esDuplic    = $dupGroups->get(substr((string)$e->fecha_recibido, 0, 19))->count() > 1;
+
+            if ($esDirectaBD) $alertas[] = 'BD_DIRECTA';
+            if ($esBackdate)  $alertas[] = 'BACKDATEADA';
+            if ($esCeroQty)   $alertas[] = 'CANTIDAD_CERO';
+            if ($esDuplic)    $alertas[] = 'DUPLICADA';
+
+            $via = $esDirectaBD ? 'Inserción directa en BD' : 'Sistema';
+
+            $sistemaTs->push($fechaCreate);
+
             $eventos->push([
-                'tipo'     => 'entrada',
-                'fecha'    => (string) $e->fecha_recibido,
-                'icono'    => '📦',
-                'titulo'   => $titulo,
-                'detalle'  => "Cantidad: {$e->cantidad_llego} {$e->unidad}{$pu}",
-                'cantidad' => (float) $e->cantidad_llego,
-                'usuario'  => null,
+                'tipo'         => 'entrada',
+                'fecha'        => (string) $e->fecha_recibido,
+                'fecha_real'   => (string) $e->created_at,
+                'icono'        => '📦',
+                'titulo'       => $titulo,
+                'detalle'      => "Cantidad: {$e->cantidad_llego} {$e->unidad}{$pu}",
+                'cantidad'     => (float) $e->cantidad_llego,
+                'usuario'      => null,
+                'via'          => $via,
+                'alertas'      => $alertas,
             ]);
         }
 
@@ -518,11 +550,13 @@ class InventarioController extends Controller
             ->get([
                 'md.cantidad', 'md.unidad', 'md.devolvible',
                 'm.fecha', 'm.nombre_cabo', 'm.id as mov_id',
+                'm.created_at as mov_created',
                 'u.name as usuario',
             ]);
 
         foreach ($salidas as $s) {
             $ret = $s->devolvible ? ' (retornable)' : '';
+            $sistemaTs->push(strtotime((string)$s->mov_created));
             $eventos->push([
                 'tipo'     => 'salida',
                 'fecha'    => (string) $s->fecha,
@@ -531,6 +565,8 @@ class InventarioController extends Controller
                 'detalle'  => "Cantidad: {$s->cantidad} {$s->unidad}{$ret}",
                 'cantidad' => (float) $s->cantidad,
                 'usuario'  => $s->usuario,
+                'via'      => 'Sistema',
+                'alertas'  => [],
             ]);
         }
 
@@ -547,6 +583,7 @@ class InventarioController extends Controller
 
         foreach ($ajustes as $a) {
             $obs = $a->observaciones ? " — {$a->observaciones}" : '';
+            $sistemaTs->push(strtotime((string)$a->created_at));
             $eventos->push([
                 'tipo'     => 'ajuste',
                 'fecha'    => (string) $a->created_at,
@@ -555,18 +592,42 @@ class InventarioController extends Controller
                 'detalle'  => "Devuelto: {$a->cantidad_devuelta} {$a->unidad}{$obs}",
                 'cantidad' => (float) $a->cantidad_devuelta,
                 'usuario'  => $a->usuario,
+                'via'      => 'Sistema',
+                'alertas'  => [],
             ]);
         }
 
-        // Ordenar cronológicamente
+        // 5) Detectar ediciones manuales via formulario
+        // Si updated_at del inventario NO coincide con ningún evento del sistema (±10 seg)
+        // y es posterior a created_at → alguien editó la ficha desde el formulario
+        $updatedTs = strtotime((string)$inventario->updated_at);
+        $createdTs = strtotime((string)$inventario->created_at);
+
+        if ($updatedTs > $createdTs + 30) {
+            $matchaSistema = $sistemaTs->contains(fn($t) => abs($t - $updatedTs) <= 10);
+            if (!$matchaSistema) {
+                $eventos->push([
+                    'tipo'     => 'edicion',
+                    'fecha'    => (string) $inventario->updated_at,
+                    'icono'    => '✏️',
+                    'titulo'   => 'Edición vía formulario del sistema',
+                    'detalle'  => 'Cantidad u otros datos modificados — valor anterior no registrado',
+                    'cantidad' => 0,
+                    'usuario'  => null,
+                    'via'      => 'Sistema (form edit)',
+                    'alertas'  => ['EDICION_MANUAL'],
+                ]);
+            }
+        }
+
         $eventos = $eventos->sortBy('fecha')->values();
 
         return response()->json([
-            'insumo'     => $inventario->insumo_id,
-            'descripcion'=> $inventario->descripcion,
-            'unidad'     => $inventario->unidad,
-            'cantidad'   => $inventario->cantidad,
-            'eventos'    => $eventos,
+            'insumo'      => $inventario->insumo_id,
+            'descripcion' => $inventario->descripcion,
+            'unidad'      => $inventario->unidad,
+            'cantidad'    => $inventario->cantidad,
+            'eventos'     => $eventos,
         ]);
     }
 

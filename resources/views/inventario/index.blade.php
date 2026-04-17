@@ -359,7 +359,7 @@
          style="display:none; position:fixed; inset:0; z-index:60; background:rgba(0,0,0,0.5);"
          onclick="if(event.target===this) cerrarHistorial()">
 
-        <div style="background:#fff; width:100%; max-width:680px; max-height:90vh;
+        <div style="background:#fff; width:100%; max-width:1100px; max-height:90vh;
                     margin:5vh auto; border-radius:10px; display:flex; flex-direction:column; overflow:hidden;">
 
             {{-- Header --}}
@@ -379,7 +379,7 @@
             </div>
 
             {{-- Cuerpo scrollable --}}
-            <div style="overflow-y:auto; padding:20px; flex:1;">
+            <div style="overflow:auto; padding:20px; flex:1;">
 
                 <div id="historialLoading" style="text-align:center; color:#9ca3af; padding:30px;">
                     Cargando...
@@ -477,59 +477,123 @@
             return;
         }
 
-        const colores = {
-            creacion : { bg:'#dcfce7', border:'#16a34a', text:'#166534' },
-            entrada  : { bg:'#dbeafe', border:'#2563eb', text:'#1e40af' },
-            salida   : { bg:'#fee2e2', border:'#dc2626', text:'#991b1b' },
-            ajuste   : { bg:'#fef9c3', border:'#ca8a04', text:'#713f12' },
+        const coloresFila = {
+            creacion : { bg:'#f0fdf4', text:'#166534', badge:'#dcfce7', badgeBorder:'#16a34a' },
+            entrada  : { bg:'#eff6ff', text:'#1e40af', badge:'#dbeafe', badgeBorder:'#2563eb' },
+            salida   : { bg:'#fff1f2', text:'#991b1b', badge:'#fee2e2', badgeBorder:'#dc2626' },
+            ajuste   : { bg:'#fefce8', text:'#713f12', badge:'#fef9c3', badgeBorder:'#ca8a04' },
+            edicion  : { bg:'#fff7ed', text:'#9a3412', badge:'#ffedd5', badgeBorder:'#ea580c' },
+        };
+
+        const alertaLabels = {
+            BD_DIRECTA    : { label:'⚠️ BD directa',    color:'#991b1b', bg:'#fee2e2', border:'#dc2626' },
+            BACKDATEADA   : { label:'⚠️ Backdateada',   color:'#713f12', bg:'#fef9c3', border:'#ca8a04' },
+            CANTIDAD_CERO : { label:'⚠️ Cantidad = 0',  color:'#991b1b', bg:'#fee2e2', border:'#dc2626' },
+            DUPLICADA     : { label:'⚠️ Duplicado',     color:'#991b1b', bg:'#fee2e2', border:'#dc2626' },
+            EDICION_MANUAL: { label:'✏️ Edición manual',color:'#9a3412', bg:'#ffedd5', border:'#ea580c' },
         };
 
         const tl = document.getElementById('historialTimeline');
+        tl.style.display = 'block';
+
+        // Tabla
+        const table = document.createElement('table');
+        table.style.cssText = 'width:100%; border-collapse:collapse; font-size:12px;';
+
+        // Encabezado
+        table.innerHTML = `
+            <thead>
+                <tr style="background:#f9fafb; border-bottom:2px solid #e5e7eb;">
+                    <th style="padding:8px 10px; text-align:left; color:#374151; font-weight:600; white-space:nowrap;">#</th>
+                    <th style="padding:8px 10px; text-align:left; color:#374151; font-weight:600; white-space:nowrap;">Fecha</th>
+                    <th style="padding:8px 10px; text-align:left; color:#374151; font-weight:600; white-space:nowrap;">Tipo</th>
+                    <th style="padding:8px 10px; text-align:left; color:#374151; font-weight:600;">Evento</th>
+                    <th style="padding:8px 10px; text-align:left; color:#374151; font-weight:600;">Detalle</th>
+                    <th style="padding:8px 10px; text-align:right; color:#374151; font-weight:600; white-space:nowrap;">Cantidad</th>
+                    <th style="padding:8px 10px; text-align:right; color:#374151; font-weight:600; white-space:nowrap;">Saldo</th>
+                    <th style="padding:8px 10px; text-align:left; color:#374151; font-weight:600;">Usuario</th>
+                    <th style="padding:8px 10px; text-align:left; color:#374151; font-weight:600;">Vía</th>
+                    <th style="padding:8px 10px; text-align:left; color:#374151; font-weight:600;">Alertas</th>
+                </tr>
+            </thead>
+            <tbody id="historialTbody"></tbody>`;
+
         tl.innerHTML = '';
+        tl.appendChild(table);
 
-        // Saldo acumulado (recorremos en orden cronológico)
+        const tbody = document.getElementById('historialTbody');
         let saldo = 0;
-        eventos.forEach((ev, idx) => {
-            const c = colores[ev.tipo] || colores.creacion;
-            const fecha   = ev.fecha ? ev.fecha.substring(0, 16).replace('T', ' ') : '';
-            const usuario = ev.usuario ? `<span style="color:#6b7280; font-size:11px;"> · ${ev.usuario}</span>` : '';
 
-            // Actualizar saldo acumulado
+        eventos.forEach((ev, idx) => {
+            const c     = coloresFila[ev.tipo] || coloresFila.creacion;
+            const fecha = ev.fecha ? ev.fecha.substring(0, 16).replace('T', ' ') : '—';
+
             if (ev.tipo === 'entrada') saldo += parseFloat(ev.cantidad) || 0;
             if (ev.tipo === 'salida')  saldo -= parseFloat(ev.cantidad) || 0;
             if (ev.tipo === 'ajuste')  saldo += parseFloat(ev.cantidad) || 0;
 
-            const saldoTag = ev.tipo !== 'creacion'
-                ? `<span style="display:inline-block; background:#f3f4f6; border:1px solid #d1d5db;
-                                border-radius:4px; padding:1px 7px; font-size:11px; color:#374151;
-                                margin-top:3px;">
-                       Saldo: <b>${parseFloat(saldo.toFixed(4))} ${unidad}</b>
-                   </span>`
+            const cantidadStr = ev.tipo === 'entrada' ? `+${ev.cantidad}`
+                              : ev.tipo === 'salida'  ? `−${ev.cantidad}`
+                              : ev.tipo === 'ajuste'  ? `+${ev.cantidad}`
+                              : '—';
+
+            const saldoStr = (ev.tipo === 'creacion' || ev.tipo === 'edicion')
+                ? '—'
+                : parseFloat(saldo.toFixed(4)) + ' ' + unidad;
+
+            // Fecha real si está backdateada
+            const fechaRealStr = ev.fecha_real && ev.fecha_real.substring(0,16) !== ev.fecha.substring(0,16)
+                ? `<div style="color:#dc2626; font-size:10px; margin-top:2px;">Real: ${ev.fecha_real.substring(0,16).replace('T',' ')}</div>`
                 : '';
 
-            const item = document.createElement('div');
-            item.style.cssText = 'display:flex; gap:12px; margin-bottom:16px;';
-            item.innerHTML = `
-                <div style="display:flex; flex-direction:column; align-items:center;">
-                    <div style="width:36px; height:36px; border-radius:50%; background:${c.bg};
-                                border:2px solid ${c.border}; display:flex; align-items:center;
-                                justify-content:center; font-size:16px; flex-shrink:0;">
-                        ${ev.icono}
-                    </div>
-                    ${idx < eventos.length - 1
-                        ? `<div style="width:2px; flex:1; background:#e5e7eb; margin-top:4px;"></div>`
-                        : ''}
-                </div>
-                <div style="flex:1; padding-bottom:8px;">
-                    <div style="font-weight:600; font-size:13px; color:${c.text};">${ev.titulo}</div>
-                    <div style="font-size:12px; color:#374151; margin-top:2px;">${ev.detalle}</div>
-                    <div style="font-size:11px; color:#9ca3af; margin-top:2px;">${fecha}${usuario}</div>
-                    ${saldoTag}
-                </div>`;
-            tl.appendChild(item);
-        });
+            // Badge tipo
+            const tipoBadge = `<span style="display:inline-block; background:${c.badge}; color:${c.text};
+                                            border:1px solid ${c.badgeBorder}; border-radius:4px;
+                                            padding:1px 7px; font-weight:600; white-space:nowrap;">
+                                   ${ev.icono} ${ev.tipo}
+                               </span>`;
 
-        tl.style.display = 'block';
+            // Alertas
+            const alertasBadges = (ev.alertas || []).map(a => {
+                const def = alertaLabels[a] || {};
+                return `<span style="display:inline-block; background:${def.bg}; color:${def.color};
+                                     border:1px solid ${def.border}; border-radius:4px;
+                                     padding:1px 6px; font-size:10px; margin-right:3px; font-weight:600; white-space:nowrap;">
+                            ${def.label}
+                        </span>`;
+            }).join('');
+
+            // Vía badge
+            const esDirectaBD = (ev.via || '').includes('BD');
+            const viaBadge = ev.via
+                ? `<span style="display:inline-block; background:${esDirectaBD ? '#fee2e2' : '#f3f4f6'};
+                                color:${esDirectaBD ? '#991b1b' : '#374151'};
+                                border:1px solid ${esDirectaBD ? '#dc2626' : '#d1d5db'};
+                                border-radius:4px; padding:1px 6px; font-size:10px; white-space:nowrap;">
+                       ${ev.via}
+                   </span>` : '—';
+
+            const tr = document.createElement('tr');
+            tr.style.cssText = `background:${idx % 2 === 0 ? '#ffffff' : '#f9fafb'}; border-bottom:1px solid #e5e7eb;`;
+            tr.innerHTML = `
+                <td style="padding:7px 10px; color:#9ca3af;">${idx + 1}</td>
+                <td style="padding:7px 10px; white-space:nowrap; color:#374151;">
+                    ${fecha}${fechaRealStr}
+                </td>
+                <td style="padding:7px 10px;">${tipoBadge}</td>
+                <td style="padding:7px 10px; color:${c.text}; font-weight:500;">${ev.titulo}</td>
+                <td style="padding:7px 10px; color:#6b7280;">${ev.detalle}</td>
+                <td style="padding:7px 10px; text-align:right; font-weight:600; color:${
+                    ev.tipo === 'entrada' || ev.tipo === 'ajuste' ? '#166534' :
+                    ev.tipo === 'salida'  ? '#991b1b' : '#6b7280'};">
+                    ${cantidadStr !== '—' ? cantidadStr + ' ' + unidad : '—'}
+                </td>
+                <td style="padding:7px 10px; text-align:right; color:#374151;">${saldoStr}</td>
+                <td style="padding:7px 10px; color:#374151;">${ev.usuario || '—'}</td>
+                <td style="padding:7px 10px;">${viaBadge}</td>
+                <td style="padding:7px 10px;">${alertasBadges || '—'}</td>`;
+            tbody.appendChild(tr);
+        });
     }
 
     document.addEventListener('keydown', e => {
