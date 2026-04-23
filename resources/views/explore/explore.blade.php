@@ -1641,15 +1641,23 @@
                                     </thead>
                                     <tbody>
                                         <template x-for="r in grupo.filas" :key="r.id">
-                                            <tr class="border-t border-gray-50 hover:bg-gray-50">
+                                            <tr class="border-t border-gray-50 hover:bg-gray-50"
+                                                :style="r.placa_repetida ? 'background:#fff7ed;' : ''">
                                                 <td class="px-3 py-2 whitespace-nowrap text-gray-700"
                                                     x-text="formatHoraEscom(r.hora_entrada)"></td>
                                                 <td class="px-3 py-2 whitespace-nowrap text-gray-700"
                                                     x-text="formatHoraEscom(r.hora_salida)"></td>
                                                 <td class="px-3 py-2"
                                                     x-text="r.tipo_material || '—'"></td>
-                                                <td class="px-3 py-2"
-                                                    x-text="r.placas || '—'"></td>
+                                                <td class="px-3 py-2">
+                                                    <span x-text="r.placas || '—'"></span>
+                                                    <template x-if="r.placa_repetida">
+                                                        <span title="Esta placa aparece más de una vez hoy — posible duplicado"
+                                                              style="margin-left:4px;font-size:11px;background:#fed7aa;color:#c2410c;border-radius:4px;padding:1px 5px;font-weight:600;">
+                                                            ⚠ repetida
+                                                        </span>
+                                                    </template>
+                                                </td>
                                                 <td class="px-3 py-2 text-right font-bold tabular-nums whitespace-nowrap"
                                                     x-text="(parseFloat(r.metros_cubicos) || 0).toFixed(1) + ' m³'"></td>
                                                 <td class="px-3 py-2 text-xs text-gray-500"

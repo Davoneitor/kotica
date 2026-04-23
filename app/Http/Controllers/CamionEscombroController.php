@@ -31,6 +31,20 @@ class CamionEscombroController extends Controller
             return response()->json(['ok' => false, 'message' => 'Sin obra asignada.'], 422);
         }
 
+        // Anti-duplicado por UUID (móvil offline)
+        $uuid = $request->input('uuid');
+        if ($uuid) {
+            $existente = SalidaCamionEscombro::where('uuid', $uuid)->first();
+            if ($existente) {
+                return response()->json([
+                    'ok'         => true,
+                    'id'         => $existente->id,
+                    'duplicado'  => true,
+                    'total_dia'  => $this->calcularTotalDia((int) $obraId, $existente->fecha),
+                ]);
+            }
+        }
+
         $request->validate([
             'fecha'          => ['required', 'date'],
             'hora_entrada'   => ['required', 'string', 'max:10'],
@@ -58,14 +72,33 @@ class CamionEscombroController extends Controller
             'foto_camion.max'         => 'La foto del camión no puede superar 8 MB.',
         ]);
 
+        // Normalizar placas: mayúsculas, sin espacios/guiones/puntos
+        $placasNorm = strtoupper(preg_replace('/[\s\.\-]+/', '', $request->placas));
+
+        // Bloquear duplicado por placa en los últimos 5 minutos (mismo camión, misma obra)
+        $reciente = SalidaCamionEscombro::where('obra_id', $obraId)
+            ->where('fecha', $request->fecha)
+            ->whereRaw("UPPER(REPLACE(REPLACE(REPLACE(placas, ' ', ''), '-', ''), '.', '')) = ?", [$placasNorm])
+            ->where('created_at', '>=', now()->subMinutes(5))
+            ->first();
+
+        if ($reciente) {
+            $mins = (int) now()->diffInMinutes($reciente->created_at);
+            return response()->json([
+                'ok'      => false,
+                'message' => "Este camión (placa {$placasNorm}) ya fue registrado hace {$mins} min. Verifica con tu compañero para evitar duplicados.",
+            ], 422);
+        }
+
         $data = [
+            'uuid'           => $uuid ?: null,
             'obra_id'        => (int) $obraId,
             'user_id'        => Auth::id(),
             'fecha'          => $request->fecha,
             'hora_entrada'   => $request->hora_entrada ?: null,
             'hora_salida'    => $request->hora_salida ?: null,
             'tipo_material'  => $request->tipo_material ?: null,
-            'placas'         => $request->placas ?: null,
+            'placas'         => $placasNorm,
             'metros_cubicos' => $request->metros_cubicos ?: null,
             'folio_recibo'   => $request->folio_recibo ?: null,
         ];
@@ -158,6 +191,15 @@ class CamionEscombroController extends Controller
             $totalesPorFecha[$k] = ($totalesPorFecha[$k] ?? 0) + ($r->metros_cubicos ?? 0);
         }
 
+        // Detectar placas repetidas el mismo día (normalizado: sin espacios/guiones)
+        $placasPorFecha = [];
+        foreach ($rows as $r) {
+            $dia   = $r->fecha?->format('Y-m-d') ?? '';
+            $placa = strtoupper(preg_replace('/[\s\.\-]+/', '', $r->placas ?? ''));
+            if ($placa === '') continue;
+            $placasPorFecha[$dia][$placa] = ($placasPorFecha[$dia][$placa] ?? 0) + 1;
+        }
+
         return response()->json($rows->map(fn($r) => [
             'id'             => $r->id,
             'fecha'          => $r->fecha?->format('d/m/Y') ?? '',
@@ -171,6 +213,7 @@ class CamionEscombroController extends Controller
             'usuario'        => $r->usuario_nombre ?? '—',
             'foto_vale_url'   => $r->foto_vale   ? url("/control-camiones/{$r->id}/foto/vale")   : null,
             'foto_camion_url' => $r->foto_camion ? url("/control-camiones/{$r->id}/foto/camion") : null,
+            'placa_repetida' => (($placasPorFecha[$r->fecha?->format('Y-m-d') ?? ''][strtoupper(preg_replace('/[\s\.\-]+/', '', $r->placas ?? ''))] ?? 0) > 1),
         ])->values());
     }
 
