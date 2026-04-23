@@ -388,11 +388,14 @@
                                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Cant.</th>
                                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Unidad</th>
                                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Retornable</th>
+                                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Destinos</th>
                                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Quitar</th>
                                             </tr>
                                         </thead>
-                                        <tbody class="divide-y divide-gray-100">
-                                            <template x-for="(it, itIdx) in tabs[activeIdx].items" :key="itIdx">
+                                        {{-- x-for en <tbody> permite múltiples <tr> por ítem --}}
+                                        <template x-for="(it, itIdx) in tabs[activeIdx].items" :key="itIdx">
+                                            <tbody>
+                                                {{-- fila principal --}}
                                                 <tr class="hover:bg-gray-50">
                                                     <td class="px-4 py-3 text-gray-700" x-text="it.inventario_id"></td>
                                                     <td class="px-4 py-3 text-gray-800 font-medium" x-text="it.descripcion"></td>
@@ -405,6 +408,30 @@
                                                         ></span>
                                                     </td>
                                                     <td class="px-4 py-3">
+                                                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                                            {{-- Texto con el/los nivel(es) actual(es) --}}
+                                                            <span style="font-size:13px;color:#374151;">
+                                                                <template x-if="it.destinos.length === 1">
+                                                                    <span>
+                                                                        <span x-text="it.destinos[0].nivel || '—'"></span><span x-show="it.destinos[0].departamento">/<span x-text="it.destinos[0].departamento"></span></span>
+                                                                    </span>
+                                                                </template>
+                                                                <template x-if="it.destinos.length > 1">
+                                                                    <span style="color:#1d4ed8;font-weight:600;" x-text="it.destinos.length + ' niveles'"></span>
+                                                                </template>
+                                                            </span>
+
+                                                            {{-- Botón cambiar / ocultar --}}
+                                                            <button
+                                                                type="button"
+                                                                @click="it.mostrarDestinos = !it.mostrarDestinos"
+                                                                style="font-size:11px;padding:2px 9px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;color:#374151;white-space:nowrap;"
+                                                            >
+                                                                <span x-text="it.mostrarDestinos ? 'Ocultar' : 'Cambiar nivel'"></span>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                    <td class="px-4 py-3">
                                                         <button
                                                             type="button"
                                                             class="px-3 py-1.5 text-xs border rounded-lg hover:bg-red-50 hover:border-red-300 hover:text-red-700 transition-colors"
@@ -412,8 +439,108 @@
                                                         >Quitar</button>
                                                     </td>
                                                 </tr>
-                                            </template>
-                                        </tbody>
+
+                                                {{-- fila de distribución de destinos --}}
+                                                <tr x-show="it.mostrarDestinos" style="background:#f8fafc;">
+                                                    <td colspan="7" style="padding:12px 16px;">
+                                                        <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:10px;">
+                                                            Distribución por nivel / departamento
+                                                        </div>
+                                                        <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:10px;">
+                                                            <thead>
+                                                                <tr style="background:#e5e7eb;">
+                                                                    <th style="padding:6px 10px;text-align:left;border:1px solid #d1d5db;width:28%;">Nivel</th>
+                                                                    <th style="padding:6px 10px;text-align:left;border:1px solid #d1d5db;width:28%;">Departamento</th>
+                                                                    <th style="padding:6px 10px;text-align:left;border:1px solid #d1d5db;width:28%;">Cantidad</th>
+                                                                    <th style="padding:6px 10px;text-align:center;border:1px solid #d1d5db;width:16%;"></th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <template x-for="(dest, di) in it.destinos" :key="di">
+                                                                    <tr>
+                                                                        <td style="border:1px solid #d1d5db;padding:4px 6px;">
+                                                                            <select
+                                                                                x-model="dest.nivel"
+                                                                                @change="if(destinoSinDepto(dest.nivel)) dest.departamento=''"
+                                                                                style="width:100%;border:none;background:transparent;font-size:12px;padding:2px;"
+                                                                            >
+                                                                                <option value="">-- Nivel --</option>
+                                                                                <optgroup label="Sótanos">
+                                                                                    <option>S1</option><option>S2</option><option>S3</option><option>S4</option><option>S5</option>
+                                                                                </optgroup>
+                                                                                <optgroup label="Áreas comunes">
+                                                                                    <option value="ROOFTOP">ROOFTOP</option>
+                                                                                    <option value="PASILLOS">PASILLOS</option>
+                                                                                    <option value="CIMENTACION">CIMENTACIÓN</option>
+                                                                                    <option value="PB">PB</option>
+                                                                                    <option value="GYM">GYM</option>
+                                                                                    <option value="AREAS_COMUNES">ÁREAS COMUNES</option>
+                                                                                </optgroup>
+                                                                                <optgroup label="Niveles">
+                                                                                    @for($i = 1; $i <= 13; $i++)
+                                                                                        <option value="L{{ $i }}">L{{ $i }}</option>
+                                                                                    @endfor
+                                                                                </optgroup>
+                                                                            </select>
+                                                                        </td>
+                                                                        <td style="border:1px solid #d1d5db;padding:4px 6px;">
+                                                                            <select
+                                                                                x-model="dest.departamento"
+                                                                                :disabled="destinoSinDepto(dest.nivel)"
+                                                                                style="width:100%;border:none;background:transparent;font-size:12px;padding:2px;"
+                                                                                :style="destinoSinDepto(dest.nivel) ? 'color:#9ca3af;' : ''"
+                                                                            >
+                                                                                <option value="">-- Depto --</option>
+                                                                                @for($i = 1; $i <= 8; $i++)
+                                                                                    <option value="D{{ $i }}">D{{ $i }}</option>
+                                                                                @endfor
+                                                                            </select>
+                                                                        </td>
+                                                                        <td style="border:1px solid #d1d5db;padding:4px 6px;">
+                                                                            <input
+                                                                                type="number"
+                                                                                step="0.01"
+                                                                                min="0.01"
+                                                                                x-model="dest.cantidad"
+                                                                                style="width:100%;border:none;background:transparent;font-size:12px;padding:2px;"
+                                                                            >
+                                                                        </td>
+                                                                        <td style="border:1px solid #d1d5db;padding:4px 6px;text-align:center;">
+                                                                            <button
+                                                                                type="button"
+                                                                                x-show="it.destinos.length > 1"
+                                                                                @click="quitarDestino(itIdx, di)"
+                                                                                style="color:#ef4444;font-weight:bold;font-size:14px;cursor:pointer;background:none;border:none;padding:0 4px;"
+                                                                                title="Quitar destino"
+                                                                            >×</button>
+                                                                        </td>
+                                                                    </tr>
+                                                                </template>
+                                                            </tbody>
+                                                        </table>
+                                                        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                                                            <button
+                                                                type="button"
+                                                                @click="agregarDestino(itIdx)"
+                                                                style="font-size:12px;padding:5px 12px;border:1px dashed #6b7280;border-radius:8px;background:white;cursor:pointer;color:#374151;"
+                                                            >+ Agregar nivel</button>
+                                                            <span style="font-size:12px;"
+                                                                :style="Math.abs(it.destinos.reduce((s,d)=>s+(+d.cantidad||0),0) - it.cantidad) > 0.01
+                                                                    ? 'color:#ef4444;font-weight:600;'
+                                                                    : 'color:#16a34a;font-weight:600;'"
+                                                            >
+                                                                Distribuido:
+                                                                <span x-text="it.destinos.reduce((s,d)=>s+(+d.cantidad||0),0).toFixed(2)"></span>
+                                                                / <span x-text="parseFloat(it.cantidad).toFixed(2)"></span>
+                                                                <span x-text="it.unidad"></span>
+                                                                <span x-show="Math.abs(it.destinos.reduce((s,d)=>s+(+d.cantidad||0),0) - it.cantidad) > 0.01"> ⚠ No cuadra</span>
+                                                                <span x-show="Math.abs(it.destinos.reduce((s,d)=>s+(+d.cantidad||0),0) - it.cantidad) <= 0.01"> ✓</span>
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </template>
                                     </table>
                                 </div>
                             </template>
@@ -790,17 +917,16 @@
                         return;
                     }
                     tab.items[existingIdx].cantidad = nueva;
-                    tab.items[existingIdx].nivel = tab.nivel;
-                    tab.items[existingIdx].departamento = deptoFinal;
+                    tab.items[existingIdx].destinos.push({ nivel: tab.nivel, departamento: deptoFinal, cantidad: qty });
                 } else {
                     tab.items.push({
-                        inventario_id: tab.selected.id,
-                        descripcion:   tab.selected.descripcion,
-                        unidad:        tab.selected.unidad,
-                        cantidad:      qty,
-                        devolvible:    !!tab.devolvible,
-                        nivel:         tab.nivel,
-                        departamento:  deptoFinal,
+                        inventario_id:   tab.selected.id,
+                        descripcion:     tab.selected.descripcion,
+                        unidad:          tab.selected.unidad,
+                        cantidad:        qty,
+                        devolvible:      !!tab.devolvible,
+                        destinos:        [{ nivel: tab.nivel, departamento: deptoFinal, cantidad: qty }],
+                        mostrarDestinos: false,
                     });
                 }
 
@@ -818,6 +944,39 @@
             quitarItem(idx) {
                 const tab = this.tabs[this.activeIdx];
                 if (tab) tab.items.splice(idx, 1);
+            },
+
+            // ── Distribución de destinos por ítem ─────────────
+            destinoSinDepto(nivel) {
+                if (!nivel) return false;
+                if (/^S[1-5]$/.test(nivel)) return true;
+                return ['ROOFTOP','PASILLOS','CIMENTACION','PB','GYM','AREAS_COMUNES'].includes(nivel);
+            },
+
+            agregarDestino(itIdx) {
+                const tab = this.tabs[this.activeIdx];
+                const item = tab?.items[itIdx];
+                if (!item) return;
+
+                // Split the last destino in half so totals stay balanced
+                const last = item.destinos[item.destinos.length - 1];
+                const lastQty = parseFloat(last.cantidad) || 0;
+                const half = parseFloat((lastQty / 2).toFixed(4));
+                last.cantidad = half;
+
+                item.destinos.push({
+                    nivel:        last.nivel,
+                    departamento: last.departamento,
+                    cantidad:     parseFloat((lastQty - half).toFixed(4)),
+                });
+
+                item.mostrarDestinos = true; // open sub-form immediately
+            },
+
+            quitarDestino(itIdx, di) {
+                const item = this.tabs[this.activeIdx]?.items[itIdx];
+                if (!item || item.destinos.length <= 1) return;
+                item.destinos.splice(di, 1);
             },
 
             // ── Validación de pestaña ─────────────────────────
@@ -853,8 +1012,6 @@
                     const fd = new FormData();
                     fd.append('nombre_cabo',          tab.nombre_cabo);
                     fd.append('destino_proyecto_id',  tab.destino_proyecto_id);
-                    fd.append('nivel',                tab.nivel);
-                    fd.append('departamento',         tab.departamento || '');
                     fd.append('observaciones',        tab.observaciones || '');
                     fd.append('firma_base64',         tab.firma_base64);
                     tab.items.forEach((it, idx) => {
@@ -862,8 +1019,11 @@
                         fd.append('items[' + idx + '][cantidad]',       it.cantidad);
                         fd.append('items[' + idx + '][unidad]',         it.unidad);
                         fd.append('items[' + idx + '][devolvible]',     it.devolvible ? 1 : 0);
-                        fd.append('items[' + idx + '][nivel]',          it.nivel);
-                        fd.append('items[' + idx + '][departamento]',   it.departamento ?? '');
+                        (it.destinos || []).forEach((dest, di) => {
+                            fd.append('items[' + idx + '][destinos][' + di + '][nivel]',        dest.nivel || '');
+                            fd.append('items[' + idx + '][destinos][' + di + '][departamento]', dest.departamento || '');
+                            fd.append('items[' + idx + '][destinos][' + di + '][cantidad]',     dest.cantidad);
+                        });
                     });
 
                     // POST al backend

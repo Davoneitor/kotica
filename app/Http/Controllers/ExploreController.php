@@ -147,6 +147,7 @@ public function movimientoDetalles(Movimiento $movimiento)
     }
 
     $det = MovimientoDetalle::where('movimiento_id', $movimiento->id)
+        ->with('destinos')
         ->orderBy('id')
         ->get([
             'id','movimiento_id','inventario_id','familia','subfamilia',
@@ -157,18 +158,40 @@ public function movimientoDetalles(Movimiento $movimiento)
         array_filter([$movimiento->destino])
     );
 
+    $detallesConDestinos = $det->map(function ($d) {
+        return [
+            'id'            => (int) $d->id,
+            'movimiento_id' => (int) $d->movimiento_id,
+            'inventario_id' => $d->inventario_id,
+            'familia'       => $d->familia,
+            'subfamilia'    => $d->subfamilia,
+            'descripcion'   => $d->descripcion,
+            'unidad'        => $d->unidad,
+            'cantidad'      => $d->cantidad,
+            'devolvible'    => $d->devolvible,
+            'clasificacion'   => $d->clasificacion,
+            'clasificacion_d' => $d->clasificacion_d,
+            'destinos' => $d->destinos->map(fn ($dest) => [
+                'id'           => (int) $dest->id,
+                'nivel'        => $dest->nivel,
+                'departamento' => $dest->departamento,
+                'cantidad'     => $dest->cantidad,
+            ])->values(),
+        ];
+    });
+
     return response()->json([
         'movimiento' => [
             'id' => (int) $movimiento->id,
             'obra_id' => (int) $movimiento->obra_id,
-            'obra' => $obraNombre, // ?
+            'obra' => $obraNombre,
             'destino' => $movimiento->destino,
             'destino_nombre' => $erpNombres[$movimiento->destino] ?? $movimiento->destino,
             'fecha' => (string) $movimiento->fecha,
             'nombre_cabo' => $movimiento->nombre_cabo,
             'estatus' => $movimiento->estatus,
         ],
-        'detalles' => $det,
+        'detalles' => $detallesConDestinos,
     ]);
 }
 

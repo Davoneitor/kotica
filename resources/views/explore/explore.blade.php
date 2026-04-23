@@ -247,14 +247,122 @@
                                             <span x-text="d.inventario_id"></span> —
                                             <span x-text="d.descripcion"></span>
                                         </div>
-                                        <div class="text-xs text-gray-600">
-                                            Cant: <span x-text="d.cantidad"></span> <span x-text="d.unidad"></span>
-                                            · Nivel: <span x-text="d.clasificacion"></span>
-                                            · Depto: <span x-text="d.clasificacion_d"></span>
+                                        <div class="text-xs text-gray-600 flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                                            <span>Cant: <span x-text="d.cantidad"></span> <span x-text="d.unidad"></span></span>
                                             <template x-if="Number(d.devolvible)===1">
-                                                <span class="ml-2 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-semibold">
-                                                    RETORNABLE
-                                                </span>
+                                                <span class="px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-semibold">RETORNABLE</span>
+                                            </template>
+                                        </div>
+
+                                        {{-- Destinos display / editor --}}
+                                        <div class="mt-1">
+                                            {{-- View mode --}}
+                                            <template x-if="editNivel.detalleId !== d.id">
+                                                <div class="flex flex-wrap items-center gap-2">
+                                                    <template x-if="d.destinos && d.destinos.length > 1">
+                                                        <div class="text-xs text-blue-700">
+                                                            <template x-for="(dest, di) in d.destinos" :key="di">
+                                                                <span>
+                                                                    <span x-text="dest.nivel"></span><span x-show="dest.departamento">/<span x-text="dest.departamento"></span></span>
+                                                                    (<span x-text="dest.cantidad"></span>)
+                                                                    <span x-show="di < d.destinos.length - 1"> · </span>
+                                                                </span>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="!d.destinos || d.destinos.length <= 1">
+                                                        <span class="text-xs text-gray-600">
+                                                            Nivel: <span x-text="d.clasificacion || '—'"></span>
+                                                            <span x-show="d.clasificacion_d"> · Depto: <span x-text="d.clasificacion_d"></span></span>
+                                                        </span>
+                                                    </template>
+                                                    <button
+                                                        type="button"
+                                                        @click="abrirEditNivel(d)"
+                                                        style="font-size:11px;padding:2px 8px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;color:#374151;"
+                                                    >Editar nivel</button>
+                                                </div>
+                                            </template>
+
+                                            {{-- Edit mode --}}
+                                            <template x-if="editNivel.detalleId === d.id">
+                                                <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-top:4px;">
+                                                    <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:#374151;">Editar destinos — <span x-text="d.descripcion"></span></div>
+
+                                                    <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:8px;">
+                                                        <thead>
+                                                            <tr style="background:#e5e7eb;">
+                                                                <th style="padding:5px 8px;border:1px solid #d1d5db;text-align:left;width:30%;">Nivel</th>
+                                                                <th style="padding:5px 8px;border:1px solid #d1d5db;text-align:left;width:30%;">Departamento</th>
+                                                                <th style="padding:5px 8px;border:1px solid #d1d5db;text-align:left;width:28%;">Cantidad</th>
+                                                                <th style="padding:5px 8px;border:1px solid #d1d5db;width:12%;"></th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <template x-for="(dest, di) in editNivel.destinos" :key="di">
+                                                                <tr>
+                                                                    <td style="border:1px solid #d1d5db;padding:3px 6px;">
+                                                                        <select x-model="dest.nivel" @change="if(editNivelSinDepto(dest.nivel)) dest.departamento=''" style="width:100%;border:none;background:transparent;font-size:12px;">
+                                                                            <option value="">-- Nivel --</option>
+                                                                            <optgroup label="Sótanos">
+                                                                                <option>S1</option><option>S2</option><option>S3</option><option>S4</option><option>S5</option>
+                                                                            </optgroup>
+                                                                            <optgroup label="Áreas comunes">
+                                                                                <option value="ROOFTOP">ROOFTOP</option>
+                                                                                <option value="PASILLOS">PASILLOS</option>
+                                                                                <option value="CIMENTACION">CIMENTACIÓN</option>
+                                                                                <option value="PB">PB</option>
+                                                                                <option value="GYM">GYM</option>
+                                                                                <option value="AREAS_COMUNES">ÁREAS COMUNES</option>
+                                                                            </optgroup>
+                                                                            <optgroup label="Niveles">
+                                                                                @for($i = 1; $i <= 13; $i++)
+                                                                                    <option value="L{{ $i }}">L{{ $i }}</option>
+                                                                                @endfor
+                                                                            </optgroup>
+                                                                        </select>
+                                                                    </td>
+                                                                    <td style="border:1px solid #d1d5db;padding:3px 6px;">
+                                                                        <select x-model="dest.departamento" :disabled="editNivelSinDepto(dest.nivel)" style="width:100%;border:none;background:transparent;font-size:12px;" :style="editNivelSinDepto(dest.nivel)?'color:#9ca3af;':''">
+                                                                            <option value="">-- Depto --</option>
+                                                                            @for($i = 1; $i <= 8; $i++)
+                                                                                <option value="D{{ $i }}">D{{ $i }}</option>
+                                                                            @endfor
+                                                                        </select>
+                                                                    </td>
+                                                                    <td style="border:1px solid #d1d5db;padding:3px 6px;">
+                                                                        <input type="number" step="0.01" min="0.01" x-model="dest.cantidad" style="width:100%;border:none;background:transparent;font-size:12px;">
+                                                                    </td>
+                                                                    <td style="border:1px solid #d1d5db;padding:3px 6px;text-align:center;">
+                                                                        <button type="button" x-show="editNivel.destinos.length > 1" @click="quitarDestinoEdit(di)" style="color:#ef4444;font-weight:bold;font-size:14px;cursor:pointer;background:none;border:none;">×</button>
+                                                                    </td>
+                                                                </tr>
+                                                            </template>
+                                                        </tbody>
+                                                    </table>
+
+                                                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+                                                        <button type="button" @click="agregarDestinoEdit()" style="font-size:11px;padding:3px 10px;border:1px dashed #6b7280;border-radius:6px;background:white;cursor:pointer;">+ Agregar nivel</button>
+                                                        <span style="font-size:11px;"
+                                                            :style="Math.abs(editNivel.destinos.reduce((s,d)=>s+(+d.cantidad||0),0) - (editNivel.totalCantidad||0)) > 0.01 ? 'color:#ef4444;font-weight:600;' : 'color:#16a34a;font-weight:600;'"
+                                                        >
+                                                            <span x-text="editNivel.destinos.reduce((s,d)=>s+(+d.cantidad||0),0).toFixed(2)"></span>
+                                                            / <span x-text="(editNivel.totalCantidad||0).toFixed(2)"></span>
+                                                            <span x-show="Math.abs(editNivel.destinos.reduce((s,d)=>s+(+d.cantidad||0),0) - (editNivel.totalCantidad||0)) > 0.01"> ⚠ No cuadra</span>
+                                                            <span x-show="Math.abs(editNivel.destinos.reduce((s,d)=>s+(+d.cantidad||0),0) - (editNivel.totalCantidad||0)) <= 0.01"> ✓</span>
+                                                        </span>
+                                                    </div>
+
+                                                    <div x-show="editNivel.error" style="color:#ef4444;font-size:11px;margin-bottom:6px;" x-text="editNivel.error"></div>
+
+                                                    <div style="display:flex;gap:8px;">
+                                                        <button type="button" @click="guardarEditNivel(d.id)" :disabled="editNivel.guardando"
+                                                            style="font-size:12px;padding:4px 14px;border-radius:6px;background:#1f2937;color:white;border:none;cursor:pointer;opacity:1;"
+                                                            :style="editNivel.guardando ? 'opacity:0.5;cursor:not-allowed;' : ''"
+                                                        ><span x-text="editNivel.guardando ? 'Guardando...' : 'Guardar'"></span></button>
+                                                        <button type="button" @click="cerrarEditNivel()" style="font-size:12px;padding:4px 14px;border-radius:6px;background:white;border:1px solid #d1d5db;cursor:pointer;">Cancelar</button>
+                                                    </div>
+                                                </div>
                                             </template>
                                         </div>
                                     </div>
@@ -1664,6 +1772,8 @@
                     detalles: [],
                     movimientoCabecera: null,
 
+                    editNivel: { detalleId: null, destinos: [], guardando: false, error: '' },
+
                     ajustesHistorial: [],
 
                     ajuste: {
@@ -1820,6 +1930,91 @@
     }
 },
 
+
+                    // ── Editar nivel / destinos de un movimiento_detalle ──────────────
+                    abrirEditNivel(detalle) {
+                        // Clone destinos so edits don't affect display until saved
+                        const destinos = (detalle.destinos && detalle.destinos.length > 0)
+                            ? detalle.destinos.map(d => ({ ...d }))
+                            : [{ nivel: detalle.clasificacion || '', departamento: detalle.clasificacion_d || '', cantidad: parseFloat(detalle.cantidad) || 0 }];
+                        this.editNivel = { detalleId: detalle.id, destinos, guardando: false, error: '', totalCantidad: parseFloat(detalle.cantidad) || 0 };
+                    },
+
+                    cerrarEditNivel() {
+                        this.editNivel = { detalleId: null, destinos: [], guardando: false, error: '' };
+                    },
+
+                    editNivelSinDepto(nivel) {
+                        if (!nivel) return false;
+                        if (/^S[1-5]$/.test(nivel)) return true;
+                        return ['ROOFTOP','PASILLOS','CIMENTACION','PB','GYM','AREAS_COMUNES'].includes(nivel);
+                    },
+
+                    agregarDestinoEdit() {
+                        const allocated = this.editNivel.destinos.reduce((s, d) => s + (parseFloat(d.cantidad) || 0), 0);
+                        const remaining = Math.max(0, (this.editNivel.totalCantidad || 0) - allocated);
+                        this.editNivel.destinos.push({ nivel: '', departamento: '', cantidad: parseFloat(remaining.toFixed(4)) || 1 });
+                    },
+
+                    quitarDestinoEdit(di) {
+                        if (this.editNivel.destinos.length <= 1) return;
+                        this.editNivel.destinos.splice(di, 1);
+                    },
+
+                    async guardarEditNivel(detalleId) {
+                        this.editNivel.guardando = true;
+                        this.editNivel.error = '';
+
+                        const suma = this.editNivel.destinos.reduce((s, d) => s + (parseFloat(d.cantidad) || 0), 0);
+                        if (Math.abs(suma - (this.editNivel.totalCantidad || 0)) > 0.01) {
+                            this.editNivel.error = 'La suma (' + suma.toFixed(2) + ') no coincide con la cantidad total (' + (this.editNivel.totalCantidad || 0).toFixed(2) + ').';
+                            this.editNivel.guardando = false;
+                            return;
+                        }
+
+                        try {
+                            const fd = new FormData();
+                            fd.append('_method', 'PUT');
+                            this.editNivel.destinos.forEach((d, i) => {
+                                fd.append('destinos[' + i + '][nivel]',        d.nivel || '');
+                                fd.append('destinos[' + i + '][departamento]', d.departamento || '');
+                                fd.append('destinos[' + i + '][cantidad]',     d.cantidad);
+                            });
+
+                            const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                            const res = await fetch('/salidas/detalles/' + detalleId + '/destinos', {
+                                method: 'POST',
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'X-CSRF-TOKEN': csrfMeta ? csrfMeta.content : '',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                },
+                                body: fd,
+                            });
+
+                            const data = await res.json().catch(() => ({}));
+
+                            if (res.ok && data.ok) {
+                                // Update local detalles array so display refreshes
+                                const d = this.detalles.find(d => d.id === detalleId);
+                                if (d) {
+                                    d.destinos = this.editNivel.destinos.map(x => ({ ...x }));
+                                    if (d.destinos.length > 0) {
+                                        d.clasificacion   = d.destinos[0].nivel;
+                                        d.clasificacion_d = d.destinos[0].departamento;
+                                    }
+                                }
+                                this.cerrarEditNivel();
+                            } else {
+                                this.editNivel.error = data.message || 'Error al guardar.';
+                            }
+                        } catch (e) {
+                            console.error(e);
+                            this.editNivel.error = 'Error de red.';
+                        } finally {
+                            this.editNivel.guardando = false;
+                        }
+                    },
 
                     async cargarInventario() {
                         this.loading = true;

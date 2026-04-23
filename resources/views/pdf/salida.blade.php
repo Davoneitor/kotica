@@ -41,14 +41,6 @@ salida.blade
 <div class="title">COMPROBANTE DE SALIDA ALMACÉN</div>
 
 @php
-    $nivelHeader = optional($movimiento->detalles->first())->clasificacion ?? '';
-    $deptoHeader = optional($movimiento->detalles->first())->clasificacion_d ?? '';
-
-    $esSotano = is_string($nivelHeader) && strtoupper(substr($nivelHeader, 0, 1)) === 'S';
-    if ($esSotano) {
-        $deptoHeader = '';
-    }
-
     $observaciones = $movimiento->observaciones ?? null;
     $observaciones = is_string($observaciones) ? trim($observaciones) : $observaciones;
 
@@ -87,22 +79,7 @@ salida.blade
             {{ $movimiento->nombre_cabo }}
         </td>
     </tr>
-
-    <tr>
-        <td style="width:50%;">
-            <strong>Nivel:</strong>
-            {{ $nivelHeader }}
-        </td>
-        <td style="width:50%;">
-            <strong>Departamento:</strong>
-            {{ $deptoHeader }}
-        </td>
-    </tr>
 </table>
-
-<div class="muted">
-    * Nota: Si el nivel es S1–S5 (sótanos), el departamento puede ir vacío.
-</div>
 
 @if(!empty($observaciones))
     <div class="obs">
@@ -114,11 +91,12 @@ salida.blade
 <table class="items">
     <thead>
         <tr>
-            <th style="width: 18%;">Clave</th>
-            <th style="width: 47%;">Descripción</th>
-            <th style="width: 10%;">Cant.</th>
-            <th style="width: 10%;">Unidad</th>
-            <th style="width: 15%;">Devolvible</th>
+            <th style="width: 15%;">Clave</th>
+            <th style="width: 35%;">Descripción</th>
+            <th style="width: 9%;">Cant.</th>
+            <th style="width: 9%;">Unidad</th>
+            <th style="width: 12%;">Devolvible</th>
+            <th style="width: 20%;">Nivel / Depto</th>
         </tr>
     </thead>
     <tbody>
@@ -127,6 +105,23 @@ salida.blade
                 $clave = $d->insumo_id;
                 if (!is_string($clave) || trim($clave) === '') {
                     $clave = $d->inventario_id;
+                }
+
+                // Build distribution text from destinos (or fall back to clasificacion)
+                if ($d->destinos->count() > 0) {
+                    $distLines = $d->destinos->map(function ($dest) {
+                        $label = $dest->nivel ?? '';
+                        if (!empty($dest->departamento)) {
+                            $label .= '/' . $dest->departamento;
+                        }
+                        $qty = rtrim(rtrim(number_format((float)$dest->cantidad, 2, '.', ''), '0'), '.');
+                        return $label . ' (' . $qty . ')';
+                    })->implode("\n");
+                } else {
+                    $distLines = $d->clasificacion ?? '';
+                    if (!empty($d->clasificacion_d)) {
+                        $distLines .= '/' . $d->clasificacion_d;
+                    }
                 }
             @endphp
 
@@ -138,10 +133,11 @@ salida.blade
                 </td>
                 <td class="center">{{ $d->unidad }}</td>
                 <td class="center">{{ ((int)($d->devolvible ?? 0) === 1) ? 'Sí' : 'No' }}</td>
+                <td style="white-space:pre-line;font-size:10px;">{{ $distLines }}</td>
             </tr>
         @empty
             <tr>
-                <td colspan="5" class="center">Sin materiales.</td>
+                <td colspan="6" class="center">Sin materiales.</td>
             </tr>
         @endforelse
     </tbody>
@@ -150,24 +146,30 @@ salida.blade
 <table class="sign">
     <tr>
         <td style="width: 50%;">
-            <div class="signbox">
-                @if($firmaLocal)
-                    <img class="sigimg" src="{{ $firmaLocal }}" alt="Firma de quien recibe">
-                @else
-                    <div class="line"></div>
-                @endif
-            </div>
-
+            <table style="width:100%;height:170px;border-collapse:collapse;">
+                <tr>
+                    <td style="vertical-align:bottom;text-align:center;padding-bottom:0;">
+                        @if($firmaLocal)
+                            <img class="sigimg" src="{{ $firmaLocal }}" alt="Firma de quien recibe">
+                        @else
+                            <div class="line"></div>
+                        @endif
+                    </td>
+                </tr>
+            </table>
             <div class="small">
                 <strong>Firma de quien recibe:</strong> {{ $movimiento->nombre_cabo }}
             </div>
         </td>
 
         <td style="width: 50%;">
-            <div class="signbox">
-                <div class="line"></div>
-            </div>
-
+            <table style="width:100%;height:170px;border-collapse:collapse;">
+                <tr>
+                    <td style="vertical-align:bottom;text-align:center;padding-bottom:0;">
+                        <div class="line"></div>
+                    </td>
+                </tr>
+            </table>
             <div class="small">
                 <strong>Firma encargado de almacén:</strong> {{ $encargado }}
             </div>

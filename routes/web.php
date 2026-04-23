@@ -52,6 +52,8 @@ Route::get('/inventario/{inventario}/historial', [InventarioController::class, '
     Route::get('/salidas/responsables', [SalidaController::class, 'responsables'])->name('salidas.responsables');
     Route::get('/salidas/buscar-productos', [SalidaController::class, 'buscarProductos'])->name('salidas.buscar');
     Route::post('/salidas', [SalidaController::class, 'store'])->name('salidas.store');
+    Route::put('/salidas/detalles/{detalle}/destinos', [SalidaController::class, 'updateDetalleDestinos'])
+        ->name('salidas.detalle.destinos');
 
     // ✅ PDF DE SALIDA
     Route::get('/salidas/{movimiento}/pdf', [SalidaController::class, 'pdf'])

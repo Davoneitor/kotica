@@ -30,4 +30,9 @@ class MovimientoDetalle extends Model
     {
         return $this->belongsTo(\App\Models\Movimiento::class, 'movimiento_id');
     }
+
+    public function destinos()
+    {
+        return $this->hasMany(\App\Models\MovimientoDestino::class, 'detalle_id');
+    }
 }

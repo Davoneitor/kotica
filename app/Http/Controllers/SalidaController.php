@@ -219,8 +219,6 @@ class SalidaController extends Controller
         $request->validate([
             'nombre_cabo' => ['required', 'string', 'max:255'],
             'destino_proyecto_id' => ['required'],
-            'nivel' => ['required', 'string', 'max:50'],
-            'departamento' => ['nullable', 'string', 'max:50'],
             'observaciones' => ['nullable', 'string', 'max:500'],
 
             'items' => ['required', 'array', 'min:1'],
@@ -228,6 +226,10 @@ class SalidaController extends Controller
             'items.*.cantidad' => ['required', 'numeric', 'gt:0'],
             'items.*.unidad' => ['nullable', 'string', 'max:50'],
             'items.*.devolvible' => ['nullable'],
+            'items.*.destinos' => ['required', 'array', 'min:1'],
+            'items.*.destinos.*.nivel' => ['required', 'string', 'max:50'],
+            'items.*.destinos.*.departamento' => ['nullable', 'string', 'max:100'],
+            'items.*.destinos.*.cantidad' => ['required', 'numeric', 'gt:0'],
 
             // ✅ firma obligatoria
             'firma_base64' => ['required', 'string'],
@@ -304,16 +306,19 @@ class SalidaController extends Controller
                 $inventarioId = (int) $it['inventario_id'];
                 $cantidad = (float) $it['cantidad'];
                 $devolvible = (int) ($it['devolvible'] ?? 0);
+                $destinos = $it['destinos'] ?? [];
 
-                $nivel = (string) ($it['nivel'] ?? '');
-                $depto = (string) ($it['departamento'] ?? '');
-
-                if ($nivel === '') {
+                // Validate destinos sum equals item cantidad
+                $sumaDestinos = array_sum(array_column($destinos, 'cantidad'));
+                if (abs($sumaDestinos - $cantidad) > 0.01) {
                     return response()->json([
                         'ok' => false,
-                        'message' => 'Falta nivel en un producto.'
+                        'message' => "La distribución ({$sumaDestinos}) no coincide con la cantidad total ({$cantidad}) del producto #{$inventarioId}."
                     ], 422);
                 }
+
+                $primerNivel = (string) ($destinos[0]['nivel'] ?? '');
+                $primerDepto = (string) ($destinos[0]['departamento'] ?? '');
 
                 $inv = Inventario::where('obra_id', (int) $obraId)
                     ->where('id', $inventarioId)
@@ -327,13 +332,6 @@ class SalidaController extends Controller
                     ], 422);
                 }
 
-                if ($cantidad <= 0) {
-                    return response()->json([
-                        'ok' => false,
-                        'message' => 'Cantidad inválida.'
-                    ], 422);
-                }
-
                 if ((float) $inv->cantidad < $cantidad) {
                     return response()->json([
                         'ok' => false,
@@ -341,7 +339,7 @@ class SalidaController extends Controller
                     ], 422);
                 }
 
-                DB::table('movimiento_detalles')->insert([
+                $detalleId = DB::table('movimiento_detalles')->insertGetId([
                     'movimiento_id'   => $mov->id,
                     'inventario_id'   => $inv->id,
                     'insumo_id'       => $inv->insumo_id   ?? '',
@@ -351,11 +349,22 @@ class SalidaController extends Controller
                     'unidad'          => $inv->unidad       ?? '',
                     'cantidad'        => $cantidad,
                     'devolvible'      => $devolvible,
-                    'clasificacion'   => $nivel,
-                    'clasificacion_d' => $depto,
+                    'clasificacion'   => $primerNivel,
+                    'clasificacion_d' => $primerDepto,
                     'created_at'      => now(),
                     'updated_at'      => now(),
                 ]);
+
+                foreach ($destinos as $dest) {
+                    DB::table('movimiento_destinos')->insert([
+                        'detalle_id'   => $detalleId,
+                        'cantidad'     => (float) $dest['cantidad'],
+                        'nivel'        => (string) ($dest['nivel'] ?? ''),
+                        'departamento' => (string) ($dest['departamento'] ?? ''),
+                        'created_at'   => now(),
+                        'updated_at'   => now(),
+                    ]);
+                }
 
                 $inv->cantidad = (float) $inv->cantidad - $cantidad;
                 $inv->save();
@@ -374,11 +383,62 @@ class SalidaController extends Controller
     }
 
     /**
+     * ✅ 4-A) Actualizar destinos (nivel/departamento) de un detalle ya guardado
+     */
+    public function updateDetalleDestinos(Request $request, \App\Models\MovimientoDetalle $detalle)
+    {
+        $obraId = auth()->user()?->obra_actual_id;
+        $mov = Movimiento::find($detalle->movimiento_id);
+
+        if (!$mov || ($obraId && (int)$mov->obra_id !== (int)$obraId)) {
+            abort(403);
+        }
+
+        $request->validate([
+            'destinos'                    => ['required', 'array', 'min:1'],
+            'destinos.*.nivel'            => ['required', 'string', 'max:50'],
+            'destinos.*.departamento'     => ['nullable', 'string', 'max:100'],
+            'destinos.*.cantidad'         => ['required', 'numeric', 'gt:0'],
+        ]);
+
+        $suma = array_sum(array_column($request->destinos, 'cantidad'));
+        if (abs($suma - (float) $detalle->cantidad) > 0.01) {
+            return response()->json([
+                'ok'      => false,
+                'message' => "La suma de distribuciones ({$suma}) no coincide con la cantidad del producto ({$detalle->cantidad}).",
+            ], 422);
+        }
+
+        DB::transaction(function () use ($request, $detalle) {
+            DB::table('movimiento_destinos')->where('detalle_id', $detalle->id)->delete();
+
+            foreach ($request->destinos as $dest) {
+                DB::table('movimiento_destinos')->insert([
+                    'detalle_id'   => $detalle->id,
+                    'cantidad'     => (float) $dest['cantidad'],
+                    'nivel'        => (string) $dest['nivel'],
+                    'departamento' => (string) ($dest['departamento'] ?? ''),
+                    'created_at'   => now(),
+                    'updated_at'   => now(),
+                ]);
+            }
+
+            // Keep backward-compat fields in sync with first destino
+            $primero = $request->destinos[0];
+            $detalle->clasificacion   = $primero['nivel'];
+            $detalle->clasificacion_d = $primero['departamento'] ?? '';
+            $detalle->save();
+        });
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
      * ✅ 4) PDF
      */
     public function pdf(Movimiento $movimiento)
     {
-        $movimiento->load(['detalles', 'user']);
+        $movimiento->load(['detalles.destinos', 'user']);
 
         // Encargado desde el registro en BD, no desde la sesión actual
         $encargado = $movimiento->user?->name ?? 'Encargado de almacén';
