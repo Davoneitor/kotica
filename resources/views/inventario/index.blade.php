@@ -52,11 +52,6 @@
 @endif
 
 
-                <button type="button"
-                        class="px-3 py-2 border rounded bg-gray-800 text-white hover:bg-gray-900"
-                        @click="$store.salidas.open()">
-                     Salidas
-                </button>
             </div>
         </div>
     </x-slot>
