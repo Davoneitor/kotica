@@ -218,13 +218,15 @@ if ($obraLocalId <= 0) abort(403);
     $parcialActual  = round((float) $it['parcial_actual'], 4);
     $llego          = round((float) $it['llego'], 4);
 
-    if ($llego > $cantidadPedida) {
+    $faltanteReal = round($cantidadPedida - $parcialActual, 4);
+
+    if ($llego > $faltanteReal + 0.005) {
         return back()->withErrors([
-            'items.0.llego' => 'No puedes recibir más de la cantidad pedida (' . number_format($cantidadPedida, 4) . ').',
+            'items.0.llego' => 'No puedes recibir más de la cantidad faltante (' . number_format($faltanteReal, 4) . ').',
         ]);
     }
 
-    $parcialNuevo = $parcialActual + $llego;
+    $parcialNuevo = min($cantidadPedida, $parcialActual + $llego);
 
    $userId = Auth::id();
     $idPedido = (int) $it['idPedido'];

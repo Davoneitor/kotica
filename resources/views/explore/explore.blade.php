@@ -1774,7 +1774,6 @@
                     loadingEscom: false,
                     escomImgModal: { show: false, url: '', label: '' },
                     escomExpandidos: {},
-
                     movimientos: [],
                     detallesMovId: null,
                     detalles: [],
