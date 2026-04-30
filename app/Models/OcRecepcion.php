@@ -24,6 +24,10 @@ class OcRecepcion extends Model
         'cantidad_llego',
         'precio_unitario',
         'foto_path',
+        'tipo',
+        'observaciones',
+        'familia',
+        'subfamilia',
     ];
 
     /**

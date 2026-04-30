@@ -69,6 +69,13 @@
                         <span class="text-base font-bold leading-none">+</span>
                         <span>Agregar nueva salida</span>
                     </button>
+
+                    {{-- Botón transferencia --}}
+                    <a href="{{ route('transferencias.index') }}"
+                       class="ml-2 px-4 py-2 text-sm rounded-lg bg-gray-900 text-white hover:bg-gray-700 whitespace-nowrap flex items-center gap-1 shrink-0">
+                        <span class="text-base leading-none">⇄</span>
+                        <span>Transferir a otra obra</span>
+                    </a>
                 </div>
 
                 {{-- ══════════════════════════════════════════════

@@ -148,7 +148,10 @@ class SalidaController extends Controller
         if (ctype_digit($q)) {
             $query->where('id', (int) $q);
         } else {
-            $query->where('descripcion', 'like', "%{$q}%");
+            $query->where(function ($sub) use ($q) {
+                $sub->where('descripcion', 'like', "%{$q}%")
+                    ->orWhere('insumo_id',   'like', "%{$q}%");
+            });
         }
 
         $items = $query->orderBy('id', 'desc')
@@ -162,6 +165,8 @@ class SalidaController extends Controller
                 'devolvible',
                 'familia',
                 'subfamilia',
+                'proveedor',
+                'costo_promedio',
             ]);
 
         return response()->json($items);

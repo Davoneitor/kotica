@@ -11,6 +11,7 @@ use App\Http\Controllers\RetornablesController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\TransferenciaController;
 use App\Http\Controllers\CamionEscombroController;
+use App\Http\Controllers\EntradaManualController;
 
 Route::get('/', function () {
     return redirect()->route('inventario.index');
@@ -71,6 +72,9 @@ Route::get('/inventario/{inventario}/historial', [InventarioController::class, '
 
     Route::post('/ordenes-compra/recibir', [OrdenCompraController::class, 'recibir'])
         ->name('ordenes-compra.recibir');
+
+    Route::post('/entradas-manuales', [EntradaManualController::class, 'store'])
+        ->name('entradas-manuales.store');
 
     // =========================
     // EXPLORE
@@ -154,6 +158,12 @@ Route::get('/inventario/{inventario}/historial', [InventarioController::class, '
     Route::get('/transferencias/buscar', [TransferenciaController::class, 'buscar'])->name('transferencias.buscar');
     Route::get('/transferencias/stock-destino', [TransferenciaController::class, 'stockDestino'])->name('transferencias.stockDestino');
     Route::post('/transferencias', [TransferenciaController::class, 'store'])->name('transferencias.store');
+
+    // Recepción de transferencias (módulo destino)
+    Route::get('/transferencias/pendientes', [TransferenciaController::class, 'pendientes'])->name('transferencias.pendientes');
+    Route::get('/transferencias/{id}/detalles-pendientes', [TransferenciaController::class, 'detallesPendientes'])->name('transferencias.detalles_pendientes');
+    Route::post('/transferencias/{id}/recibir', [TransferenciaController::class, 'recibir'])->name('transferencias.recibir_transferencia');
+    Route::post('/transferencias/{id}/rechazar', [TransferenciaController::class, 'rechazar'])->name('transferencias.rechazar');
 
     // =========================
     // CONTROL DE CAMIONES
