@@ -214,9 +214,11 @@ public function movimientoDetalles(Movimiento $movimiento)
             ->when($hasta, fn($qq) => $qq->whereDate('movimientos.fecha', '<=', $hasta))
             ->when($q !== '', function ($qq) use ($q) {
                 $qq->where(function ($w) use ($q) {
-                    $w->where('movimiento_detalles.descripcion', 'like', "%{$q}%")
-                      ->orWhere('movimiento_detalles.inventario_id', 'like', "%{$q}%")
-                      ->orWhere('inventarios.insumo_id', 'like', "%{$q}%");
+                    $w->where('movimiento_detalles.descripcion',     'like', "%{$q}%")
+                      ->orWhere('movimiento_detalles.inventario_id',  'like', "%{$q}%")
+                      ->orWhere('inventarios.insumo_id',              'like', "%{$q}%")
+                      ->orWhere('movimiento_detalles.clasificacion',   'like', "%{$q}%")
+                      ->orWhere('movimiento_detalles.clasificacion_d', 'like', "%{$q}%");
                 });
             })
             ->orderByDesc('movimientos.fecha')
@@ -231,6 +233,8 @@ public function movimientoDetalles(Movimiento $movimiento)
                 'movimiento_detalles.unidad',
                 'movimiento_detalles.cantidad',
                 'movimiento_detalles.precio_unitario',
+                'movimiento_detalles.clasificacion',
+                'movimiento_detalles.clasificacion_d',
                 'movimientos.fecha',
                 DB::raw('inventarios.insumo_id as codigo_insumo'),
             ]);
@@ -248,6 +252,67 @@ public function movimientoDetalles(Movimiento $movimiento)
             'importe'         => $r->precio_unitario !== null
                                     ? round((float) $r->cantidad * (float) $r->precio_unitario, 2)
                                     : null,
+            'nivel'           => (string) ($r->clasificacion   ?? ''),
+            'departamento'    => (string) ($r->clasificacion_d ?? ''),
+        ])->values());
+    }
+
+    /**
+     * Transferencias ENVIADAS en formato detalle-por-insumo (para tabla de salidas).
+     */
+    public function transferenciasEnviadasTabla(Request $request)
+    {
+        $obraId = Auth::user()?->obra_actual_id;
+        $desde  = $request->get('desde');
+        $hasta  = $request->get('hasta');
+        $q      = trim((string) $request->get('q', ''));
+
+        $rows = DB::table('transferencias_entre_obras_detalle as d')
+            ->join('transferencias_entre_obras as t', 't.id', '=', 'd.transferencia_id')
+            ->join('obras as od', 'od.id', '=', 't.obra_destino_id')
+            ->leftJoin('inventarios as inv', function ($join) use ($obraId) {
+                $join->on('inv.insumo_id', '=', 'd.insumo_id')
+                     ->where('inv.obra_id', '=', $obraId);
+            })
+            ->where('t.obra_origen_id', $obraId)
+            ->when($desde, fn($q2) => $q2->whereDate('t.fecha', '>=', $desde))
+            ->when($hasta, fn($q2) => $q2->whereDate('t.fecha', '<=', $hasta))
+            ->when($q !== '', function ($q2) use ($q) {
+                $q2->where(function ($w) use ($q) {
+                    $w->where('d.descripcion',  'like', "%{$q}%")
+                      ->orWhere('d.insumo_id',  'like', "%{$q}%")
+                      ->orWhere('od.nombre',    'like', "%{$q}%");
+                });
+            })
+            ->orderByDesc('t.fecha')
+            ->orderByDesc('t.id')
+            ->limit(2000)
+            ->select([
+                'd.id',
+                't.id as transferencia_id',
+                't.fecha',
+                'd.insumo_id',
+                'd.descripcion',
+                'd.unidad',
+                'd.cantidad',
+                DB::raw('od.nombre as obra_destino'),
+                DB::raw("ISNULL(inv.familia, 'SIN FAMILIA') as familia"),
+                't.observaciones',
+            ])
+            ->get();
+
+        return response()->json($rows->map(fn($r) => [
+            'id'             => $r->id,
+            'fecha'          => (string) $r->fecha,
+            'insumo_id'      => (string) ($r->insumo_id   ?? ''),
+            'descripcion'    => (string)  $r->descripcion,
+            'unidad'         => (string)  $r->unidad,
+            'cantidad'       => (float)   $r->cantidad,
+            'precio_unitario'=> null,
+            'importe'        => null,
+            'familia'        => (string) ($r->familia      ?? 'SIN FAMILIA'),
+            'obra_destino'   => (string) ($r->obra_destino ?? ''),
+            'observaciones'  => (string) ($r->observaciones ?? ''),
         ])->values());
     }
 
@@ -644,13 +709,27 @@ $user = Auth::user();
     $hasta = $request->get('hasta');
     $tipo  = $request->get('tipo'); // 'oc' | 'manual' | 'transferencia' | null
 
+    // For searching transferencias by obra origen name
+    $transIdsByOrigen = [];
+    if ($q !== '') {
+        $transIdsByOrigen = DB::table('transferencias_entre_obras as t')
+            ->join('obras as oo', 'oo.id', '=', 't.obra_origen_id')
+            ->where('oo.nombre', 'like', "%{$q}%")
+            ->pluck('t.id')
+            ->map(fn($id) => (string) $id)
+            ->toArray();
+    }
+
     $rows = OcRecepcion::query()
         ->where('obra_id', $obraId)
-        ->when($q !== '', function ($qq) use ($q) {
-            $qq->where(function ($w) use ($q) {
+        ->when($q !== '', function ($qq) use ($q, $transIdsByOrigen) {
+            $qq->where(function ($w) use ($q, $transIdsByOrigen) {
                 $w->where('insumo', 'like', "%{$q}%")
                   ->orWhere('descripcion', 'like', "%{$q}%")
                   ->orWhere('id_pedido', 'like', "%{$q}%");
+                if (!empty($transIdsByOrigen)) {
+                    $w->orWhereIn('id_pedido', $transIdsByOrigen);
+                }
             });
         })
         ->when($desde, fn($qq) => $qq->whereDate('fecha_recibido', '>=', $desde))
@@ -663,8 +742,20 @@ $user = Auth::user();
             }
         })
         ->orderByDesc('fecha_recibido')
-        ->limit(200)
+        ->limit(2000)
         ->get();
+
+    // Lookup obra_origen for transferencias (id_pedido = transferencia id)
+    $transPedidoIds = $rows->filter(fn($r) => ($r->tipo ?? 'oc') === 'transferencia')
+        ->pluck('id_pedido')->unique()->filter()->values()->toArray();
+    $origenMap = [];
+    if (!empty($transPedidoIds)) {
+        $origenMap = DB::table('transferencias_entre_obras as t')
+            ->join('obras as oo', 'oo.id', '=', 't.obra_origen_id')
+            ->whereIn('t.id', $transPedidoIds)
+            ->pluck('oo.nombre', 't.id')
+            ->toArray();
+    }
 
     // Lookup de familia desde inventarios (fallback para registros anteriores a la migración)
     $insumosList = $rows->pluck('insumo')->unique()->filter()->values()->toArray();
@@ -702,7 +793,7 @@ $user = Auth::user();
             ->toArray();
     }
 
-    return $rows->map(function ($r) use ($familiasMap, $usersMap) {
+    return $rows->map(function ($r) use ($familiasMap, $usersMap, $origenMap) {
         // Preferir familia almacenada en el registro; caer al lookup si está vacía
         $familia = (string) ($r->familia ?? '');
         if ($familia === '' || $familia === 'SIN FAMILIA') {
@@ -732,6 +823,9 @@ $user = Auth::user();
             'revertida_at'     => $r->revertida_at ? (string) $r->revertida_at : null,
             'motivo_reversion' => (string) ($r->motivo_reversion ?? ''),
             'revertida_por'    => (string) ($usersMap[$r->revertida_por] ?? ''),
+            'obra_origen'      => ($r->tipo ?? 'oc') === 'transferencia'
+                                     ? (string) ($origenMap[$r->id_pedido] ?? '')
+                                     : '',
         ];
     });
 }

@@ -525,13 +525,24 @@
 <div x-show="tab==='ent'" class="mt-4 space-y-3">
 
     <div class="bg-white shadow-sm sm:rounded-lg p-4">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-2">
             <div class="md:col-span-2">
                 <label class="block text-xs text-gray-500 mb-1">Buscar insumo / descripción / OC</label>
                 <input class="w-full border rounded px-3 py-2"
                        placeholder="Ej: 303-ARF / varilla / 12345"
                        x-model="ent.q"
                        @input.debounce.400ms="cargarEntradas()">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Tipo de entrada</label>
+                <select class="w-full border rounded px-3 py-2 bg-white"
+                        x-model="ent.tipo"
+                        @change="cargarEntradas()">
+                    <option value="">Todos</option>
+                    <option value="oc">🟢 Órdenes de Compra</option>
+                    <option value="manual">🔵 Entradas Manuales</option>
+                    <option value="transferencia">🟠 Transferencias</option>
+                </select>
             </div>
             <div>
                 <label class="block text-xs text-gray-500 mb-1">Desde</label>
@@ -563,12 +574,18 @@
                     :class="ent.tipo==='transferencia' ? 'bg-orange-500 text-white border-orange-500' : 'bg-white hover:bg-orange-50 text-orange-700 border-orange-300'"
                     class="px-3 py-1 rounded border text-sm transition-colors font-medium">🟠 Transferencia</button>
         </div>
-        {{-- En vista tabla: acceso rápido a secciones --}}
+        {{-- En vista tabla: botones para mostrar/ocultar cada sección --}}
         <div x-show="ent.vista==='tabla'" class="mt-3 flex flex-wrap items-center gap-2">
-            <span class="text-xs text-gray-500 font-medium shrink-0">Ir a:</span>
-            <a href="#sec-oc"   class="px-3 py-1 rounded border text-sm font-medium" style="background:#059669;color:#fff;border-color:#059669">🟢 Compras</a>
-            <a href="#sec-man"  class="px-3 py-1 rounded border text-sm font-medium" style="background:#2563eb;color:#fff;border-color:#2563eb">🔵 Manuales</a>
-            <a href="#sec-tra"  class="px-3 py-1 rounded border text-sm font-medium" style="background:#f97316;color:#fff;border-color:#f97316">🟠 Transferencias</a>
+            <span class="text-xs text-gray-500 font-medium shrink-0">Filtrar:</span>
+            <button @click="ent.mostrar.oc = !ent.mostrar.oc"
+                    :style="ent.mostrar.oc ? 'background:#059669;color:#fff;border-color:#059669;opacity:1' : 'background:#fff;color:#059669;border-color:#059669;opacity:0.5'"
+                    class="px-3 py-1 rounded border text-sm font-medium transition-opacity">🟢 Órdenes de Compra</button>
+            <button @click="ent.mostrar.manual = !ent.mostrar.manual"
+                    :style="ent.mostrar.manual ? 'background:#2563eb;color:#fff;border-color:#2563eb;opacity:1' : 'background:#fff;color:#2563eb;border-color:#2563eb;opacity:0.5'"
+                    class="px-3 py-1 rounded border text-sm font-medium transition-opacity">🔵 Entradas Manuales</button>
+            <button @click="ent.mostrar.transferencia = !ent.mostrar.transferencia"
+                    :style="ent.mostrar.transferencia ? 'background:#f97316;color:#fff;border-color:#f97316;opacity:1' : 'background:#fff;color:#f97316;border-color:#f97316;opacity:0.5'"
+                    class="px-3 py-1 rounded border text-sm font-medium transition-opacity">🟠 Transferencias</button>
         </div>
 
         {{-- Resumen de lo que está cargado --}}

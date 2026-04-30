@@ -84,6 +84,7 @@ Route::get('/inventario/{inventario}/historial', [InventarioController::class, '
     Route::get('/explore/movimientos', [ExploreController::class, 'movimientos'])->name('explore.movimientos');
 
     Route::get('/explore/salidas/tabla', [ExploreController::class, 'salidasTabla'])->name('explore.salidas_tabla');
+    Route::get('/explore/transferencias/enviadas/tabla', [ExploreController::class, 'transferenciasEnviadasTabla'])->name('explore.transferencias.enviadas_tabla');
 
     Route::get('/explore/movimientos/{movimiento}/detalles', [ExploreController::class, 'movimientoDetalles'])
         ->name('explore.movimientos.detalles');

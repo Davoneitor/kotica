@@ -125,19 +125,19 @@
                             <input class="w-full border rounded px-3 py-2"
                                    placeholder="Ej: Juan Pérez / Centro Histórico"
                                    x-model="mov.q"
-                                   @input.debounce.400ms="cargarMovimientos()">
+                                   @input.debounce.400ms="mov.vista === 'tabla' ? cargarSalidasTabla() : cargarMovimientos()">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-500 mb-1">Desde</label>
                             <input type="date" class="w-full border rounded px-3 py-2"
                                    x-model="mov.desde"
-                                   @change="cargarMovimientos()">
+                                   @change="mov.vista === 'tabla' ? cargarSalidasTabla() : cargarMovimientos()">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-500 mb-1">Hasta</label>
                             <input type="date" class="w-full border rounded px-3 py-2"
                                    x-model="mov.hasta"
-                                   @change="cargarMovimientos()">
+                                   @change="mov.vista === 'tabla' ? cargarSalidasTabla() : cargarMovimientos()">
                         </div>
                     </div>
 
@@ -388,83 +388,176 @@
                         <div class="text-2xl font-extrabold" x-text="'$' + formatMoney(totalSalidas())"></div>
                     </div>
 
-                    {{-- Tabla --}}
-                    <div class="bg-white shadow-sm sm:rounded-lg overflow-x-auto">
-                        <div x-show="loading" class="p-4 text-sm text-gray-500">Cargando tabla...</div>
-                        <div x-show="!loading && salidasTablaData.length === 0"
-                             class="p-8 text-center text-gray-500 text-sm">
-                            Sin movimientos en el período seleccionado.
+                    {{-- Sección 1: Salidas --}}
+                    <div x-show="salidasTablaData.length > 0" style="border:2px solid #4f46e5;border-radius:0.5rem;overflow:hidden">
+                        {{-- Header colapsable --}}
+                        <div @click="seccionSalidasAbierta.salidas = !seccionSalidasAbierta.salidas"
+                             class="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
+                             style="background:#4f46e5;color:#fff">
+                            <div class="flex items-center gap-2">
+                                <svg :class="seccionSalidasAbierta.salidas ? 'rotate-90' : ''"
+                                     class="w-4 h-4 transition-transform duration-150"
+                                     fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                </svg>
+                                <span class="font-bold text-sm">🔴 Salidas</span>
+                                <span class="text-xs opacity-75" x-text="'(' + salidasTablaData.length + ' registros)'"></span>
+                            </div>
+                            <div class="font-bold tabular-nums" x-text="'$' + formatMoney(totalSalidas())"></div>
                         </div>
-                        <table x-show="salidasTablaData.length > 0" class="w-full text-sm">
-                            <thead class="bg-gray-50 border-b text-xs text-gray-500 uppercase">
-                                <tr>
-                                    <th class="w-8 px-2 py-2"></th>
-                                    <th class="px-3 py-2 text-left">Fecha</th>
-                                    <th class="px-3 py-2 text-left">Código</th>
-                                    <th class="px-3 py-2 text-left">Descripción</th>
-                                    <th class="px-3 py-2 text-left">Unidad</th>
-                                    <th class="px-3 py-2 text-right">Cantidad</th>
-                                    <th class="px-3 py-2 text-right">P.U.</th>
-                                    <th class="px-3 py-2 text-right">Importe</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <template x-for="row in salidasGruposFlat()" :key="row._key">
-                                    <tr :class="row._tipo === 'familia'
-                                                ? 'border-t-2 border-indigo-200 bg-indigo-50 cursor-pointer hover:bg-indigo-100 select-none'
-                                                : 'border-t border-gray-100 hover:bg-gray-50'"
-                                        @click="row._tipo === 'familia' && toggleSalidaGrupo(row.familia)">
-                                        {{-- Toggle icon --}}
-                                        <td class="px-2 py-2 text-center w-8">
-                                            <svg x-show="row._tipo === 'familia'"
-                                                 :class="salidasTablaExpandidos[row.familia] ? 'rotate-90' : ''"
-                                                 class="inline w-4 h-4 text-indigo-500 transition-transform duration-150"
-                                                 fill="none" stroke="currentColor" stroke-width="2.5"
-                                                 viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-                                            </svg>
-                                        </td>
-                                        {{-- Fecha / contador de registros --}}
-                                        <td class="px-3 py-2 text-xs tabular-nums whitespace-nowrap"
-                                            :class="row._tipo === 'familia' ? 'text-indigo-400 font-medium' : 'text-gray-500 pl-6'"
-                                            x-text="row._tipo === 'familia' ? row.count + ' registros' : formatFechaCorta(row.fecha)">
-                                        </td>
-                                        {{-- Código --}}
-                                        <td class="px-3 py-2 font-mono text-xs"
-                                            :class="row._tipo === 'familia' ? 'text-gray-300' : 'text-gray-600 pl-6'"
-                                            x-text="row._tipo !== 'familia' ? row.insumo_id : ''">
-                                        </td>
-                                        {{-- Descripción / Nombre de familia --}}
-                                        <td class="px-3 py-2"
-                                            :class="row._tipo === 'familia' ? 'text-indigo-800 font-bold text-sm uppercase tracking-wide' : 'text-xs text-gray-700 pl-6'"
-                                            x-text="row._tipo === 'familia' ? row.familia : row.descripcion">
-                                        </td>
-                                        {{-- Unidad --}}
-                                        <td class="px-3 py-2 text-xs"
-                                            :class="row._tipo === 'familia' ? '' : 'text-gray-500'"
-                                            x-text="row._tipo !== 'familia' ? row.unidad : ''">
-                                        </td>
-                                        {{-- Cantidad --}}
-                                        <td class="px-3 py-2 text-right tabular-nums"
-                                            :class="row._tipo === 'familia' ? 'text-indigo-700 font-bold' : 'text-xs font-medium text-gray-700'"
-                                            x-text="formatNum(row._tipo === 'familia' ? row.cantidad_total : row.cantidad)">
-                                        </td>
-                                        {{-- P.U. --}}
-                                        <td class="px-3 py-2 text-right text-xs tabular-nums"
-                                            :class="row._tipo === 'familia' ? 'text-gray-300' : 'text-gray-500'"
-                                            x-text="row._tipo !== 'familia' && row.precio_unitario !== null ? '$' + formatMoney(row.precio_unitario) : '—'">
-                                        </td>
-                                        {{-- Importe --}}
-                                        <td class="px-3 py-2 text-right tabular-nums"
-                                            :class="row._tipo === 'familia' ? 'text-indigo-700 font-bold' : 'text-xs text-gray-700'"
-                                            x-text="row._tipo === 'familia'
-                                                ? (row.importe_total > 0 ? '$' + formatMoney(row.importe_total) : '—')
-                                                : (row.importe !== null ? '$' + formatMoney(row.importe) : '—')">
-                                        </td>
+                        {{-- Tabla --}}
+                        <div x-show="seccionSalidasAbierta.salidas" class="overflow-x-auto">
+                            <div x-show="loading" class="p-4 text-sm text-gray-500">Cargando tabla...</div>
+                            <table x-show="!loading" class="w-full text-sm">
+                                <thead class="text-xs text-gray-500 uppercase" style="background:#ede9fe">
+                                    <tr>
+                                        <th class="w-8 px-2 py-2"></th>
+                                        <th class="px-3 py-2 text-left">Fecha</th>
+                                        <th class="px-3 py-2 text-left">Código</th>
+                                        <th class="px-3 py-2 text-left">Descripción</th>
+                                        <th class="px-3 py-2 text-left">Unidad</th>
+                                        <th class="px-3 py-2 text-left">Destino</th>
+                                        <th class="px-3 py-2 text-right">Cantidad</th>
+                                        <th class="px-3 py-2 text-right">P.U.</th>
+                                        <th class="px-3 py-2 text-right">Importe</th>
                                     </tr>
-                                </template>
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    <template x-for="row in salidasGruposFlat()" :key="row._key">
+                                        <tr :style="row._tipo === 'familia'
+                                                    ? 'border-top:2px solid #c7d2fe;background:#e0e7ff;cursor:pointer'
+                                                    : 'border-top:1px solid #e0e7ff'"
+                                            @click="row._tipo === 'familia' && toggleSalidaGrupo(row.familia)">
+                                            <td class="px-2 py-2 text-center w-8">
+                                                <svg x-show="row._tipo === 'familia'"
+                                                     :style="salidasTablaExpandidos[row.familia] ? 'transform:rotate(90deg)' : ''"
+                                                     style="display:inline;width:1rem;height:1rem;color:#4f46e5;transition:transform 0.15s"
+                                                     fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                                </svg>
+                                            </td>
+                                            <td class="px-3 py-2 text-xs tabular-nums whitespace-nowrap"
+                                                :style="row._tipo === 'familia' ? 'color:#818cf8;font-weight:500' : 'color:#6b7280;padding-left:1.5rem'"
+                                                x-text="row._tipo === 'familia' ? row.count + ' registros' : formatFechaCorta(row.fecha)">
+                                            </td>
+                                            <td class="px-3 py-2 font-mono text-xs"
+                                                :style="row._tipo === 'familia' ? 'color:#d1d5db' : 'color:#4b5563;padding-left:1.5rem'"
+                                                x-text="row._tipo !== 'familia' ? row.insumo_id : ''">
+                                            </td>
+                                            <td class="px-3 py-2"
+                                                :style="row._tipo === 'familia' ? 'color:#3730a3;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.025em' : 'font-size:0.75rem;color:#374151;padding-left:1.5rem'"
+                                                x-text="row._tipo === 'familia' ? row.familia : row.descripcion">
+                                            </td>
+                                            <td class="px-3 py-2 text-xs"
+                                                :style="row._tipo !== 'familia' ? 'color:#6b7280' : ''"
+                                                x-text="row._tipo !== 'familia' ? row.unidad : ''">
+                                            </td>
+                                            <td class="px-3 py-2 text-xs"
+                                                :style="row._tipo !== 'familia' ? 'color:#374151' : ''"
+                                                x-text="row._tipo !== 'familia' ? ((row.nivel || '') + (row.departamento ? ' / ' + row.departamento : '') || '—') : ''">
+                                            </td>
+                                            <td class="px-3 py-2 text-right tabular-nums"
+                                                :style="row._tipo === 'familia' ? 'color:#4338ca;font-weight:700' : 'font-size:0.75rem;font-weight:500;color:#374151'"
+                                                x-text="formatNum(row._tipo === 'familia' ? row.cantidad_total : row.cantidad)">
+                                            </td>
+                                            <td class="px-3 py-2 text-right text-xs tabular-nums"
+                                                :style="row._tipo === 'familia' ? 'color:#d1d5db' : 'color:#6b7280'"
+                                                x-text="row._tipo !== 'familia' && row.precio_unitario !== null ? '$' + formatMoney(row.precio_unitario) : '—'">
+                                            </td>
+                                            <td class="px-3 py-2 text-right tabular-nums"
+                                                :style="row._tipo === 'familia' ? 'color:#4338ca;font-weight:700' : 'font-size:0.75rem;color:#374151'"
+                                                x-text="row._tipo === 'familia'
+                                                    ? (row.importe_total > 0 ? '$' + formatMoney(row.importe_total) : '—')
+                                                    : (row.importe !== null ? '$' + formatMoney(row.importe) : '—')">
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {{-- Sección 2: Transferencias Enviadas --}}
+                    <div x-show="transSalidasData.length > 0" style="border:2px solid #f97316;border-radius:0.5rem;overflow:hidden">
+                        {{-- Header colapsable --}}
+                        <div @click="seccionSalidasAbierta.transferencias = !seccionSalidasAbierta.transferencias"
+                             class="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
+                             style="background:#f97316;color:#fff">
+                            <div class="flex items-center gap-2">
+                                <svg :class="seccionSalidasAbierta.transferencias ? 'rotate-90' : ''"
+                                     class="w-4 h-4 transition-transform duration-150"
+                                     fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                </svg>
+                                <span class="font-bold text-sm">🟠 Transferencias Enviadas</span>
+                                <span class="text-xs opacity-75" x-text="'(' + transSalidasData.length + ' registros)'"></span>
+                            </div>
+                            <div class="font-bold tabular-nums text-sm" x-text="transSalidasData.reduce((s,r)=>s+parseFloat(r.cantidad||0),0).toFixed(2) + ' uds'"></div>
+                        </div>
+                        {{-- Tabla --}}
+                        <div x-show="seccionSalidasAbierta.transferencias" class="overflow-x-auto">
+                            <div x-show="loading" class="p-4 text-sm text-gray-500">Cargando tabla...</div>
+                            <table x-show="!loading" class="w-full text-sm">
+                                <thead class="text-xs text-gray-500 uppercase" style="background:#fff7ed">
+                                    <tr>
+                                        <th class="w-8 px-2 py-2"></th>
+                                        <th class="px-3 py-2 text-left">Fecha</th>
+                                        <th class="px-3 py-2 text-left">Código</th>
+                                        <th class="px-3 py-2 text-left">Descripción</th>
+                                        <th class="px-3 py-2 text-left">Unidad</th>
+                                        <th class="px-3 py-2 text-left">Destino</th>
+                                        <th class="px-3 py-2 text-right">Cantidad</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="row in transSalidasGruposFlat()" :key="row._key">
+                                        <tr :style="row._fila === 'familia'
+                                                    ? 'border-top:2px solid #fed7aa;background:#ffedd5;cursor:pointer'
+                                                    : 'border-top:1px solid #fed7aa'"
+                                            @click="row._fila === 'familia' && toggleTransSalidaGrupo(row.familia)">
+                                            <td class="px-2 py-2 text-center w-8">
+                                                <svg x-show="row._fila === 'familia'"
+                                                     :style="transSalidasExpandidos[row.familia] ? 'transform:rotate(90deg)' : ''"
+                                                     style="display:inline;width:1rem;height:1rem;color:#f97316;transition:transform 0.15s"
+                                                     fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                                </svg>
+                                            </td>
+                                            <td class="px-3 py-2 text-xs tabular-nums whitespace-nowrap"
+                                                :style="row._fila === 'familia' ? 'color:#fb923c;font-weight:500' : 'color:#6b7280;padding-left:1.5rem'"
+                                                x-text="row._fila === 'familia' ? row.count + ' registros' : formatFechaCorta(row.fecha)">
+                                            </td>
+                                            <td class="px-3 py-2 font-mono text-xs"
+                                                :style="row._fila === 'familia' ? 'color:#d1d5db' : 'color:#4b5563;padding-left:1.5rem'"
+                                                x-text="row._fila !== 'familia' ? row.insumo_id : ''">
+                                            </td>
+                                            <td class="px-3 py-2"
+                                                :style="row._fila === 'familia' ? 'color:#9a3412;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.025em' : 'font-size:0.75rem;color:#374151;padding-left:1.5rem'"
+                                                x-text="row._fila === 'familia' ? row.familia : row.descripcion">
+                                            </td>
+                                            <td class="px-3 py-2 text-xs"
+                                                :style="row._fila !== 'familia' ? 'color:#6b7280' : ''"
+                                                x-text="row._fila !== 'familia' ? row.unidad : ''">
+                                            </td>
+                                            <td class="px-3 py-2 text-xs"
+                                                :style="row._fila !== 'familia' ? 'color:#374151' : ''"
+                                                x-text="row._fila !== 'familia' ? row.obra_destino : ''">
+                                            </td>
+                                            <td class="px-3 py-2 text-right tabular-nums"
+                                                :style="row._fila === 'familia' ? 'color:#c2410c;font-weight:700' : 'font-size:0.75rem;font-weight:500;color:#374151'"
+                                                x-text="formatNum(row._fila === 'familia' ? row.cantidad_total : row.cantidad)">
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {{-- Empty state --}}
+                    <div x-show="!loading && salidasTablaData.length === 0 && transSalidasData.length === 0"
+                         class="p-8 text-center text-gray-500 text-sm bg-white rounded-lg border">
+                        Sin movimientos en el período seleccionado.
                     </div>
                 </div>
 
@@ -522,13 +615,24 @@
 <div x-show="tab==='ent'" class="mt-4 space-y-3">
 
     <div class="bg-white shadow-sm sm:rounded-lg p-4">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-2">
             <div class="md:col-span-2">
                 <label class="block text-xs text-gray-500 mb-1">Buscar insumo / descripción / OC</label>
                 <input class="w-full border rounded px-3 py-2"
                        placeholder="Ej: 303-ARF / varilla / 12345"
                        x-model="ent.q"
                        @input.debounce.400ms="cargarEntradas()">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Tipo de entrada</label>
+                <select class="w-full border rounded px-3 py-2 bg-white"
+                        x-model="ent.tipo"
+                        @change="cargarEntradas()">
+                    <option value="">Todos</option>
+                    <option value="oc">🟢 Órdenes de Compra</option>
+                    <option value="manual">🔵 Entradas Manuales</option>
+                    <option value="transferencia">🟠 Transferencias</option>
+                </select>
             </div>
             <div>
                 <label class="block text-xs text-gray-500 mb-1">Desde</label>
@@ -651,14 +755,15 @@
     </div>
 
     {{-- ========================= --}}
-    {{-- TABLA DE ENTRADAS --}}
+    {{-- TABLA DE ENTRADAS — 3 secciones --}}
     {{-- ========================= --}}
     <div x-show="ent.vista==='tabla'" class="space-y-3">
 
         {{-- Total general --}}
-        <div class="bg-gray-900 text-white rounded-lg px-4 py-3 flex justify-between items-center">
+        <div x-show="!loading && entradas.length > 0"
+             class="bg-gray-900 text-white rounded-lg px-4 py-3 flex justify-between items-center">
             <div class="flex items-center gap-3">
-                <div class="text-sm font-medium">Costo total del almacén (entradas filtradas)</div>
+                <div class="text-sm font-medium">Total entradas filtradas</div>
                 <button @click="toggleExpandirTodoEntradas()"
                         class="px-2 py-1 rounded text-xs border border-white/30 hover:bg-white/10 transition-colors whitespace-nowrap"
                         x-text="todosEntradasExpandidos() ? 'Colapsar todo' : 'Expandir todo'"></button>
@@ -666,84 +771,256 @@
             <div class="text-2xl font-extrabold" x-text="'$' + formatMoney(totalEntradas())"></div>
         </div>
 
-        {{-- Tabla --}}
-        <div class="bg-white shadow-sm sm:rounded-lg overflow-x-auto">
-            <div x-show="loading" class="p-4 text-sm text-gray-500">Cargando tabla...</div>
-            <div x-show="!loading && entradas.length === 0"
-                 class="p-8 text-center text-gray-500 text-sm">
-                Sin entradas en el período seleccionado.
-            </div>
-            <table x-show="entradas.length > 0" class="w-full text-sm">
-                <thead class="bg-gray-50 border-b text-xs text-gray-500 uppercase">
-                    <tr>
-                        <th class="w-8 px-2 py-2"></th>
-                        <th class="px-3 py-2 text-left">Fecha recibido</th>
-                        <th class="px-3 py-2 text-left">Código</th>
-                        <th class="px-3 py-2 text-left">Descripción</th>
-                        <th class="px-3 py-2 text-left">Unidad</th>
-                        <th class="px-3 py-2 text-right">Cantidad</th>
-                        <th class="px-3 py-2 text-right">P.U.</th>
-                        <th class="px-3 py-2 text-right">Importe</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template x-for="row in entradasGruposFlat()" :key="row._key">
-                        <tr :class="row._tipo === 'familia'
-                                    ? 'border-t-2 border-emerald-200 bg-emerald-50 cursor-pointer hover:bg-emerald-100 select-none'
-                                    : 'border-t border-gray-100 hover:bg-gray-50'"
-                            @click="row._tipo === 'familia' && toggleEntradaGrupo(row.familia)">
-                            {{-- Toggle icon --}}
-                            <td class="px-2 py-2 text-center w-8">
-                                <svg x-show="row._tipo === 'familia'"
-                                     :class="entradasTablaExpandidos[row.familia] ? 'rotate-90' : ''"
-                                     class="inline w-4 h-4 text-emerald-500 transition-transform duration-150"
-                                     fill="none" stroke="currentColor" stroke-width="2.5"
-                                     viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-                                </svg>
-                            </td>
-                            {{-- Fecha / contador --}}
-                            <td class="px-3 py-2 text-xs tabular-nums whitespace-nowrap"
-                                :class="row._tipo === 'familia' ? 'text-emerald-400 font-medium' : 'text-gray-500 pl-6'"
-                                x-text="row._tipo === 'familia' ? row.count + ' registros' : formatFechaCorta(row.fecha_recibido)">
-                            </td>
-                            {{-- Código --}}
-                            <td class="px-3 py-2 font-mono text-xs"
-                                :class="row._tipo === 'familia' ? 'text-gray-300' : 'text-gray-600 pl-6'"
-                                x-text="row._tipo !== 'familia' ? row.insumo_id : ''">
-                            </td>
-                            {{-- Descripción / Nombre de familia --}}
-                            <td class="px-3 py-2"
-                                :class="row._tipo === 'familia' ? 'text-emerald-800 font-bold text-sm uppercase tracking-wide' : 'text-xs text-gray-700 pl-6'"
-                                x-text="row._tipo === 'familia' ? row.familia : row.descripcion">
-                            </td>
-                            {{-- Unidad --}}
-                            <td class="px-3 py-2 text-xs"
-                                :class="row._tipo === 'familia' ? '' : 'text-gray-500'"
-                                x-text="row._tipo !== 'familia' ? row.unidad : ''">
-                            </td>
-                            {{-- Cantidad --}}
-                            <td class="px-3 py-2 text-right tabular-nums"
-                                :class="row._tipo === 'familia' ? 'text-emerald-700 font-bold' : 'text-xs font-medium text-gray-700'"
-                                x-text="formatNum(row._tipo === 'familia' ? row.cantidad_total : row.cantidad_llego)">
-                            </td>
-                            {{-- P.U. --}}
-                            <td class="px-3 py-2 text-right text-xs tabular-nums"
-                                :class="row._tipo === 'familia' ? 'text-gray-300' : 'text-gray-500'"
-                                x-text="row._tipo !== 'familia' && row.precio_unitario !== null ? '$' + formatMoney(row.precio_unitario) : '—'">
-                            </td>
-                            {{-- Importe --}}
-                            <td class="px-3 py-2 text-right tabular-nums"
-                                :class="row._tipo === 'familia' ? 'text-emerald-700 font-bold' : 'text-xs text-gray-700'"
-                                x-text="row._tipo === 'familia'
-                                    ? (row.importe_total > 0 ? '$' + formatMoney(row.importe_total) : '—')
-                                    : (row.importe !== null ? '$' + formatMoney(row.importe) : '—')">
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
+        <div x-show="loading" class="bg-white shadow-sm rounded-lg p-6 text-center text-sm text-gray-500">Cargando...</div>
+        <div x-show="!loading && entradas.length === 0" class="bg-white shadow-sm rounded-lg p-8 text-center text-sm text-gray-500">
+            Sin entradas en el período seleccionado.
         </div>
+
+        {{-- ── 1. ÓRDENES DE COMPRA ── --}}
+        <div x-show="entradasPorTipo('oc').length > 0" class="rounded-lg overflow-hidden" style="border:2px solid #059669">
+            {{-- Header --}}
+            <div @click="ent.seccionAbierta.oc = !ent.seccionAbierta.oc"
+                 class="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
+                 style="background:#059669;color:#fff">
+                <div class="flex items-center gap-2">
+                    <svg :class="ent.seccionAbierta.oc ? 'rotate-90':''"
+                         class="w-4 h-4 transition-transform shrink-0"
+                         fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                    </svg>
+                    <span class="font-bold text-sm">🟢 Órdenes de Compra</span>
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.25)"
+                          x-text="entradasPorTipo('oc').length + ' registros'"></span>
+                </div>
+                <span class="font-bold text-base"
+                      x-text="'$' + formatMoney(entradasPorTipo('oc').reduce((s,e)=>s+(e.importe??0),0))"></span>
+            </div>
+            {{-- Tabla --}}
+            <div x-show="ent.seccionAbierta.oc" class="overflow-x-auto bg-white">
+                <table class="w-full text-sm">
+                    <thead class="text-xs text-gray-500 uppercase border-b" style="background:#ecfdf5">
+                        <tr>
+                            <th class="w-8 px-2 py-2"></th>
+                            <th class="px-3 py-2 text-left">Fecha</th>
+                            <th class="px-3 py-2 text-left">Código</th>
+                            <th class="px-3 py-2 text-left">Descripción</th>
+                            <th class="px-3 py-2 text-left">Unidad</th>
+                            <th class="px-3 py-2 text-right">Cantidad</th>
+                            <th class="px-3 py-2 text-right">P.U.</th>
+                            <th class="px-3 py-2 text-right">Importe</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="row in entradasOcGruposFlat()" :key="row._key">
+                            <tr :class="row._fila==='familia' ? 'cursor-pointer select-none' : ''"
+                                :style="row._fila==='familia'
+                                    ? 'border-top:2px solid #6ee7b7;background:#d1fae5'
+                                    : 'border-top:1px solid #d1fae5'"
+                                @click="row._fila==='familia' && toggleOcGrupo(row.familia)">
+                                <td class="px-2 py-2 text-center w-8">
+                                    <svg x-show="row._fila==='familia'"
+                                         :class="ocTablaExpandidos[row.familia] ? 'rotate-90' : ''"
+                                         class="inline w-4 h-4 transition-transform duration-150" style="color:#059669"
+                                         fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                    </svg>
+                                </td>
+                                <td class="px-3 py-2 text-xs whitespace-nowrap tabular-nums"
+                                    :style="row._fila==='familia' ? 'color:#059669;font-weight:500' : 'color:#6b7280;padding-left:1.5rem'"
+                                    x-text="row._fila==='familia' ? row.count+' registros' : formatFechaCorta(row.fecha_recibido)"></td>
+                                <td class="px-3 py-2 font-mono text-xs"
+                                    :style="row._fila==='familia' ? 'color:#d1d5db' : 'color:#4b5563;padding-left:1.5rem'"
+                                    x-text="row._fila!=='familia' ? row.insumo : ''"></td>
+                                <td class="px-3 py-2"
+                                    :style="row._fila==='familia' ? 'color:#065f46;font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em' : 'font-size:0.75rem;color:#374151;padding-left:1.5rem'"
+                                    x-text="row._fila==='familia' ? row.familia : row.descripcion"></td>
+                                <td class="px-3 py-2 text-xs" style="color:#6b7280"
+                                    x-text="row._fila!=='familia' ? row.unidad : ''"></td>
+                                <td class="px-3 py-2 text-right tabular-nums"
+                                    :style="row._fila==='familia' ? 'color:#065f46;font-weight:700' : 'font-size:0.75rem;font-weight:500;color:#374151'"
+                                    x-text="formatNum(row._fila==='familia' ? row.cantidad_total : row.cantidad_llego)"></td>
+                                <td class="px-3 py-2 text-right text-xs tabular-nums" style="color:#6b7280"
+                                    x-text="row._fila!=='familia' && row.precio_unitario!=null ? '$'+formatMoney(row.precio_unitario) : '—'"></td>
+                                <td class="px-3 py-2 text-right tabular-nums"
+                                    :style="row._fila==='familia' ? 'color:#065f46;font-weight:700' : 'font-size:0.75rem;color:#374151'"
+                                    x-text="row._fila==='familia'
+                                        ? (row.importe_total>0 ? '$'+formatMoney(row.importe_total) : '—')
+                                        : (row.importe!=null ? '$'+formatMoney(row.importe) : '—')"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {{-- ── 2. ENTRADAS MANUALES ── --}}
+        <div x-show="entradasPorTipo('manual').length > 0" class="rounded-lg overflow-hidden" style="border:2px solid #2563eb">
+            <div @click="ent.seccionAbierta.manual = !ent.seccionAbierta.manual"
+                 class="flex items-center gap-2 px-4 py-3 cursor-pointer select-none"
+                 style="background:#2563eb;color:#fff">
+                <svg :class="ent.seccionAbierta.manual ? 'rotate-90':''"
+                     class="w-4 h-4 transition-transform shrink-0"
+                     fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                </svg>
+                <span class="font-bold text-sm">🔵 Entradas Manuales</span>
+                <span class="text-xs font-semibold px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.25)"
+                      x-text="entradasPorTipo('manual').length + ' registros'"></span>
+            </div>
+            <div x-show="ent.seccionAbierta.manual" class="overflow-x-auto bg-white">
+                <table class="w-full text-sm">
+                    <thead class="text-xs text-gray-500 uppercase border-b" style="background:#eff6ff">
+                        <tr>
+                            <th class="w-8 px-2 py-2"></th>
+                            <th class="px-3 py-2 text-left">Fecha</th>
+                            <th class="px-3 py-2 text-left">Código</th>
+                            <th class="px-3 py-2 text-left">Descripción</th>
+                            <th class="px-3 py-2 text-left">Unidad</th>
+                            <th class="px-3 py-2 text-right">Cantidad</th>
+                            <th class="px-3 py-2 text-right">P.U.</th>
+                            <th class="px-3 py-2 text-right">Importe</th>
+                            <th class="px-3 py-2 text-left">Registrado por</th>
+                            <th class="px-3 py-2 text-left">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="row in entradasManualGruposFlat()" :key="row._key">
+                            <tr :class="row._fila === 'familia' ? 'cursor-pointer select-none' : ''"
+                                :style="row._fila === 'familia'
+                                    ? 'border-top:2px solid #bfdbfe;background:#dbeafe'
+                                    : 'border-top:1px solid #bfdbfe;' + (row.revertida ? 'opacity:0.5' : '')"
+                                @click="row._fila === 'familia' && toggleManualGrupo(row.familia)">
+                                {{-- Icono toggle --}}
+                                <td class="px-2 py-2 text-center w-8">
+                                    <svg x-show="row._fila === 'familia'"
+                                         :class="manualTablaExpandidos[row.familia] ? 'rotate-90' : ''"
+                                         class="inline w-4 h-4 transition-transform duration-150"
+                                         style="color:#2563eb"
+                                         fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                    </svg>
+                                </td>
+                                {{-- Fecha / contador --}}
+                                <td class="px-3 py-2 text-xs whitespace-nowrap tabular-nums"
+                                    :style="row._fila === 'familia' ? 'color:#3b82f6;font-weight:500' : 'color:#6b7280;padding-left:1.5rem'"
+                                    x-text="row._fila === 'familia' ? row.count + ' registros' : formatFechaCorta(row.fecha_recibido)"></td>
+                                {{-- Código --}}
+                                <td class="px-3 py-2 font-mono text-xs"
+                                    :style="row._fila === 'familia' ? 'color:#d1d5db' : 'color:#4b5563;padding-left:1.5rem'"
+                                    x-text="row._fila !== 'familia' ? row.insumo : ''"></td>
+                                {{-- Descripción / Familia --}}
+                                <td class="px-3 py-2"
+                                    :style="row._fila === 'familia' ? 'color:#1e3a8a;font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em' : 'font-size:0.75rem;color:#374151;padding-left:1.5rem'"
+                                    x-text="row._fila === 'familia' ? row.familia : row.descripcion"></td>
+                                {{-- Unidad --}}
+                                <td class="px-3 py-2 text-xs" style="color:#6b7280"
+                                    x-text="row._fila !== 'familia' ? row.unidad : ''"></td>
+                                {{-- Cantidad --}}
+                                <td class="px-3 py-2 text-right tabular-nums"
+                                    :style="row._fila === 'familia' ? 'color:#1d4ed8;font-weight:700' : 'font-size:0.75rem;font-weight:500;color:#374151'"
+                                    x-text="formatNum(row._fila === 'familia' ? row.cantidad_total : row.cantidad_llego)"></td>
+                                {{-- P.U. --}}
+                                <td class="px-3 py-2 text-right text-xs tabular-nums" style="color:#6b7280"
+                                    x-text="row._fila !== 'familia' && row.precio_unitario != null ? '$'+formatMoney(row.precio_unitario) : '—'"></td>
+                                {{-- Importe --}}
+                                <td class="px-3 py-2 text-right tabular-nums"
+                                    :style="row._fila === 'familia' ? 'color:#1d4ed8;font-weight:700' : 'font-size:0.75rem;color:#374151'"
+                                    x-text="row._fila === 'familia'
+                                        ? (row.importe_total > 0 ? '$'+formatMoney(row.importe_total) : '—')
+                                        : (row.importe != null ? '$'+formatMoney(row.importe) : '—')"></td>
+                                {{-- Registrado por --}}
+                                <td class="px-3 py-2 text-xs" style="color:#6b7280"
+                                    x-text="row._fila !== 'familia' ? (row.usuario||'—') : ''"></td>
+                                {{-- Estado --}}
+                                <td class="px-3 py-2">
+                                    <template x-if="row._fila !== 'familia' && row.revertida">
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold" style="background:#fee2e2;color:#b91c1c">✗ Revertida</span>
+                                    </template>
+                                    <template x-if="row._fila !== 'familia' && !row.revertida">
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold" style="background:#dcfce7;color:#15803d">✓ Activa</span>
+                                    </template>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {{-- ── 3. TRANSFERENCIAS RECIBIDAS ── --}}
+        <div x-show="entradasPorTipo('transferencia').length > 0" class="rounded-lg overflow-hidden" style="border:2px solid #f97316">
+            <div @click="ent.seccionAbierta.transferencia = !ent.seccionAbierta.transferencia"
+                 class="flex items-center gap-2 px-4 py-3 cursor-pointer select-none"
+                 style="background:#f97316;color:#fff">
+                <svg :class="ent.seccionAbierta.transferencia ? 'rotate-90':''"
+                     class="w-4 h-4 transition-transform shrink-0"
+                     fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                </svg>
+                <span class="font-bold text-sm">🟠 Transferencias Recibidas</span>
+                <span class="text-xs font-semibold px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.25)"
+                      x-text="entradasPorTipo('transferencia').length + ' registros'"></span>
+            </div>
+            <div x-show="ent.seccionAbierta.transferencia" class="overflow-x-auto bg-white">
+                <table class="w-full text-sm">
+                    <thead class="text-xs text-gray-500 uppercase border-b" style="background:#fff7ed">
+                        <tr>
+                            <th class="w-8 px-2 py-2"></th>
+                            <th class="px-3 py-2 text-left">Fecha</th>
+                            <th class="px-3 py-2 text-left">Origen</th>
+                            <th class="px-3 py-2 text-left">Código</th>
+                            <th class="px-3 py-2 text-left">Descripción</th>
+                            <th class="px-3 py-2 text-left">Unidad</th>
+                            <th class="px-3 py-2 text-right">Cantidad</th>
+                            <th class="px-3 py-2 text-right">P.U.</th>
+                            <th class="px-3 py-2 text-right">Importe</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="row in entradasTransGruposFlat()" :key="row._key">
+                            <tr :class="row._fila==='familia' ? 'cursor-pointer select-none' : ''"
+                                :style="row._fila==='familia'
+                                    ? 'border-top:2px solid #fdba74;background:#fed7aa'
+                                    : 'border-top:1px solid #fed7aa'"
+                                @click="row._fila==='familia' && toggleTransGrupo(row.familia)">
+                                <td class="px-2 py-2 text-center w-8">
+                                    <svg x-show="row._fila==='familia'"
+                                         :class="transTablaExpandidos[row.familia] ? 'rotate-90' : ''"
+                                         class="inline w-4 h-4 transition-transform duration-150" style="color:#f97316"
+                                         fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                    </svg>
+                                </td>
+                                <td class="px-3 py-2 text-xs whitespace-nowrap tabular-nums"
+                                    :style="row._fila==='familia' ? 'color:#c2410c;font-weight:500' : 'color:#6b7280;padding-left:1.5rem'"
+                                    x-text="row._fila==='familia' ? row.count+' registros' : formatFechaCorta(row.fecha_recibido)"></td>
+                                <td class="px-3 py-2 text-xs" style="color:#6b7280"
+                                    x-text="row._fila!=='familia' ? (row.obra_origen||'—') : ''"></td>
+                                <td class="px-3 py-2 font-mono text-xs"
+                                    :style="row._fila==='familia' ? 'color:#d1d5db' : 'color:#4b5563;padding-left:1.5rem'"
+                                    x-text="row._fila!=='familia' ? row.insumo : ''"></td>
+                                <td class="px-3 py-2"
+                                    :style="row._fila==='familia' ? 'color:#7c2d12;font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em' : 'font-size:0.75rem;color:#374151;padding-left:1.5rem'"
+                                    x-text="row._fila==='familia' ? row.familia : row.descripcion"></td>
+                                <td class="px-3 py-2 text-xs" style="color:#6b7280"
+                                    x-text="row._fila!=='familia' ? row.unidad : ''"></td>
+                                <td class="px-3 py-2 text-right tabular-nums"
+                                    :style="row._fila==='familia' ? 'color:#7c2d12;font-weight:700' : 'font-size:0.75rem;font-weight:500;color:#374151'"
+                                    x-text="formatNum(row._fila==='familia' ? row.cantidad_total : row.cantidad_llego)"></td>
+                                <td class="px-3 py-2 text-right text-xs tabular-nums" style="color:#6b7280"
+                                    x-text="row._fila!=='familia' && row.precio_unitario!=null ? '$'+formatMoney(row.precio_unitario) : '—'"></td>
+                                <td class="px-3 py-2 text-right tabular-nums"
+                                    :style="row._fila==='familia' ? 'color:#7c2d12;font-weight:700' : 'font-size:0.75rem;color:#374151'"
+                                    x-text="row._fila==='familia'
+                                        ? (row.importe_total>0 ? '$'+formatMoney(row.importe_total) : '—')
+                                        : (row.importe!=null ? '$'+formatMoney(row.importe) : '—')"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -1743,7 +2020,7 @@
 
             function exploreUI() {
                 return {
-                    ent: { q:'', desde:'', hasta:'', vista:'tarjetas' },
+                    ent: { q:'', desde:'', hasta:'', vista:'tarjetas', tipo:'', seccionAbierta:{ oc:true, manual:true, transferencia:true } },
                     entradas: [],
                     detallesEntradaId: null,
                     entradaDetalle: null,
@@ -1761,7 +2038,13 @@
                     mov: { q:'', desde:'', hasta:'', vista:'tarjetas' },
                     salidasTablaData: [],
                     salidasTablaExpandidos: {},
+                    transSalidasData: [],
+                    transSalidasExpandidos: {},
+                    seccionSalidasAbierta: { salidas: true, transferencias: true },
                     entradasTablaExpandidos: {},
+                    manualTablaExpandidos: {},
+                    ocTablaExpandidos: {},
+                    transTablaExpandidos: {},
                     inventarioFamiliaExpandidos: {},
                     inv: { q:'', vista:'tarjetas' },
                     oc:  { q:'', estado:'todas' },
@@ -2095,9 +2378,10 @@
 
     try {
         const params = new URLSearchParams();
-        if (this.ent.q) params.set('q', this.ent.q);
+        if (this.ent.q)     params.set('q',     this.ent.q);
         if (this.ent.desde) params.set('desde', this.ent.desde);
         if (this.ent.hasta) params.set('hasta', this.ent.hasta);
+        if (this.ent.tipo)  params.set('tipo',  this.ent.tipo);
 
         const res = await fetch("{{ route('explore.entradas') }}?" + params.toString(), {
             headers: {'Accept':'application/json'},
@@ -2254,22 +2538,35 @@
                     async cargarSalidasTabla() {
                         this.loading = true;
                         this.salidasTablaExpandidos = {};
+                        this.transSalidasExpandidos = {};
                         try {
                             const params = new URLSearchParams();
                             if (this.mov.q)     params.set('q',     this.mov.q);
                             if (this.mov.desde) params.set('desde', this.mov.desde);
                             if (this.mov.hasta) params.set('hasta', this.mov.hasta);
-                            const res = await fetch('/explore/salidas/tabla?' + params.toString(), {
-                                headers: {'Accept':'application/json'},
-                                cache: 'no-store'
-                            });
-                            this.salidasTablaData = await res.json();
+                            const [resSal, resTrans] = await Promise.all([
+                                fetch('/explore/salidas/tabla?' + params.toString(), { headers:{'Accept':'application/json'}, cache:'no-store' }),
+                                fetch('/explore/transferencias/enviadas/tabla?' + params.toString(), { headers:{'Accept':'application/json'}, cache:'no-store' }),
+                            ]);
+                            this.salidasTablaData = await resSal.json();
+                            this.transSalidasData = await resTrans.json();
                         } catch (e) {
                             console.error(e);
                             this.salidasTablaData = [];
+                            this.transSalidasData = [];
                         } finally {
                             this.loading = false;
                         }
+                    },
+
+                    transSalidasGruposFlat() {
+                        return this._gruposFlat(
+                            this.transSalidasData.map(e => ({ ...e, cantidad_llego: e.cantidad })),
+                            this.transSalidasExpandidos, 'ts_'
+                        );
+                    },
+                    toggleTransSalidaGrupo(familia) {
+                        this.transSalidasExpandidos = { ...this.transSalidasExpandidos, [familia]: !this.transSalidasExpandidos[familia] };
                     },
 
                     async cargarHistorialAjustes() {
@@ -2442,6 +2739,74 @@
                         return result;
                     },
 
+                    entradasPorTipo(tipo) {
+                        if (tipo === 'oc') return this.entradas.filter(e => !e.tipo || e.tipo === 'oc');
+                        return this.entradas.filter(e => e.tipo === tipo);
+                    },
+
+                    _gruposFlat(items, expandidos, keyPrefix) {
+                        const mapped = items.map(e => ({ ...e, familia: e.familia || 'SIN FAMILIA' }));
+                        const result = [];
+                        const grupos = this.agruparPorFamilia(mapped, 'cantidad_llego');
+                        for (const grupo of grupos) {
+                            result.push({
+                                _fila: 'familia', _key: keyPrefix + 'f_' + grupo.familia,
+                                familia: grupo.familia,
+                                cantidad_total: grupo.cantidad_total,
+                                importe_total:  grupo.importe_total,
+                                count: grupo.filas.length,
+                            });
+                            if (expandidos[grupo.familia]) {
+                                for (const fila of grupo.filas) {
+                                    result.push({ _fila: 'detalle', _key: keyPrefix + 'd_' + fila.id, ...fila });
+                                }
+                            }
+                        }
+                        return result;
+                    },
+
+                    entradasOcGruposFlat() {
+                        return this._gruposFlat(this.entradasPorTipo('oc'), this.ocTablaExpandidos, 'oc_');
+                    },
+                    toggleOcGrupo(familia) {
+                        this.ocTablaExpandidos = { ...this.ocTablaExpandidos, [familia]: !this.ocTablaExpandidos[familia] };
+                    },
+
+                    entradasManualGruposFlat() {
+                        const items = this.entradasPorTipo('manual').map(e => ({
+                            ...e,
+                            familia: e.familia || 'SIN FAMILIA',
+                        }));
+                        const result = [];
+                        const grupos = this.agruparPorFamilia(items, 'cantidad_llego');
+                        for (const grupo of grupos) {
+                            result.push({
+                                _fila: 'familia', _key: 'mf_' + grupo.familia,
+                                familia: grupo.familia,
+                                cantidad_total: grupo.cantidad_total,
+                                importe_total:  grupo.importe_total,
+                                count: grupo.filas.length,
+                            });
+                            if (this.manualTablaExpandidos[grupo.familia]) {
+                                for (const fila of grupo.filas) {
+                                    result.push({ _fila: 'detalle', _key: 'md_' + fila.id, ...fila });
+                                }
+                            }
+                        }
+                        return result;
+                    },
+
+                    toggleManualGrupo(familia) {
+                        this.manualTablaExpandidos = { ...this.manualTablaExpandidos, [familia]: !this.manualTablaExpandidos[familia] };
+                    },
+
+                    entradasTransGruposFlat() {
+                        return this._gruposFlat(this.entradasPorTipo('transferencia'), this.transTablaExpandidos, 'tr_');
+                    },
+                    toggleTransGrupo(familia) {
+                        this.transTablaExpandidos = { ...this.transTablaExpandidos, [familia]: !this.transTablaExpandidos[familia] };
+                    },
+
                     entradasGruposFlat() {
                         const mapped = this.entradas.map(e => ({
                             id:              e.id,
@@ -2528,31 +2893,58 @@
                     },
 
                     todosSalidasExpandidos() {
-                        const grupos = this.agruparPorFamilia(this.salidasTablaData, 'cantidad');
-                        return grupos.length > 0 && grupos.every(g => this.salidasTablaExpandidos[g.familia]);
+                        const salGrupos   = this.agruparPorFamilia(this.salidasTablaData, 'cantidad');
+                        const transGrupos = this.agruparPorFamilia(
+                            this.transSalidasData.map(e => ({ ...e, familia: e.familia || 'SIN FAMILIA', cantidad_llego: e.cantidad })),
+                            'cantidad_llego'
+                        );
+                        const all = [...salGrupos, ...transGrupos];
+                        if (all.length === 0) return false;
+                        return salGrupos.every(g => this.salidasTablaExpandidos[g.familia])
+                            && transGrupos.every(g => this.transSalidasExpandidos[g.familia]);
                     },
 
                     toggleExpandirTodoSalidas() {
-                        const grupos = this.agruparPorFamilia(this.salidasTablaData, 'cantidad');
                         const expandir = !this.todosSalidasExpandidos();
-                        const nuevo = {};
-                        for (const g of grupos) nuevo[g.familia] = expandir;
-                        this.salidasTablaExpandidos = nuevo;
+                        const salNuevo = {}, transNuevo = {};
+                        for (const g of this.agruparPorFamilia(this.salidasTablaData, 'cantidad'))
+                            salNuevo[g.familia] = expandir;
+                        for (const g of this.agruparPorFamilia(
+                            this.transSalidasData.map(e => ({ ...e, familia: e.familia || 'SIN FAMILIA', cantidad_llego: e.cantidad })),
+                            'cantidad_llego'
+                        )) transNuevo[g.familia] = expandir;
+                        this.salidasTablaExpandidos = salNuevo;
+                        this.transSalidasExpandidos = transNuevo;
+                        if (expandir) {
+                            this.seccionSalidasAbierta = { salidas: true, transferencias: true };
+                        }
                     },
 
                     todosEntradasExpandidos() {
-                        const mapped = this.entradas.map(e => ({ familia: e.familia || 'SIN FAMILIA', cantidad: e.cantidad_llego }));
-                        const grupos = this.agruparPorFamilia(mapped, 'cantidad');
-                        return grupos.length > 0 && grupos.every(g => this.entradasTablaExpandidos[g.familia]);
+                        const ocG  = this.agruparPorFamilia(this.entradasPorTipo('oc').map(e => ({ ...e, familia: e.familia || 'SIN FAMILIA' })), 'cantidad_llego');
+                        const manG = this.agruparPorFamilia(this.entradasPorTipo('manual').map(e => ({ ...e, familia: e.familia || 'SIN FAMILIA' })), 'cantidad_llego');
+                        const trG  = this.agruparPorFamilia(this.entradasPorTipo('transferencia').map(e => ({ ...e, familia: e.familia || 'SIN FAMILIA' })), 'cantidad_llego');
+                        if (ocG.length + manG.length + trG.length === 0) return false;
+                        return ocG.every(g => this.ocTablaExpandidos[g.familia])
+                            && manG.every(g => this.manualTablaExpandidos[g.familia])
+                            && trG.every(g => this.transTablaExpandidos[g.familia]);
                     },
 
                     toggleExpandirTodoEntradas() {
-                        const mapped = this.entradas.map(e => ({ familia: e.familia || 'SIN FAMILIA', cantidad: e.cantidad_llego }));
-                        const grupos = this.agruparPorFamilia(mapped, 'cantidad');
                         const expandir = !this.todosEntradasExpandidos();
-                        const nuevo = {};
-                        for (const g of grupos) nuevo[g.familia] = expandir;
-                        this.entradasTablaExpandidos = nuevo;
+                        const ocNuevo = {}, manNuevo = {}, transNuevo = {};
+                        for (const g of this.agruparPorFamilia(this.entradasPorTipo('oc').map(e => ({ ...e, familia: e.familia || 'SIN FAMILIA' })), 'cantidad_llego'))
+                            ocNuevo[g.familia] = expandir;
+                        for (const g of this.agruparPorFamilia(this.entradasPorTipo('manual').map(e => ({ ...e, familia: e.familia || 'SIN FAMILIA' })), 'cantidad_llego'))
+                            manNuevo[g.familia] = expandir;
+                        for (const g of this.agruparPorFamilia(this.entradasPorTipo('transferencia').map(e => ({ ...e, familia: e.familia || 'SIN FAMILIA' })), 'cantidad_llego'))
+                            transNuevo[g.familia] = expandir;
+                        this.ocTablaExpandidos     = ocNuevo;
+                        this.manualTablaExpandidos  = manNuevo;
+                        this.transTablaExpandidos   = transNuevo;
+                        if (expandir) {
+                            this.ent.seccionAbierta = { oc: true, manual: true, transferencia: true };
+                        }
                     },
 
                     todosInventarioExpandidos() {

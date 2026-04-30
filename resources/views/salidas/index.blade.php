@@ -618,10 +618,15 @@
                             </span>
                         </div>
 
+                        <div x-show="allSaved"
+                             class="flex items-center gap-2 px-6 py-3 rounded-xl bg-green-50 border border-green-200 text-green-800 text-sm font-semibold">
+                            ✅ <span x-text="tabs.length === 1 ? 'Salida guardada correctamente' : 'Todas las salidas guardadas'"></span>
+                        </div>
                         <button
+                            x-show="!allSaved"
                             type="button"
                             class="px-6 py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-black active:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                            :disabled="guardando || allSaved"
+                            :disabled="guardando"
                             @click="guardarTodos()"
                         >
                             <span x-show="!guardando">
@@ -1207,15 +1212,22 @@
                 if (!item) return;
 
                 const last = item.destinos[item.destinos.length - 1];
-                const lastQty = parseFloat(last.cantidad) || 0;
-                const half = parseFloat((lastQty / 2).toFixed(4));
-                last.cantidad = half;
-
-                item.destinos.push({
+                const newDestinos = [...item.destinos, {
                     nivel:        last.nivel,
                     departamento: last.departamento,
-                    cantidad:     parseFloat((lastQty - half).toFixed(4)),
-                });
+                    cantidad:     0,
+                }];
+
+                // Distribuir cantidad total uniformemente entre todos los niveles
+                const total = parseFloat(item.cantidad) || 0;
+                const n = newDestinos.length;
+                const share = parseFloat((total / n).toFixed(4));
+                item.destinos = newDestinos.map((d, i) => ({
+                    ...d,
+                    cantidad: i === 0
+                        ? parseFloat((total - share * (n - 1)).toFixed(4))
+                        : share,
+                }));
 
                 item.mostrarDestinos = true;
             },

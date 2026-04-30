@@ -18,7 +18,7 @@
                 <div class="shrink-0 flex items-center">
                     <a href="{{ route('explore.index') }}" class="flex items-center gap-2">
                         <img
-                            src="{{ asset('images/logo-kotica.png') }}"
+                            src="{{ asset('images/logo-menu.png') }}"
                             alt="Kotica"
                             class="h-10 w-auto"
                         >
@@ -58,17 +58,19 @@
                         Control Salida Camiones
                     </x-nav-link>
 
-                    <x-nav-link
+                    {{-- HIDDEN
+<x-nav-link
                         :href="route('transferencias.index')"
                         :active="request()->routeIs('transferencias.*')">
                         Transferencias
                     </x-nav-link>
+HIDDEN --}}
                     @endif
 
                     <x-nav-link
                         :href="route('explore.index')"
                         :active="request()->routeIs('explore.*')">
-                        Explore
+                        Reportes
                     </x-nav-link>
 
                 </div>
@@ -202,17 +204,19 @@
                 Control Salida Camiones
             </x-responsive-nav-link>
 
-            <x-responsive-nav-link
+            {{-- HIDDEN
+<x-responsive-nav-link
                 :href="route('transferencias.index')"
                 :active="request()->routeIs('transferencias.*')">
                 Transferencias
             </x-responsive-nav-link>
+HIDDEN --}}
             @endif
 
             <x-responsive-nav-link
                 :href="route('explore.index')"
                 :active="request()->routeIs('explore.*')">
-                Explore
+                Reportes
             </x-responsive-nav-link>
 
         </div>
