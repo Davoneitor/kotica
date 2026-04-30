@@ -612,32 +612,50 @@
                     No hay transferencias pendientes para esta obra.
                 </div>
 
-                {{-- Tabla de pendientes --}}
-                <div x-show="!transLoading && transPendientes.length > 0" class="space-y-3">
+                {{-- Órdenes de transferencia agrupadas --}}
+                <div x-show="!transLoading && transPendientes.length > 0" class="space-y-4">
                     <template x-for="t in transPendientes" :key="t.id">
-                        <div class="bg-white rounded-lg border shadow-sm p-4">
-                            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div class="bg-white rounded-lg border shadow-sm overflow-hidden">
+
+                            {{-- Encabezado de la orden --}}
+                            <div class="px-4 py-3 bg-gray-50 border-b flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                                 <div>
-                                    <div class="text-xs text-gray-500 mb-1">Transferencia <span class="font-mono font-semibold" x-text="'#' + t.id"></span></div>
+                                    <div class="text-xs text-gray-500 mb-0.5">
+                                        Orden de transferencia
+                                        <span class="font-mono font-semibold text-gray-700" x-text="'#' + t.id"></span>
+                                    </div>
                                     <div class="font-semibold text-gray-800" x-text="t.obra_origen"></div>
-                                    <div class="text-sm text-gray-600 mt-0.5">
+                                    <div class="text-sm text-gray-500 mt-0.5">
                                         Enviado por <span x-text="t.usuario_envia"></span>
                                         · <span x-text="t.fecha"></span>
+                                        · <span class="font-medium" x-text="t.total_items + ' insumo(s)'"></span>
                                     </div>
-                                    <div x-show="t.observaciones" class="text-xs text-gray-500 mt-1 italic" x-text="t.observaciones"></div>
+                                    <div x-show="t.observaciones" class="text-xs text-gray-400 mt-0.5 italic" x-text="t.observaciones"></div>
                                 </div>
-                                <div class="flex items-center gap-3">
-                                    <span class="text-sm text-gray-600">
-                                        <span class="font-semibold" x-text="t.total_items"></span> insumo(s)
-                                    </span>
+                                <div class="flex items-center gap-3 shrink-0">
                                     <span class="px-2 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold">PENDIENTE</span>
                                     <button type="button"
-                                            @click="abrirModalTransfer(t.id)"
-                                            class="px-4 py-2 rounded-lg bg-gray-800 text-white text-sm hover:bg-gray-700">
+                                            @click="abrirModalTransfer(t)"
+                                            class="px-4 py-2 rounded-lg bg-gray-800 text-white text-sm hover:bg-gray-700 active:bg-black">
                                         Recibir
                                     </button>
                                 </div>
                             </div>
+
+                            {{-- Lista de insumos de esta orden --}}
+                            <div class="divide-y divide-gray-100">
+                                <template x-for="item in t.items" :key="item.id">
+                                    <div class="px-4 py-2.5 flex items-center gap-3 text-sm">
+                                        <span class="text-xs text-gray-400 font-mono w-24 shrink-0 truncate" x-text="item.insumo_id || '—'"></span>
+                                        <span class="flex-1 text-gray-800 min-w-0 truncate" x-text="item.descripcion"></span>
+                                        <span class="shrink-0 text-right whitespace-nowrap">
+                                            <span class="font-semibold text-gray-700" x-text="item.cantidad"></span>
+                                            <span class="text-xs text-gray-400 ml-1" x-text="item.unidad"></span>
+                                        </span>
+                                    </div>
+                                </template>
+                            </div>
+
                         </div>
                     </template>
                 </div>
@@ -832,10 +850,15 @@
                     this.transLoaded  = true;
                 },
 
-                async abrirModalTransfer(id) {
-                    this.transModal = null;
-                    const r = await fetch(`/transferencias/${id}/detalles-pendientes`);
-                    if (r.ok) this.transModal = await r.json();
+                abrirModalTransfer(t) {
+                    this.transModal = {
+                        id:            t.id,
+                        fecha:         t.fecha,
+                        obra_origen:   t.obra_origen,
+                        usuario_envia: t.usuario_envia,
+                        observaciones: t.observaciones,
+                        detalles:      JSON.parse(JSON.stringify(t.items)),
+                    };
                 },
 
                 async aceptarTransfer() {

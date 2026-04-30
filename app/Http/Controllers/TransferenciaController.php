@@ -76,6 +76,8 @@ class TransferenciaController extends Controller
      */
     public function store(Request $request)
     {
+        $isAjax = $request->wantsJson() || $request->ajax();
+
         $validated = $request->validate([
             'obra_destino_id' => ['required', 'integer', 'exists:obras,id'],
             'observaciones'   => ['nullable', 'string', 'max:500'],
@@ -88,17 +90,20 @@ class TransferenciaController extends Controller
         $obraDestinoId = (int) $validated['obra_destino_id'];
 
         if ($obraOrigenId === $obraDestinoId) {
+            if ($isAjax) return response()->json(['ok' => false, 'message' => 'La obra destino no puede ser igual a la obra origen.'], 422);
             return back()->withErrors(['obra_destino_id' => 'La obra destino no puede ser igual a la obra origen.']);
         }
 
         $items = json_decode($validated['items'], true);
 
         if (empty($items) || ! is_array($items)) {
+            if ($isAjax) return response()->json(['ok' => false, 'message' => 'Agrega al menos un insumo.'], 422);
             return back()->withErrors(['items' => 'Agrega al menos un insumo.']);
         }
 
         foreach ($items as $item) {
             if ((float) ($item['cantidad'] ?? 0) <= 0) {
+                if ($isAjax) return response()->json(['ok' => false, 'message' => 'Todas las cantidades deben ser mayores a cero.'], 422);
                 return back()->withErrors(['items' => 'Todas las cantidades deben ser mayores a cero.']);
             }
         }
@@ -107,12 +112,14 @@ class TransferenciaController extends Controller
         $dataUrl = (string) $validated['firma_base64'];
 
         if (! preg_match('/^data:image\/(png|jpeg);base64,/', $dataUrl)) {
+            if ($isAjax) return response()->json(['ok' => false, 'message' => 'Firma inválida.'], 422);
             return back()->withErrors(['firma_base64' => 'Firma inválida.']);
         }
 
         $binary = base64_decode(substr($dataUrl, strpos($dataUrl, ',') + 1), true);
 
         if ($binary === false || strlen($binary) > 300 * 1024) {
+            if ($isAjax) return response()->json(['ok' => false, 'message' => 'No se pudo procesar la firma.'], 422);
             return back()->withErrors(['firma_base64' => 'No se pudo procesar la firma.']);
         }
 
@@ -123,6 +130,7 @@ class TransferenciaController extends Controller
         Storage::disk('public')->put($firmaPath, $binary);
 
         if (! Storage::disk('public')->exists($firmaPath)) {
+            if ($isAjax) return response()->json(['ok' => false, 'message' => 'No se pudo guardar la firma.'], 500);
             return back()->withErrors(['firma_base64' => 'No se pudo guardar la firma.']);
         }
 
@@ -186,9 +194,13 @@ class TransferenciaController extends Controller
             });
         } catch (\Exception $e) {
             Storage::disk('public')->delete($firmaPath);
+            if ($isAjax) return response()->json(['ok' => false, 'message' => $e->getMessage()], 422);
             return back()->withErrors(['items' => $e->getMessage()]);
         }
 
+        if ($isAjax) {
+            return response()->json(['ok' => true, 'message' => 'Transferencia enviada. La obra destino debe confirmar la recepción.']);
+        }
         return redirect()->route('transferencias.index')
             ->with('success', 'Transferencia enviada. La obra destino debe confirmar la recepción.');
     }
@@ -210,6 +222,7 @@ class TransferenciaController extends Controller
             ->join('users as u', 't.user_id', '=', 'u.id')
             ->where('t.obra_destino_id', $obraId)
             ->where('t.estatus', 'pendiente')
+            ->where('t.created_at', '>=', '2026-04-29 00:00:00')
             ->select([
                 't.id',
                 't.fecha',
@@ -221,17 +234,26 @@ class TransferenciaController extends Controller
             ->orderByDesc('t.created_at')
             ->get()
             ->map(function ($r) {
-                $items = DB::table('transferencias_entre_obras_detalle')
+                $detalles = DB::table('transferencias_entre_obras_detalle')
                     ->where('transferencia_id', $r->id)
-                    ->count();
+                    ->get()
+                    ->map(fn ($d) => [
+                        'id'               => (int)    $d->id,
+                        'insumo_id'        => (string) ($d->insumo_id ?? ''),
+                        'descripcion'      => (string) $d->descripcion,
+                        'unidad'           => (string) ($d->unidad ?? ''),
+                        'cantidad'         => (float)  $d->cantidad,
+                        'cantidad_recibida'=> (float)  $d->cantidad,
+                    ]);
                 return [
-                    'id'            => (int) $r->id,
+                    'id'            => (int)    $r->id,
                     'fecha'         => substr((string) $r->fecha, 0, 10),
                     'created_at'    => (string) $r->created_at,
                     'obra_origen'   => (string) $r->obra_origen,
                     'usuario_envia' => (string) $r->usuario_envia,
                     'observaciones' => (string) ($r->observaciones ?? ''),
-                    'total_items'   => $items,
+                    'total_items'   => count($detalles),
+                    'items'         => $detalles,
                 ];
             });
 

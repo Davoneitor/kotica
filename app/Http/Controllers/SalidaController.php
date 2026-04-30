@@ -17,7 +17,10 @@ class SalidaController extends Controller
      */
     public function index()
     {
-        return view('salidas.index');
+        $user = auth()->user();
+        $obraActualId = (int) ($user->obra_actual_id ?? 0);
+        $obras = Obra::where('id', '!=', $obraActualId)->orderBy('nombre')->get(['id', 'nombre']);
+        return view('salidas.index', compact('obras'));
     }
 
     /**

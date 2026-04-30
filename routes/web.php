@@ -107,6 +107,9 @@ Route::get('/inventario/{inventario}/historial', [InventarioController::class, '
     Route::get('/explore/entradas/{id}/detalles', [ExploreController::class, 'entradaDetalles'])
         ->name('explore.entradas.detalles');
 
+    Route::post('/explore/entradas/{id}/revertir', [ExploreController::class, 'revertirEntrada'])
+        ->name('explore.entradas.revertir');
+
     Route::get('/explore/ordenes-compra', [ExploreController::class, 'ordenesCompra'])
         ->name('explore.ordenes_compra');
 

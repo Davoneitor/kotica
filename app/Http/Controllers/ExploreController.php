@@ -637,12 +637,12 @@ $user = Auth::user();
 
     public function entradas(Request $request)
 {
-    
     $obraId = Auth::user()?->obra_actual_id;
 
-    $q = trim((string) $request->get('q', ''));
+    $q     = trim((string) $request->get('q', ''));
     $desde = $request->get('desde');
     $hasta = $request->get('hasta');
+    $tipo  = $request->get('tipo'); // 'oc' | 'manual' | 'transferencia' | null
 
     $rows = OcRecepcion::query()
         ->where('obra_id', $obraId)
@@ -655,11 +655,18 @@ $user = Auth::user();
         })
         ->when($desde, fn($qq) => $qq->whereDate('fecha_recibido', '>=', $desde))
         ->when($hasta, fn($qq) => $qq->whereDate('fecha_recibido', '<=', $hasta))
+        ->when($tipo, function ($qq) use ($tipo) {
+            if ($tipo === 'oc') {
+                $qq->where(fn($w) => $w->where('tipo', 'oc')->orWhereNull('tipo'));
+            } else {
+                $qq->where('tipo', $tipo);
+            }
+        })
         ->orderByDesc('fecha_recibido')
         ->limit(200)
         ->get();
 
-    // Obtener familia de cada insumo buscando en cualquier obra (sin restricción de obra_id)
+    // Lookup de familia desde inventarios (fallback para registros anteriores a la migración)
     $insumosList = $rows->pluck('insumo')->unique()->filter()->values()->toArray();
     $familiasMap = [];
     if (!empty($insumosList)) {
@@ -670,7 +677,6 @@ $user = Auth::user();
             ->toArray();
     }
 
-    // Fallback: derivar familia desde el código (ej: "02ON-VAR-0002" → subfamilia "02ON-VAR")
     $subfamiliaToFamilia = [];
     foreach (config('familias', []) as $fam => $subs) {
         foreach ($subs as $sub) {
@@ -687,24 +693,45 @@ $user = Auth::user();
         }
     }
 
-    // ⚠️ Nota: aquí mandamos resumen. El desglose va en /detalles
-    return $rows->map(function ($r) use ($familiasMap) {
+    // Lookup de usuarios por user_id
+    $userIds   = $rows->pluck('user_id')->unique()->filter()->values()->toArray();
+    $usersMap  = [];
+    if (!empty($userIds)) {
+        $usersMap = \App\Models\User::whereIn('id', $userIds)
+            ->pluck('name', 'id')
+            ->toArray();
+    }
+
+    return $rows->map(function ($r) use ($familiasMap, $usersMap) {
+        // Preferir familia almacenada en el registro; caer al lookup si está vacía
+        $familia = (string) ($r->familia ?? '');
+        if ($familia === '' || $familia === 'SIN FAMILIA') {
+            $familia = (string) ($familiasMap[$r->insumo] ?? 'SIN FAMILIA');
+        }
+
         return [
-            'id' => (int) $r->id,
-            'id_pedido' => (string) $r->id_pedido,
-            'pedido_det_id' => (int) $r->pedido_det_id,
-            'familia'         => (string) ($familiasMap[$r->insumo] ?? 'SIN FAMILIA'),
-            'insumo' => (string) $r->insumo,
-            'descripcion' => (string) $r->descripcion,
-            'unidad' => (string) $r->unidad,
-            'cantidad_llego'  => (float) $r->cantidad_llego,
-            'precio_unitario' => $r->precio_unitario !== null ? (float) $r->precio_unitario : null,
-            'importe'         => $r->precio_unitario !== null
-                                    ? round((float) $r->cantidad_llego * (float) $r->precio_unitario, 2)
-                                    : null,
-            'fecha_oc'        => $r->fecha_oc ? (string) $r->fecha_oc : null,
-            'fecha_recibido'  => $r->fecha_recibido ? (string) $r->fecha_recibido : null,
-            'tiene_foto'      => !empty($r->foto_path),
+            'id'               => (int) $r->id,
+            'id_pedido'        => (string) $r->id_pedido,
+            'pedido_det_id'    => (int) $r->pedido_det_id,
+            'tipo'             => (string) ($r->tipo ?? 'oc'),
+            'familia'          => $familia,
+            'insumo'           => (string) $r->insumo,
+            'descripcion'      => (string) $r->descripcion,
+            'unidad'           => (string) $r->unidad,
+            'cantidad_llego'   => (float) $r->cantidad_llego,
+            'precio_unitario'  => $r->precio_unitario !== null ? (float) $r->precio_unitario : null,
+            'importe'          => $r->precio_unitario !== null
+                                     ? round((float) $r->cantidad_llego * (float) $r->precio_unitario, 2)
+                                     : null,
+            'fecha_oc'         => $r->fecha_oc ? (string) $r->fecha_oc : null,
+            'fecha_recibido'   => $r->fecha_recibido ? (string) $r->fecha_recibido : null,
+            'tiene_foto'       => !empty($r->foto_path),
+            'usuario'          => (string) ($usersMap[$r->user_id] ?? ''),
+            'observaciones'    => (string) ($r->observaciones ?? ''),
+            'revertida'        => !empty($r->revertida_at),
+            'revertida_at'     => $r->revertida_at ? (string) $r->revertida_at : null,
+            'motivo_reversion' => (string) ($r->motivo_reversion ?? ''),
+            'revertida_por'    => (string) ($usersMap[$r->revertida_por] ?? ''),
         ];
     });
 }
@@ -777,6 +804,74 @@ public function entradaFoto($id)
 
         return $disk->response($path);
 }
+
+    // ════════════════════════════════════════════════════════════
+    // REVERSO DE ENTRADA MANUAL
+    // ════════════════════════════════════════════════════════════
+
+    public function revertirEntrada(Request $request, $id)
+    {
+        $user   = Auth::user();
+        $obraId = (int) ($user?->obra_actual_id ?? 0);
+
+        if (!$user || $obraId <= 0) {
+            return response()->json(['ok' => false, 'message' => 'Sin obra asignada.'], 403);
+        }
+
+        $motivo = trim((string) $request->get('motivo', ''));
+
+        $entrada = OcRecepcion::where('obra_id', $obraId)
+            ->where('tipo', 'manual')
+            ->whereNull('revertida_at')
+            ->find($id);
+
+        if (!$entrada) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Entrada no encontrada, no es manual, o ya fue revertida.',
+            ], 422);
+        }
+
+        $cantidad = (float) $entrada->cantidad_llego;
+        $insumoId = (string) $entrada->insumo;
+
+        DB::transaction(function () use ($entrada, $obraId, $cantidad, $insumoId, $user, $motivo) {
+            // 1) Ajustar inventario: restar la cantidad que entró
+            $inv = Inventario::where('obra_id', $obraId)
+                ->where('insumo_id', $insumoId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($inv) {
+                $nuevaCantidad        = max(0, (float) ($inv->cantidad        ?? 0) - $cantidad);
+                $nuevaCantidadTeorica = max(0, (float) ($inv->cantidad_teorica ?? 0) - $cantidad);
+                $inv->cantidad         = $nuevaCantidad;
+                $inv->cantidad_teorica = $nuevaCantidadTeorica;
+                $inv->save();
+            }
+
+            // 2) Marcar la entrada como revertida
+            $entrada->revertida_at     = now();
+            $entrada->revertida_por    = $user->id;
+            $entrada->motivo_reversion = $motivo ?: null;
+            $entrada->save();
+        });
+
+        Log::info('Entrada manual revertida', [
+            'entrada_id' => $entrada->id,
+            'insumo'     => $insumoId,
+            'cantidad'   => $cantidad,
+            'obra_id'    => $obraId,
+            'user_id'    => $user->id,
+            'motivo'     => $motivo,
+        ]);
+
+        return response()->json([
+            'ok'      => true,
+            'message' => 'Entrada revertida. Se descontaron ' . number_format($cantidad, 2)
+                       . ' ' . $entrada->unidad . ' del inventario.',
+        ]);
+    }
 
     // ════════════════════════════════════════════════════════════
     // TRANSFERENCIAS ENTRE OBRAS
@@ -965,6 +1060,7 @@ public function entradaFoto($id)
         $q     = trim((string) $request->get('q', ''));
         $desde = $request->get('desde');
         $hasta = $request->get('hasta');
+        $tipo  = $request->get('tipo');
 
         $rows = OcRecepcion::query()
             ->where('obra_id', $obraId)
@@ -977,6 +1073,13 @@ public function entradaFoto($id)
             })
             ->when($desde, fn($qq) => $qq->whereDate('fecha_recibido', '>=', $desde))
             ->when($hasta, fn($qq) => $qq->whereDate('fecha_recibido', '<=', $hasta))
+            ->when($tipo, function ($qq) use ($tipo) {
+                if ($tipo === 'oc') {
+                    $qq->where(fn($w) => $w->where('tipo', 'oc')->orWhereNull('tipo'));
+                } else {
+                    $qq->where('tipo', $tipo);
+                }
+            })
             ->orderByDesc('fecha_recibido')
             ->get();
 
@@ -991,7 +1094,6 @@ public function entradaFoto($id)
                 ->toArray();
         }
 
-        // Fallback: derivar familia desde el código del insumo
         $subfamiliaToFamilia = [];
         foreach (config('familias', []) as $fam => $subs) {
             foreach ($subs as $sub) {
@@ -1008,27 +1110,37 @@ public function entradaFoto($id)
             }
         }
 
+        $userIds  = $rows->pluck('user_id')->unique()->filter()->values()->toArray();
+        $usersMap = !empty($userIds)
+            ? \App\Models\User::whereIn('id', $userIds)->pluck('name', 'id')->toArray()
+            : [];
+
+        $tipoLabels = ['oc' => 'Compra', 'manual' => 'Manual', 'transferencia' => 'Transferencia'];
+
         $data = $rows->map(fn($r) => [
-            $r->fecha_recibido ? (string) $r->fecha_recibido : '',        // 0 date
-            (string) $r->id_pedido,                                        // 1 text
-            (int) $r->pedido_det_id,                                       // 2 integer
-            (string) ($familiasMap[$r->insumo] ?? 'SIN FAMILIA'),          // 3 text
-            (string) $r->insumo,                                           // 4 text
-            (string) $r->descripcion,                                      // 5 text
-            (string) $r->unidad,                                           // 6 text
-            (float) $r->cantidad_llego,                                    // 7 number
-            $r->precio_unitario !== null ? (float) $r->precio_unitario : null,  // 8 currency
+            $r->fecha_recibido ? (string) $r->fecha_recibido : '',                    // 0 date
+            $tipoLabels[$r->tipo ?? 'oc'] ?? 'Compra',                                // 1 text
+            (string) $r->id_pedido,                                                    // 2 text
+            (int) $r->pedido_det_id,                                                   // 3 integer
+            (string) ($familiasMap[$r->insumo] ?? ($r->familia ?? 'SIN FAMILIA')),    // 4 text
+            (string) $r->insumo,                                                       // 5 text
+            (string) $r->descripcion,                                                  // 6 text
+            (string) $r->unidad,                                                       // 7 text
+            (float) $r->cantidad_llego,                                                // 8 number
+            $r->precio_unitario !== null ? (float) $r->precio_unitario : null,        // 9 currency
             $r->precio_unitario !== null
                 ? round((float) $r->cantidad_llego * (float) $r->precio_unitario, 2)
-                : null,                                                    // 9 currency
-            $r->foto_path ? 'Sí' : 'No',                                  // 10 text
+                : null,                                                                // 10 currency
+            (string) ($usersMap[$r->user_id] ?? ''),                                  // 11 text
+            $r->foto_path ? 'Sí' : 'No',                                              // 12 text
         ])->values()->toArray();
 
         $filters = array_filter([
-            $obra   ? 'Obra: ' . $obra->nombre : null,
-            $q      ? 'Búsqueda: ' . $q        : null,
-            $desde  ? 'Desde: ' . $desde        : null,
-            $hasta  ? 'Hasta: ' . $hasta         : null,
+            $obra  ? 'Obra: '    . $obra->nombre                           : null,
+            $tipo  ? 'Tipo: '    . ($tipoLabels[$tipo] ?? $tipo)           : null,
+            $q     ? 'Búsqueda: '. $q                                      : null,
+            $desde ? 'Desde: '   . $desde                                  : null,
+            $hasta ? 'Hasta: '   . $hasta                                  : null,
         ]);
 
         Log::info('Excel export: Entradas', [
@@ -1041,9 +1153,9 @@ public function entradaFoto($id)
         return ExcelExporter::download(
             filename:    'entradas',
             moduleName:  'Entradas',
-            headers:     ['Fecha Recibido', 'OC #', 'Det #', 'Familia', 'Código', 'Descripción', 'Unidad', 'Cantidad', 'P.U.', 'Importe', 'Tiene Foto'],
+            headers:     ['Fecha Recibido', 'Tipo', 'OC #', 'Det #', 'Familia', 'Código', 'Descripción', 'Unidad', 'Cantidad', 'P.U.', 'Importe', 'Usuario', 'Tiene Foto'],
             rows:        $data,
-            columnTypes: [0 => 'date', 2 => 'integer', 7 => 'number', 8 => 'currency', 9 => 'currency'],
+            columnTypes: [0 => 'date', 3 => 'integer', 8 => 'number', 9 => 'currency', 10 => 'currency'],
             filters:     $filters,
         );
     }
