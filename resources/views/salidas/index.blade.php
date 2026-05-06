@@ -282,6 +282,25 @@
                                     x-text="tabs[activeIdx] ? (tabs[activeIdx].errors.items || '') : ''"
                                 ></p>
 
+                                {{-- Toggle solo herramientas --}}
+                                <div class="mb-3 flex items-center gap-2">
+                                    <button type="button"
+                                        @click="tabs[activeIdx].soloHerramientas = !tabs[activeIdx].soloHerramientas; tabs[activeIdx].q = ''; tabs[activeIdx].resultados = []; tabs[activeIdx].selected = null;"
+                                        :class="tabs[activeIdx] && tabs[activeIdx].soloHerramientas
+                                            ? 'bg-blue-600 text-white border-blue-700'
+                                            : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'"
+                                        class="px-3 py-1.5 text-xs font-medium border rounded-full transition-colors flex items-center gap-1.5">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l5.654-4.654m5.65-4.647 3.033-2.498c.668-.549 1.61-.676 2.417-.349M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0Z"/>
+                                        </svg>
+                                        <span x-text="tabs[activeIdx] && tabs[activeIdx].soloHerramientas ? 'Solo herramientas ✕' : 'Solo herramientas'"></span>
+                                    </button>
+                                    <span class="text-xs text-gray-400"
+                                          x-show="tabs[activeIdx] && tabs[activeIdx].soloHerramientas">
+                                        Mostrando únicamente productos retornables
+                                    </span>
+                                </div>
+
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
 
                                     <div class="md:col-span-2 relative">
@@ -1004,6 +1023,7 @@
                     selected: null,
                     qty: '',
                     devolvible: false,
+                    soloHerramientas: false,
                     buscando: false,
                     errors: {},
                     saved: false,
@@ -1113,6 +1133,7 @@
                 try {
                     const url = "{{ route('salidas.buscar') }}"
                         + '?q=' + encodeURIComponent(clean)
+                        + (tab.soloHerramientas ? '&solo_h=1' : '')
                         + '&_=' + Date.now();
                     const res = await fetch(url, {
                         headers: { 'Accept': 'application/json' },

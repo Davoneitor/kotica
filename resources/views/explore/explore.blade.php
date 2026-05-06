@@ -150,6 +150,18 @@
                         <button @click="mov.vista='tabla'; cargarSalidasTabla()"
                                 :class="mov.vista==='tabla' ? 'bg-gray-900 text-white' : 'bg-white hover:bg-gray-50'"
                                 class="px-3 py-1 rounded border text-sm transition-colors">Tabla</button>
+
+                        {{-- Toggle solo herramientas (solo en vista tabla) --}}
+                        <template x-if="mov.vista === 'tabla'">
+                            <button @click="mov.soloHerramientas = !mov.soloHerramientas; cargarSalidasTabla()"
+                                    :class="mov.soloHerramientas ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'"
+                                    class="px-3 py-1 rounded border text-sm transition-colors flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l5.654-4.654m5.65-4.647 3.033-2.498c.668-.549 1.61-.676 2.417-.349M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0Z"/>
+                                </svg>
+                                <span x-text="mov.soloHerramientas ? 'Herramientas ✕' : 'Herramientas'"></span>
+                            </button>
+                        </template>
                         <button @click="mov.vista='ajustes'; cargarHistorialAjustes()"
                                 :class="mov.vista==='ajustes' ? 'bg-amber-700 text-white' : 'bg-white hover:bg-amber-50'"
                                 class="px-3 py-1 rounded border text-sm transition-colors">Historial ajustes</button>
@@ -445,8 +457,11 @@
                                                 x-text="row._tipo !== 'familia' ? row.insumo_id : ''">
                                             </td>
                                             <td class="px-3 py-2"
-                                                :style="row._tipo === 'familia' ? 'color:#3730a3;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.025em' : 'font-size:0.75rem;color:#374151;padding-left:1.5rem'"
-                                                x-text="row._tipo === 'familia' ? row.familia : row.descripcion">
+                                                :style="row._tipo === 'familia' ? 'color:#3730a3;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.025em' : 'font-size:0.75rem;color:#374151;padding-left:1.5rem'">
+                                                <span x-text="row._tipo === 'familia' ? row.familia : row.descripcion"></span>
+                                                <template x-if="row._tipo !== 'familia' && Number(row.devolvible) === 1">
+                                                    <span class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-medium">🔧 Ret.</span>
+                                                </template>
                                             </td>
                                             <td class="px-3 py-2 text-xs"
                                                 :style="row._tipo !== 'familia' ? 'color:#6b7280' : ''"
@@ -2035,7 +2050,7 @@
                     tab: 'mov',
                     loading: false,
 
-                    mov: { q:'', desde:'', hasta:'', vista:'tarjetas' },
+                    mov: { q:'', desde:'', hasta:'', vista:'tarjetas', soloHerramientas: false },
                     salidasTablaData: [],
                     salidasTablaExpandidos: {},
                     transSalidasData: [],
@@ -2541,9 +2556,10 @@
                         this.transSalidasExpandidos = {};
                         try {
                             const params = new URLSearchParams();
-                            if (this.mov.q)     params.set('q',     this.mov.q);
-                            if (this.mov.desde) params.set('desde', this.mov.desde);
-                            if (this.mov.hasta) params.set('hasta', this.mov.hasta);
+                            if (this.mov.q)                 params.set('q',      this.mov.q);
+                            if (this.mov.desde)             params.set('desde',  this.mov.desde);
+                            if (this.mov.hasta)             params.set('hasta',  this.mov.hasta);
+                            if (this.mov.soloHerramientas)  params.set('solo_h', '1');
                             const [resSal, resTrans] = await Promise.all([
                                 fetch('/explore/salidas/tabla?' + params.toString(), { headers:{'Accept':'application/json'}, cache:'no-store' }),
                                 fetch('/explore/transferencias/enviadas/tabla?' + params.toString(), { headers:{'Accept':'application/json'}, cache:'no-store' }),

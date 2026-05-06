@@ -141,12 +141,15 @@ class SalidaController extends Controller
         }
 
         $obraId = (int) $user->obra_actual_id;
+        $soloH  = $request->boolean('solo_h');
 
         if (str_starts_with($q, '#')) {
             $q = trim(substr($q, 1));
         }
 
-        $query = Inventario::query()->where('obra_id', $obraId);
+        $query = Inventario::query()
+            ->where('obra_id', $obraId)
+            ->when($soloH, fn ($qq) => $qq->where('devolvible', 1));
 
         if (ctype_digit($q)) {
             $query->where('id', (int) $q);
@@ -185,7 +188,10 @@ class SalidaController extends Controller
             return response()->json([]);
         }
 
+        $soloH = $request->boolean('solo_h');
+
         $items = Inventario::where('obra_id', (int) $user->obra_actual_id)
+            ->when($soloH, fn ($qq) => $qq->where('devolvible', 1))
             ->orderBy('descripcion')
             ->get(['id', 'insumo_id', 'descripcion', 'unidad', 'cantidad', 'devolvible']);
 

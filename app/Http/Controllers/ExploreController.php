@@ -201,10 +201,11 @@ public function movimientoDetalles(Movimiento $movimiento)
      */
     public function salidasTabla(Request $request)
     {
-        $obraId = Auth::user()?->obra_actual_id;
-        $desde  = $request->get('desde');
-        $hasta  = $request->get('hasta');
-        $q      = trim((string) $request->get('q', ''));
+        $obraId      = Auth::user()?->obra_actual_id;
+        $desde       = $request->get('desde');
+        $hasta       = $request->get('hasta');
+        $q           = trim((string) $request->get('q', ''));
+        $soloH       = $request->boolean('solo_h');
 
         $rows = MovimientoDetalle::query()
             ->join('movimientos', 'movimientos.id', '=', 'movimiento_detalles.movimiento_id')
@@ -212,6 +213,7 @@ public function movimientoDetalles(Movimiento $movimiento)
             ->when($obraId, fn($qq) => $qq->where('movimientos.obra_id', $obraId))
             ->when($desde, fn($qq) => $qq->whereDate('movimientos.fecha', '>=', $desde))
             ->when($hasta, fn($qq) => $qq->whereDate('movimientos.fecha', '<=', $hasta))
+            ->when($soloH, fn($qq) => $qq->where('movimiento_detalles.devolvible', 1))
             ->when($q !== '', function ($qq) use ($q) {
                 $qq->where(function ($w) use ($q) {
                     $w->where('movimiento_detalles.descripcion',     'like', "%{$q}%")
@@ -235,6 +237,7 @@ public function movimientoDetalles(Movimiento $movimiento)
                 'movimiento_detalles.precio_unitario',
                 'movimiento_detalles.clasificacion',
                 'movimiento_detalles.clasificacion_d',
+                'movimiento_detalles.devolvible',
                 'movimientos.fecha',
                 DB::raw('inventarios.insumo_id as codigo_insumo'),
             ]);
@@ -254,6 +257,61 @@ public function movimientoDetalles(Movimiento $movimiento)
                                     : null,
             'nivel'           => (string) ($r->clasificacion   ?? ''),
             'departamento'    => (string) ($r->clasificacion_d ?? ''),
+            'devolvible'      => (int)    ($r->devolvible      ?? 0),
+        ])->values());
+    }
+
+    /**
+     * Retornables pendientes (devolvible=1, no recuperados) para la obra actual.
+     * JSON — usado por explore y módulo retornables.
+     */
+    public function retornables(Request $request)
+    {
+        $obraId   = Auth::user()?->obra_actual_id;
+        $desde    = $request->get('desde');
+        $hasta    = $request->get('hasta');
+        $qPersona = trim((string) $request->get('persona', ''));
+        $qInsumo  = trim((string) $request->get('insumo', ''));
+
+        $rows = DB::table('movimiento_detalles as md')
+            ->join('movimientos as m', 'm.id', '=', 'md.movimiento_id')
+            ->join('inventarios as i', 'i.id', '=', 'md.inventario_id')
+            ->where('md.devolvible', 1)
+            ->when($obraId, fn($q) => $q->where('m.obra_id', $obraId))
+            ->when($qPersona !== '', fn($q) => $q->where('m.nombre_cabo', 'like', "%{$qPersona}%"))
+            ->when($qInsumo !== '', function ($q) use ($qInsumo) {
+                $q->where(function ($w) use ($qInsumo) {
+                    $w->where('md.descripcion', 'like', "%{$qInsumo}%")
+                      ->orWhere('i.insumo_id',  'like', "%{$qInsumo}%");
+                });
+            })
+            ->when($desde, fn($q) => $q->whereDate('m.fecha', '>=', $desde))
+            ->when($hasta, fn($q) => $q->whereDate('m.fecha', '<=', $hasta))
+            ->select([
+                'md.id as detalle_id',
+                'i.insumo_id',
+                'md.descripcion',
+                'md.unidad',
+                'md.cantidad',
+                'm.nombre_cabo',
+                'md.movimiento_id',
+                'm.fecha',
+                DB::raw('DATEDIFF(day, m.fecha, GETDATE()) as dias'),
+            ])
+            ->orderByDesc('m.fecha')
+            ->limit(500)
+            ->get();
+
+        return response()->json($rows->map(fn($r) => [
+            'detalle_id'   => $r->detalle_id,
+            'insumo_id'    => (string) ($r->insumo_id   ?? ''),
+            'descripcion'  => (string)  $r->descripcion,
+            'unidad'       => (string)  $r->unidad,
+            'cantidad'     => (float)   $r->cantidad,
+            'nombre_cabo'  => (string) ($r->nombre_cabo ?? ''),
+            'movimiento_id'=> $r->movimiento_id,
+            'fecha'        => (string)  $r->fecha,
+            'dias'         => (int)     ($r->dias ?? 0),
         ])->values());
     }
 

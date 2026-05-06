@@ -63,7 +63,14 @@
                 {{-- 🔍 BUSCADOR INVENTARIO (amigable para tablet) --}}
                 <form method="GET"
                       action="{{ route('inventario.index') }}"
-                      class="mb-4 p-3 md:p-4 border rounded-lg bg-white">
+                      class="mb-4 p3 md:p-4 border rounded-lg bg-white">
+
+                    @if($obsoleto)
+                        <input type="hidden" name="obsoleto" value="1">
+                    @endif
+                    @if($herramientas)
+                        <input type="hidden" name="herramientas" value="1">
+                    @endif
 
                     <div class="flex flex-col md:flex-row md:items-end gap-3">
                         <div class="flex-1">
@@ -86,7 +93,7 @@
                             </button>
 
                             @if(request('q'))
-                                <a href="{{ route('inventario.index', $obsoleto ? ['obsoleto' => 1] : []) }}"
+                                <a href="{{ route('inventario.index', array_filter(['obsoleto' => $obsoleto ? 1 : null, 'herramientas' => $herramientas ? 1 : null])) }}"
                                    class="w-full md:w-auto px-5 py-3 rounded-lg border bg-gray-100 text-gray-800 text-base md:text-sm hover:bg-gray-200 text-center">
                                     Limpiar
                                 </a>
@@ -110,19 +117,42 @@
                             Obra: <b>{{ $obraActual?->nombre ?? 'Sin obra' }}</b>
                         </span>
 
+                        {{-- Toggle: Herramientas/retornables --}}
+                        @if($herramientas)
+                            <a href="{{ route('inventario.index', array_filter(['q' => request('q'), 'obsoleto' => request('obsoleto') ?: null])) }}"
+                               class="px-3 py-1 rounded-full bg-blue-500 text-white font-semibold border border-blue-600 hover:bg-blue-600 transition-colors">
+                                🔧 Solo herramientas ✕
+                            </a>
+                        @else
+                            <a href="{{ route('inventario.index', array_filter(['q' => request('q'), 'obsoleto' => request('obsoleto') ?: null, 'herramientas' => 1])) }}"
+                               class="px-3 py-1 rounded-full border border-blue-400 text-blue-700 bg-blue-50 hover:bg-blue-100 font-medium transition-colors">
+                                🔧 Herramientas
+                            </a>
+                        @endif
+
                         {{-- Botón toggle Inventario obsoleto --}}
                         @if($obsoleto)
-                            <a href="{{ route('inventario.index', array_filter(['q' => request('q')])) }}"
+                            <a href="{{ route('inventario.index', array_filter(['q' => request('q'), 'herramientas' => request('herramientas') ?: null])) }}"
                                class="px-3 py-1 rounded-full bg-yellow-400 text-yellow-900 font-semibold border border-yellow-500 hover:bg-yellow-500 transition-colors">
                                 Inventario obsoleto ✕
                             </a>
                         @else
-                            <a href="{{ route('inventario.index', array_filter(['q' => request('q'), 'obsoleto' => 1])) }}"
+                            <a href="{{ route('inventario.index', array_filter(['q' => request('q'), 'herramientas' => request('herramientas') ?: null, 'obsoleto' => 1])) }}"
                                class="px-3 py-1 rounded-full border border-yellow-400 text-yellow-700 bg-yellow-50 hover:bg-yellow-100 font-medium transition-colors">
                                 Inventario obsoleto
                             </a>
                         @endif
                     </div>
+
+                    {{-- Banner: solo herramientas --}}
+                    @if($herramientas)
+                        <div class="mt-3 flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-50 border border-blue-300 text-blue-800 text-sm">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l5.654-4.654m5.65-4.647 3.033-2.498c.668-.549 1.61-.676 2.417-.349M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0Z"/>
+                            </svg>
+                            Mostrando <b class="mx-1">solo herramientas / retornables</b> (devolvible = 1).
+                        </div>
+                    @endif
 
                     {{-- Banner cuando se está viendo solo obsoletos --}}
                     @if($obsoleto)

@@ -36,8 +36,9 @@ class InventarioController extends Controller
         $isMultiobra = (int) ($user->is_multiobra ?? 0) === 1;
         $obras = $isMultiobra ? Obra::orderBy('nombre')->get(['id', 'nombre']) : collect();
 
-        $q         = trim((string) $request->get('q', ''));
-        $obsoleto  = $request->boolean('obsoleto');   // true = solo obsoletos
+        $q            = trim((string) $request->get('q', ''));
+        $obsoleto     = $request->boolean('obsoleto');
+        $herramientas = $request->boolean('herramientas');
 
         /* =====================================================
          * INVENTARIO
@@ -45,7 +46,8 @@ class InventarioController extends Controller
         $inventariosQ = Inventario::query()
             ->with('obra:id,nombre')
             ->when($obraActualId > 0, fn ($qq) => $qq->where('obra_id', $obraActualId))
-            ->when($obsoleto, fn ($qq) => $qq->where('obsoleto', 1))   // filtro solo cuando ?obsoleto=1
+            ->when($obsoleto,     fn ($qq) => $qq->where('obsoleto',   1))
+            ->when($herramientas, fn ($qq) => $qq->where('devolvible', 1))
             ->when($q !== '', function ($qq) use ($q) {
                 $clean = str_starts_with($q, '#') ? trim(substr($q, 1)) : $q;
 
@@ -156,6 +158,7 @@ class InventarioController extends Controller
             'isMultiobra',
             'obras',
             'obsoleto',
+            'herramientas',
             'puedeEditarAuxiliar'
         ));
     }
