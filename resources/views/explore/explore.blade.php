@@ -153,13 +153,14 @@
 
                         {{-- Toggle solo herramientas (solo en vista tabla) --}}
                         <template x-if="mov.vista === 'tabla'">
-                            <button @click="mov.soloHerramientas = !mov.soloHerramientas; cargarSalidasTabla()"
+                            <button @click="if (!modoHerramientas) { mov.soloHerramientas = !mov.soloHerramientas; cargarSalidasTabla(); }"
                                     :class="mov.soloHerramientas ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'"
+                                    :style="modoHerramientas ? 'cursor:not-allowed;opacity:.8;' : ''"
                                     class="px-3 py-1 rounded border text-sm transition-colors flex items-center gap-1">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l5.654-4.654m5.65-4.647 3.033-2.498c.668-.549 1.61-.676 2.417-.349M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0Z"/>
                                 </svg>
-                                <span x-text="mov.soloHerramientas ? 'Herramientas ✕' : 'Herramientas'"></span>
+                                <span x-text="mov.soloHerramientas ? 'Herramientas' + (modoHerramientas ? ' 🔒' : ' ✕') : 'Herramientas'"></span>
                             </button>
                         </template>
                         <button @click="mov.vista='ajustes'; cargarHistorialAjustes()"
@@ -2049,6 +2050,7 @@
 
                     tab: 'mov',
                     loading: false,
+                    modoHerramientas: false,
 
                     mov: { q:'', desde:'', hasta:'', vista:'tarjetas', soloHerramientas: false },
                     salidasTablaData: [],
@@ -2100,6 +2102,10 @@
                     insumos: [],
 
                     init() {
+                        this.modoHerramientas = localStorage.getItem('modoHerramientas') === '1';
+                        if (this.modoHerramientas) {
+                            this.mov.soloHerramientas = true;
+                        }
                         this.cargarMovimientos();
                     },
 
@@ -2327,6 +2333,7 @@
                         try {
                             const params = new URLSearchParams();
                             if (this.inv.q) params.set('q', this.inv.q);
+                            if (this.modoHerramientas) params.set('solo_h', '1');
 
                             const res = await fetch("{{ route('explore.inventario') }}?" + params.toString(), {
                                 headers: {'Accept':'application/json'},

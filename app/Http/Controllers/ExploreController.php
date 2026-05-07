@@ -382,7 +382,8 @@ public function movimientoDetalles(Movimiento $movimiento)
         $user = Auth::user();
         $obraId = (int) ($user?->obra_actual_id ?? 0);
 
-        $q = trim((string) $request->get('q', ''));
+        $q     = trim((string) $request->get('q', ''));
+        $soloH = $request->boolean('solo_h');
 
         // Soporta "#RP-80-12"
         if (str_starts_with($q, '#')) {
@@ -391,6 +392,7 @@ public function movimientoDetalles(Movimiento $movimiento)
 
         $rows = Inventario::query()
             ->when($obraId, fn($qq) => $qq->where('obra_id', $obraId))
+            ->when($soloH, fn($qq) => $qq->where('devolvible', 1))
             ->when($q !== '', function ($qq) use ($q) {
                 $qq->where(function ($w) use ($q) {
                     $w->where('insumo_id', 'like', "%{$q}%")
