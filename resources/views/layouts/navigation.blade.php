@@ -16,14 +16,29 @@
             <div class="flex">
                 <!-- Logo -->
                 <div class="shrink-0 flex items-center">
-                    <a href="{{ route('explore.index') }}" class="flex items-center gap-2">
+                    <a href="#" onclick="toggleModoHerramientas(); return false;"
+                       class="flex items-center gap-2"
+                       title="Activar / desactivar modo herramientas">
                         <img
                             src="{{ asset('images/logo-menu.png') }}"
                             alt="Kotica"
                             class="h-10 w-auto"
+                            id="logo-kotica"
                         >
                     </a>
                 </div>
+                <script>
+                function toggleModoHerramientas() {
+                    const active = localStorage.getItem('modoHerramientas') === '1';
+                    if (active) {
+                        localStorage.removeItem('modoHerramientas');
+                        window.location.href = '{{ route("inventario.index") }}';
+                    } else {
+                        localStorage.setItem('modoHerramientas', '1');
+                        window.location.href = '{{ route("inventario.index") }}?herramientas=1';
+                    }
+                }
+                </script>
 
                 <!-- Navigation Links (DESKTOP) -->
                 <div class="hidden space-x-8 sm:-my-px sm:ml-10 sm:flex">

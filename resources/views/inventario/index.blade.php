@@ -119,8 +119,15 @@
 
                         {{-- Toggle: Herramientas/retornables --}}
                         @if($herramientas)
-                            <a href="{{ route('inventario.index', array_filter(['q' => request('q'), 'obsoleto' => request('obsoleto') ?: null])) }}"
-                               class="px-3 py-1 rounded-full bg-blue-500 text-white font-semibold border border-blue-600 hover:bg-blue-600 transition-colors">
+                            <span id="btn-herramientas-activo"
+                               class="px-3 py-1 rounded-full bg-blue-500 text-white font-semibold border border-blue-600">
+                                🔧 Solo herramientas ✕
+                            </span>
+                            {{-- En modo herramientas el enlace para quitar se oculta vía JS --}}
+                            <a id="btn-herramientas-quitar"
+                               href="{{ route('inventario.index', array_filter(['q' => request('q'), 'obsoleto' => request('obsoleto') ?: null])) }}"
+                               class="px-3 py-1 rounded-full bg-blue-500 text-white font-semibold border border-blue-600 hover:bg-blue-600 transition-colors"
+                               style="display:none;">
                                 🔧 Solo herramientas ✕
                             </a>
                         @else
@@ -129,6 +136,33 @@
                                 🔧 Herramientas
                             </a>
                         @endif
+                        <script>
+                        (function(){
+                            const modo = localStorage.getItem('modoHerramientas') === '1';
+                            // Auto-redirect si estamos en modo herramientas pero sin el filtro
+                            @if(!$herramientas)
+                            if (modo) {
+                                const url = new URL(window.location.href);
+                                url.searchParams.set('herramientas', '1');
+                                window.location.replace(url.toString());
+                            }
+                            @endif
+                            // En modo herramientas: ocultar botón de quitar filtro, mostrar solo el span bloqueado
+                            @if($herramientas)
+                            if (modo) {
+                                const activo = document.getElementById('btn-herramientas-activo');
+                                const quitar = document.getElementById('btn-herramientas-quitar');
+                                if (activo) activo.style.display = 'inline-flex';
+                                if (quitar) quitar.style.display = 'none';
+                            } else {
+                                const activo = document.getElementById('btn-herramientas-activo');
+                                const quitar = document.getElementById('btn-herramientas-quitar');
+                                if (activo) activo.style.display = 'none';
+                                if (quitar) quitar.style.display = 'inline-flex';
+                            }
+                            @endif
+                        })();
+                        </script>
 
                         {{-- Botón toggle Inventario obsoleto --}}
                         @if($obsoleto)
@@ -231,10 +265,17 @@
                             @endphp
 
                             @php
-                                // Prioridad visual: verde (editado recientemente) > amarillo (obsoleto) > blanco
-                                $rowStyle = $style ?: ($inv->obsoleto ? 'background-color:#fefce8;' : '');
+                                $rowClass = '';
+                                $rowStyle = '';
+                                if ($style) {
+                                    $rowClass = 'row-highlight';
+                                    $rowStyle = $style;
+                                } elseif ($inv->obsoleto) {
+                                    $rowClass = 'row-obsoleto';
+                                    $rowStyle = 'background-color:#fefce8;';
+                                }
                             @endphp
-                            <tr class="border-b" id="inv-{{ $inv->id }}" style="{{ $rowStyle }}"
+                            <tr class="border-b {{ $rowClass }}" id="inv-{{ $inv->id }}" style="{{ $rowStyle }}"
                                 x-data="{
                                     editing: false,
                                     val: {{ json_encode($inv->descripcionauxiliar ?? '') }},
