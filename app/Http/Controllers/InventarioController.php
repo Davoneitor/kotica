@@ -401,6 +401,14 @@ class InventarioController extends Controller
         $destino = trim((string)($data['destino'] ?? ''));
         $data['destino'] = $destino !== '' ? $destino : ($inventario->destino ?: 'SIN DESTINO');
 
+        // Never write NULL into familia/subfamilia (NOT NULL column)
+        if (empty($data['familia'])) {
+            $data['familia'] = $inventario->familia ?: 'SIN FAMILIA';
+        }
+        if (empty($data['subfamilia'])) {
+            $data['subfamilia'] = $inventario->subfamilia ?: 'SIN SUBFAMILIA';
+        }
+
         $inventario->update([
             ...$data,
             'devolvible' => $inventario->devolvible, // preservar — no hay campo en el form

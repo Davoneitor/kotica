@@ -314,10 +314,14 @@ if ($obraLocalId <= 0) abort(403);
 
             $inv->cantidad = $cantNueva;
 
-            if (($inv->familia === 'SIN FAMILIA' || empty($inv->familia)) && $familia !== 'SIN FAMILIA') {
+            if (empty($inv->familia)) {
+                $inv->familia = ($familia !== 'SIN FAMILIA') ? $familia : 'SIN FAMILIA';
+            } elseif ($inv->familia === 'SIN FAMILIA' && $familia !== 'SIN FAMILIA') {
                 $inv->familia = $familia;
             }
-            if (($inv->subfamilia === 'SIN SUBFAMILIA' || empty($inv->subfamilia)) && $subfamilia !== 'SIN SUBFAMILIA') {
+            if (empty($inv->subfamilia)) {
+                $inv->subfamilia = ($subfamilia !== 'SIN SUBFAMILIA') ? $subfamilia : 'SIN SUBFAMILIA';
+            } elseif ($inv->subfamilia === 'SIN SUBFAMILIA' && $subfamilia !== 'SIN SUBFAMILIA') {
                 $inv->subfamilia = $subfamilia;
             }
 
