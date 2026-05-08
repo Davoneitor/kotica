@@ -768,6 +768,7 @@ $user = Auth::user();
     $desde = $request->get('desde');
     $hasta = $request->get('hasta');
     $tipo  = $request->get('tipo'); // 'oc' | 'manual' | 'transferencia' | null
+    $soloH = $request->boolean('solo_h');
 
     // For searching transferencias by obra origen name
     $transIdsByOrigen = [];
@@ -782,6 +783,14 @@ $user = Auth::user();
 
     $rows = OcRecepcion::query()
         ->where('obra_id', $obraId)
+        ->when($soloH, function ($qq) use ($obraId) {
+            $qq->whereExists(function ($sub) use ($obraId) {
+                $sub->from('inventarios')
+                    ->whereColumn('inventarios.insumo_id', 'oc_recepciones.insumo')
+                    ->where('inventarios.obra_id', $obraId)
+                    ->where('inventarios.devolvible', 1);
+            });
+        })
         ->when($q !== '', function ($qq) use ($q, $transIdsByOrigen) {
             $qq->where(function ($w) use ($q, $transIdsByOrigen) {
                 $w->where('insumo', 'like', "%{$q}%")

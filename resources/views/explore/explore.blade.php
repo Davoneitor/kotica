@@ -793,11 +793,12 @@
         </div>
 
         {{-- ── 1. ÓRDENES DE COMPRA ── --}}
-        <div x-show="entradasPorTipo('oc').length > 0" class="rounded-lg overflow-hidden" style="border:2px solid #059669">
+        <div x-show="entradasPorTipo('oc').length > 0" class="rounded-lg overflow-hidden"
+             :style="dk('border:2px solid #059669','border:2px solid #166534')">
             {{-- Header --}}
             <div @click="ent.seccionAbierta.oc = !ent.seccionAbierta.oc"
                  class="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
-                 style="background:#059669;color:#fff">
+                 :style="dk('background:#059669;color:#fff','background:#052e12;color:#34d399;border-bottom:2px solid #059669')">
                 <div class="flex items-center gap-2">
                     <svg :class="ent.seccionAbierta.oc ? 'rotate-90':''"
                          class="w-4 h-4 transition-transform shrink-0"
@@ -812,9 +813,12 @@
                       x-text="'$' + formatMoney(entradasPorTipo('oc').reduce((s,e)=>s+(e.importe??0),0))"></span>
             </div>
             {{-- Tabla --}}
-            <div x-show="ent.seccionAbierta.oc" class="overflow-x-auto bg-white">
+            <div x-show="ent.seccionAbierta.oc" class="overflow-x-auto"
+                 :style="dk('background:#fff','background:#060e08')">
                 <table class="w-full text-sm">
-                    <thead class="text-xs text-gray-500 uppercase border-b" style="background:#ecfdf5">
+                    <thead class="text-xs uppercase border-b"
+                           :style="dk('background:#ecfdf5;color:#6b7280','background:#071a0c;color:#6ee7b7')"
+                    >
                         <tr>
                             <th class="w-8 px-2 py-2"></th>
                             <th class="px-3 py-2 text-left">Fecha</th>
@@ -830,35 +834,36 @@
                         <template x-for="row in entradasOcGruposFlat()" :key="row._key">
                             <tr :class="row._fila==='familia' ? 'cursor-pointer select-none' : ''"
                                 :style="row._fila==='familia'
-                                    ? 'border-top:2px solid #6ee7b7;background:#d1fae5'
-                                    : 'border-top:1px solid #d1fae5'"
+                                    ? dk('border-top:2px solid #6ee7b7;background:#d1fae5','border-top:2px solid #059669;background:#0a2e18')
+                                    : dk('border-top:1px solid #d1fae5','border-top:1px solid #0d2e14')"
                                 @click="row._fila==='familia' && toggleOcGrupo(row.familia)">
                                 <td class="px-2 py-2 text-center w-8">
                                     <svg x-show="row._fila==='familia'"
                                          :class="ocTablaExpandidos[row.familia] ? 'rotate-90' : ''"
-                                         class="inline w-4 h-4 transition-transform duration-150" style="color:#059669"
+                                         class="inline w-4 h-4 transition-transform duration-150"
+                                         :style="dk('color:#059669','color:#4ade80')"
                                          fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                                     </svg>
                                 </td>
                                 <td class="px-3 py-2 text-xs whitespace-nowrap tabular-nums"
-                                    :style="row._fila==='familia' ? 'color:#059669;font-weight:500' : 'color:#6b7280;padding-left:1.5rem'"
+                                    :style="row._fila==='familia' ? dk('color:#059669;font-weight:500','color:#34d399;font-weight:600') : dk('color:#6b7280;padding-left:1.5rem','color:#5a8a6a;padding-left:1.5rem')"
                                     x-text="row._fila==='familia' ? row.count+' registros' : formatFechaCorta(row.fecha_recibido)"></td>
                                 <td class="px-3 py-2 font-mono text-xs"
-                                    :style="row._fila==='familia' ? 'color:#d1d5db' : 'color:#4b5563;padding-left:1.5rem'"
+                                    :style="row._fila==='familia' ? dk('color:#d1d5db','color:#4a7a5a') : dk('color:#4b5563;padding-left:1.5rem','color:#7a9a7a;padding-left:1.5rem')"
                                     x-text="row._fila!=='familia' ? row.insumo : ''"></td>
                                 <td class="px-3 py-2"
-                                    :style="row._fila==='familia' ? 'color:#065f46;font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em' : 'font-size:0.75rem;color:#374151;padding-left:1.5rem'"
+                                    :style="row._fila==='familia' ? dk('color:#065f46;font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em','color:#6ee7b7;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.05em') : dk('font-size:0.75rem;color:#374151;padding-left:1.5rem','font-size:0.75rem;color:#8aaa8a;padding-left:1.5rem')"
                                     x-text="row._fila==='familia' ? row.familia : row.descripcion"></td>
-                                <td class="px-3 py-2 text-xs" style="color:#6b7280"
+                                <td class="px-3 py-2 text-xs" :style="dk('color:#6b7280','color:#4a6a50')"
                                     x-text="row._fila!=='familia' ? row.unidad : ''"></td>
                                 <td class="px-3 py-2 text-right tabular-nums"
-                                    :style="row._fila==='familia' ? 'color:#065f46;font-weight:700' : 'font-size:0.75rem;font-weight:500;color:#374151'"
+                                    :style="row._fila==='familia' ? dk('color:#065f46;font-weight:700','color:#86efac;font-weight:700') : dk('font-size:0.75rem;font-weight:500;color:#374151','font-size:0.75rem;font-weight:500;color:#8aaa8a')"
                                     x-text="formatNum(row._fila==='familia' ? row.cantidad_total : row.cantidad_llego)"></td>
-                                <td class="px-3 py-2 text-right text-xs tabular-nums" style="color:#6b7280"
+                                <td class="px-3 py-2 text-right text-xs tabular-nums" :style="dk('color:#6b7280','color:#4a6a50')"
                                     x-text="row._fila!=='familia' && row.precio_unitario!=null ? '$'+formatMoney(row.precio_unitario) : '—'"></td>
                                 <td class="px-3 py-2 text-right tabular-nums"
-                                    :style="row._fila==='familia' ? 'color:#065f46;font-weight:700' : 'font-size:0.75rem;color:#374151'"
+                                    :style="row._fila==='familia' ? dk('color:#065f46;font-weight:700','color:#86efac;font-weight:700') : dk('font-size:0.75rem;color:#374151','font-size:0.75rem;color:#8aaa8a')"
                                     x-text="row._fila==='familia'
                                         ? (row.importe_total>0 ? '$'+formatMoney(row.importe_total) : '—')
                                         : (row.importe!=null ? '$'+formatMoney(row.importe) : '—')"></td>
@@ -870,10 +875,11 @@
         </div>
 
         {{-- ── 2. ENTRADAS MANUALES ── --}}
-        <div x-show="entradasPorTipo('manual').length > 0" class="rounded-lg overflow-hidden" style="border:2px solid #2563eb">
+        <div x-show="entradasPorTipo('manual').length > 0" class="rounded-lg overflow-hidden"
+             :style="dk('border:2px solid #2563eb','border:2px solid #1e3a6e')">
             <div @click="ent.seccionAbierta.manual = !ent.seccionAbierta.manual"
                  class="flex items-center gap-2 px-4 py-3 cursor-pointer select-none"
-                 style="background:#2563eb;color:#fff">
+                 :style="dk('background:#2563eb;color:#fff','background:#0d1e45;color:#93c5fd;border-bottom:2px solid #2563eb')">
                 <svg :class="ent.seccionAbierta.manual ? 'rotate-90':''"
                      class="w-4 h-4 transition-transform shrink-0"
                      fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
@@ -883,9 +889,12 @@
                 <span class="text-xs font-semibold px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.25)"
                       x-text="entradasPorTipo('manual').length + ' registros'"></span>
             </div>
-            <div x-show="ent.seccionAbierta.manual" class="overflow-x-auto bg-white">
+            <div x-show="ent.seccionAbierta.manual" class="overflow-x-auto"
+                 :style="dk('background:#fff','background:#060810')">
                 <table class="w-full text-sm">
-                    <thead class="text-xs text-gray-500 uppercase border-b" style="background:#eff6ff">
+                    <thead class="text-xs uppercase border-b"
+                           :style="dk('background:#eff6ff;color:#6b7280','background:#090f25;color:#60a5fa')"
+                    >
                         <tr>
                             <th class="w-8 px-2 py-2"></th>
                             <th class="px-3 py-2 text-left">Fecha</th>
@@ -903,57 +912,49 @@
                         <template x-for="row in entradasManualGruposFlat()" :key="row._key">
                             <tr :class="row._fila === 'familia' ? 'cursor-pointer select-none' : ''"
                                 :style="row._fila === 'familia'
-                                    ? 'border-top:2px solid #bfdbfe;background:#dbeafe'
-                                    : 'border-top:1px solid #bfdbfe;' + (row.revertida ? 'opacity:0.5' : '')"
+                                    ? dk('border-top:2px solid #bfdbfe;background:#dbeafe','border-top:2px solid #2563eb;background:#0e1e45')
+                                    : dk('border-top:1px solid #bfdbfe;','border-top:1px solid #122040;') + (row.revertida ? 'opacity:0.5' : '')"
                                 @click="row._fila === 'familia' && toggleManualGrupo(row.familia)">
-                                {{-- Icono toggle --}}
                                 <td class="px-2 py-2 text-center w-8">
                                     <svg x-show="row._fila === 'familia'"
                                          :class="manualTablaExpandidos[row.familia] ? 'rotate-90' : ''"
                                          class="inline w-4 h-4 transition-transform duration-150"
-                                         style="color:#2563eb"
+                                         :style="dk('color:#2563eb','color:#60a5fa')"
                                          fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                                     </svg>
                                 </td>
-                                {{-- Fecha / contador --}}
                                 <td class="px-3 py-2 text-xs whitespace-nowrap tabular-nums"
-                                    :style="row._fila === 'familia' ? 'color:#3b82f6;font-weight:500' : 'color:#6b7280;padding-left:1.5rem'"
+                                    :style="row._fila === 'familia' ? dk('color:#3b82f6;font-weight:500','color:#93c5fd;font-weight:600') : dk('color:#6b7280;padding-left:1.5rem','color:#5070a0;padding-left:1.5rem')"
                                     x-text="row._fila === 'familia' ? row.count + ' registros' : formatFechaCorta(row.fecha_recibido)"></td>
-                                {{-- Código --}}
                                 <td class="px-3 py-2 font-mono text-xs"
-                                    :style="row._fila === 'familia' ? 'color:#d1d5db' : 'color:#4b5563;padding-left:1.5rem'"
+                                    :style="row._fila === 'familia' ? dk('color:#d1d5db','color:#2a3a50') : dk('color:#4b5563;padding-left:1.5rem','color:#5a7090;padding-left:1.5rem')"
                                     x-text="row._fila !== 'familia' ? row.insumo : ''"></td>
-                                {{-- Descripción / Familia --}}
                                 <td class="px-3 py-2"
-                                    :style="row._fila === 'familia' ? 'color:#1e3a8a;font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em' : 'font-size:0.75rem;color:#374151;padding-left:1.5rem'"
+                                    :style="row._fila === 'familia' ? dk('color:#1e3a8a;font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em','color:#60a5fa;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.05em') : dk('font-size:0.75rem;color:#374151;padding-left:1.5rem','font-size:0.75rem;color:#6a90b0;padding-left:1.5rem')"
                                     x-text="row._fila === 'familia' ? row.familia : row.descripcion"></td>
-                                {{-- Unidad --}}
-                                <td class="px-3 py-2 text-xs" style="color:#6b7280"
+                                <td class="px-3 py-2 text-xs" :style="dk('color:#6b7280','color:#3a5070')"
                                     x-text="row._fila !== 'familia' ? row.unidad : ''"></td>
-                                {{-- Cantidad --}}
                                 <td class="px-3 py-2 text-right tabular-nums"
-                                    :style="row._fila === 'familia' ? 'color:#1d4ed8;font-weight:700' : 'font-size:0.75rem;font-weight:500;color:#374151'"
+                                    :style="row._fila === 'familia' ? dk('color:#1d4ed8;font-weight:700','color:#93c5fd;font-weight:700') : dk('font-size:0.75rem;font-weight:500;color:#374151','font-size:0.75rem;font-weight:500;color:#6a90b0')"
                                     x-text="formatNum(row._fila === 'familia' ? row.cantidad_total : row.cantidad_llego)"></td>
-                                {{-- P.U. --}}
-                                <td class="px-3 py-2 text-right text-xs tabular-nums" style="color:#6b7280"
+                                <td class="px-3 py-2 text-right text-xs tabular-nums" :style="dk('color:#6b7280','color:#3a5070')"
                                     x-text="row._fila !== 'familia' && row.precio_unitario != null ? '$'+formatMoney(row.precio_unitario) : '—'"></td>
-                                {{-- Importe --}}
                                 <td class="px-3 py-2 text-right tabular-nums"
-                                    :style="row._fila === 'familia' ? 'color:#1d4ed8;font-weight:700' : 'font-size:0.75rem;color:#374151'"
+                                    :style="row._fila === 'familia' ? dk('color:#1d4ed8;font-weight:700','color:#93c5fd;font-weight:700') : dk('font-size:0.75rem;color:#374151','font-size:0.75rem;color:#6a90b0')"
                                     x-text="row._fila === 'familia'
                                         ? (row.importe_total > 0 ? '$'+formatMoney(row.importe_total) : '—')
                                         : (row.importe != null ? '$'+formatMoney(row.importe) : '—')"></td>
-                                {{-- Registrado por --}}
-                                <td class="px-3 py-2 text-xs" style="color:#6b7280"
+                                <td class="px-3 py-2 text-xs" :style="dk('color:#6b7280','color:#3a5070')"
                                     x-text="row._fila !== 'familia' ? (row.usuario||'—') : ''"></td>
-                                {{-- Estado --}}
                                 <td class="px-3 py-2">
                                     <template x-if="row._fila !== 'familia' && row.revertida">
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold" style="background:#fee2e2;color:#b91c1c">✗ Revertida</span>
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold"
+                                              :style="dk('background:#fee2e2;color:#b91c1c','background:#2a0505;color:#f87171')">✗ Revertida</span>
                                     </template>
                                     <template x-if="row._fila !== 'familia' && !row.revertida">
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold" style="background:#dcfce7;color:#15803d">✓ Activa</span>
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold"
+                                              :style="dk('background:#dcfce7;color:#15803d','background:#041208;color:#4ade80')">✓ Activa</span>
                                     </template>
                                 </td>
                             </tr>
@@ -964,10 +965,11 @@
         </div>
 
         {{-- ── 3. TRANSFERENCIAS RECIBIDAS ── --}}
-        <div x-show="entradasPorTipo('transferencia').length > 0" class="rounded-lg overflow-hidden" style="border:2px solid #f97316">
+        <div x-show="entradasPorTipo('transferencia').length > 0" class="rounded-lg overflow-hidden"
+             :style="dk('border:2px solid #f97316','border:2px solid #7c3a00')">
             <div @click="ent.seccionAbierta.transferencia = !ent.seccionAbierta.transferencia"
                  class="flex items-center gap-2 px-4 py-3 cursor-pointer select-none"
-                 style="background:#f97316;color:#fff">
+                 :style="dk('background:#f97316;color:#fff','background:#2e1200;color:#fdba74;border-bottom:2px solid #f97316')">
                 <svg :class="ent.seccionAbierta.transferencia ? 'rotate-90':''"
                      class="w-4 h-4 transition-transform shrink-0"
                      fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
@@ -977,9 +979,12 @@
                 <span class="text-xs font-semibold px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.25)"
                       x-text="entradasPorTipo('transferencia').length + ' registros'"></span>
             </div>
-            <div x-show="ent.seccionAbierta.transferencia" class="overflow-x-auto bg-white">
+            <div x-show="ent.seccionAbierta.transferencia" class="overflow-x-auto"
+                 :style="dk('background:#fff','background:#0e0600')">
                 <table class="w-full text-sm">
-                    <thead class="text-xs text-gray-500 uppercase border-b" style="background:#fff7ed">
+                    <thead class="text-xs uppercase border-b"
+                           :style="dk('background:#fff7ed;color:#6b7280','background:#1e0c00;color:#fdba74')"
+                    >
                         <tr>
                             <th class="w-8 px-2 py-2"></th>
                             <th class="px-3 py-2 text-left">Fecha</th>
@@ -996,37 +1001,38 @@
                         <template x-for="row in entradasTransGruposFlat()" :key="row._key">
                             <tr :class="row._fila==='familia' ? 'cursor-pointer select-none' : ''"
                                 :style="row._fila==='familia'
-                                    ? 'border-top:2px solid #fdba74;background:#fed7aa'
-                                    : 'border-top:1px solid #fed7aa'"
+                                    ? dk('border-top:2px solid #fdba74;background:#fed7aa','border-top:2px solid #f97316;background:#2e1400')
+                                    : dk('border-top:1px solid #fed7aa','border-top:1px solid #3a1800')"
                                 @click="row._fila==='familia' && toggleTransGrupo(row.familia)">
                                 <td class="px-2 py-2 text-center w-8">
                                     <svg x-show="row._fila==='familia'"
                                          :class="transTablaExpandidos[row.familia] ? 'rotate-90' : ''"
-                                         class="inline w-4 h-4 transition-transform duration-150" style="color:#f97316"
+                                         class="inline w-4 h-4 transition-transform duration-150"
+                                         :style="dk('color:#f97316','color:#fb923c')"
                                          fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                                     </svg>
                                 </td>
                                 <td class="px-3 py-2 text-xs whitespace-nowrap tabular-nums"
-                                    :style="row._fila==='familia' ? 'color:#c2410c;font-weight:500' : 'color:#6b7280;padding-left:1.5rem'"
+                                    :style="row._fila==='familia' ? dk('color:#c2410c;font-weight:500','color:#fdba74;font-weight:600') : dk('color:#6b7280;padding-left:1.5rem','color:#7a5030;padding-left:1.5rem')"
                                     x-text="row._fila==='familia' ? row.count+' registros' : formatFechaCorta(row.fecha_recibido)"></td>
-                                <td class="px-3 py-2 text-xs" style="color:#6b7280"
+                                <td class="px-3 py-2 text-xs" :style="dk('color:#6b7280','color:#5a3a20')"
                                     x-text="row._fila!=='familia' ? (row.obra_origen||'—') : ''"></td>
                                 <td class="px-3 py-2 font-mono text-xs"
-                                    :style="row._fila==='familia' ? 'color:#d1d5db' : 'color:#4b5563;padding-left:1.5rem'"
+                                    :style="row._fila==='familia' ? dk('color:#d1d5db','color:#3a2010') : dk('color:#4b5563;padding-left:1.5rem','color:#7a5030;padding-left:1.5rem')"
                                     x-text="row._fila!=='familia' ? row.insumo : ''"></td>
                                 <td class="px-3 py-2"
-                                    :style="row._fila==='familia' ? 'color:#7c2d12;font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em' : 'font-size:0.75rem;color:#374151;padding-left:1.5rem'"
+                                    :style="row._fila==='familia' ? dk('color:#7c2d12;font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em','color:#fb923c;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.05em') : dk('font-size:0.75rem;color:#374151;padding-left:1.5rem','font-size:0.75rem;color:#8a6040;padding-left:1.5rem')"
                                     x-text="row._fila==='familia' ? row.familia : row.descripcion"></td>
-                                <td class="px-3 py-2 text-xs" style="color:#6b7280"
+                                <td class="px-3 py-2 text-xs" :style="dk('color:#6b7280','color:#5a3a20')"
                                     x-text="row._fila!=='familia' ? row.unidad : ''"></td>
                                 <td class="px-3 py-2 text-right tabular-nums"
-                                    :style="row._fila==='familia' ? 'color:#7c2d12;font-weight:700' : 'font-size:0.75rem;font-weight:500;color:#374151'"
+                                    :style="row._fila==='familia' ? dk('color:#7c2d12;font-weight:700','color:#fbbf24;font-weight:700') : dk('font-size:0.75rem;font-weight:500;color:#374151','font-size:0.75rem;font-weight:500;color:#8a6040')"
                                     x-text="formatNum(row._fila==='familia' ? row.cantidad_total : row.cantidad_llego)"></td>
-                                <td class="px-3 py-2 text-right text-xs tabular-nums" style="color:#6b7280"
+                                <td class="px-3 py-2 text-right text-xs tabular-nums" :style="dk('color:#6b7280','color:#5a3a20')"
                                     x-text="row._fila!=='familia' && row.precio_unitario!=null ? '$'+formatMoney(row.precio_unitario) : '—'"></td>
                                 <td class="px-3 py-2 text-right tabular-nums"
-                                    :style="row._fila==='familia' ? 'color:#7c2d12;font-weight:700' : 'font-size:0.75rem;color:#374151'"
+                                    :style="row._fila==='familia' ? dk('color:#7c2d12;font-weight:700','color:#fbbf24;font-weight:700') : dk('font-size:0.75rem;color:#374151','font-size:0.75rem;color:#8a6040')"
                                     x-text="row._fila==='familia'
                                         ? (row.importe_total>0 ? '$'+formatMoney(row.importe_total) : '—')
                                         : (row.importe!=null ? '$'+formatMoney(row.importe) : '—')"></td>
@@ -2109,6 +2115,9 @@
                         this.cargarMovimientos();
                     },
 
+                    // Devuelve el valor oscuro si está en modo herramientas, si no el claro
+                    dk(light, dark) { return this.modoHerramientas ? dark : light; },
+
                     mostrarModalPdf() {
                         this.pdf.show = true;
                         this.pdf.loading = true;
@@ -2400,10 +2409,11 @@
 
     try {
         const params = new URLSearchParams();
-        if (this.ent.q)     params.set('q',     this.ent.q);
-        if (this.ent.desde) params.set('desde', this.ent.desde);
-        if (this.ent.hasta) params.set('hasta', this.ent.hasta);
-        if (this.ent.tipo)  params.set('tipo',  this.ent.tipo);
+        if (this.ent.q)            params.set('q',     this.ent.q);
+        if (this.ent.desde)        params.set('desde', this.ent.desde);
+        if (this.ent.hasta)        params.set('hasta', this.ent.hasta);
+        if (this.ent.tipo)         params.set('tipo',  this.ent.tipo);
+        if (this.modoHerramientas) params.set('solo_h', '1');
 
         const res = await fetch("{{ route('explore.entradas') }}?" + params.toString(), {
             headers: {'Accept':'application/json'},
