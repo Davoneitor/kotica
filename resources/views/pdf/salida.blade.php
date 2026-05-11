@@ -110,18 +110,19 @@ salida.blade
                 // Build distribution text from destinos (or fall back to clasificacion)
                 if ($d->destinos->count() > 0) {
                     $distLines = $d->destinos->map(function ($dest) {
-                        $label = $dest->nivel ?? '';
-                        if (!empty($dest->departamento)) {
-                            $label .= '/' . $dest->departamento;
-                        }
+                        $label = trim($dest->nivel ?? '');
+                        $depto = trim($dest->departamento ?? '');
+                        if ($depto !== '') $label .= '/' . $depto;
+                        if ($label === '') $label = 'Sin especificar';
                         $qty = rtrim(rtrim(number_format((float)$dest->cantidad, 2, '.', ''), '0'), '.');
                         return $label . ' (' . $qty . ')';
                     })->implode("\n");
                 } else {
-                    $distLines = $d->clasificacion ?? '';
+                    $distLines = trim($d->clasificacion ?? '');
                     if (!empty($d->clasificacion_d)) {
-                        $distLines .= '/' . $d->clasificacion_d;
+                        $distLines .= '/' . trim($d->clasificacion_d);
                     }
+                    if ($distLines === '') $distLines = 'Sin especificar';
                 }
             @endphp
 

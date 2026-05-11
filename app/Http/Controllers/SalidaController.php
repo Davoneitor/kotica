@@ -147,12 +147,18 @@ class SalidaController extends Controller
             $q = trim(substr($q, 1));
         }
 
+        $mode = $request->input('mode', 'both'); // 'desc' | 'code' | 'both'
+
         $query = Inventario::query()
             ->where('obra_id', $obraId)
             ->when($soloH, fn ($qq) => $qq->where('devolvible', 1));
 
-        if (ctype_digit($q)) {
+        if (ctype_digit($q) && $mode !== 'desc') {
             $query->where('id', (int) $q);
+        } elseif ($mode === 'desc') {
+            $query->where('descripcion', 'like', "%{$q}%");
+        } elseif ($mode === 'code') {
+            $query->where('insumo_id', 'like', "%{$q}%");
         } else {
             $query->where(function ($sub) use ($q) {
                 $sub->where('descripcion', 'like', "%{$q}%")
@@ -232,7 +238,7 @@ class SalidaController extends Controller
 
         $request->validate([
             'nombre_cabo' => ['required', 'string', 'max:255'],
-            'destino_proyecto_id' => ['required'],
+            'destino_proyecto_id' => ['nullable'],
             'observaciones' => ['nullable', 'string', 'max:500'],
 
             'items' => ['required', 'array', 'min:1'],
@@ -240,10 +246,10 @@ class SalidaController extends Controller
             'items.*.cantidad' => ['required', 'numeric', 'gt:0'],
             'items.*.unidad' => ['nullable', 'string', 'max:50'],
             'items.*.devolvible' => ['nullable'],
-            'items.*.destinos' => ['required', 'array', 'min:1'],
-            'items.*.destinos.*.nivel' => ['required', 'string', 'max:50'],
+            'items.*.destinos' => ['nullable', 'array'],
+            'items.*.destinos.*.nivel' => ['nullable', 'string', 'max:50'],
             'items.*.destinos.*.departamento' => ['nullable', 'string', 'max:100'],
-            'items.*.destinos.*.cantidad' => ['required', 'numeric', 'gt:0'],
+            'items.*.destinos.*.cantidad' => ['required_with:items.*.destinos', 'numeric', 'gt:0'],
 
             // ✅ firma obligatoria
             'firma_base64' => ['required', 'string'],
@@ -306,7 +312,7 @@ class SalidaController extends Controller
                 'obra_id'           => (int) $obraId,
                 'user_id'           => auth()->id(),
                 'fecha'             => now(),
-                'destino'           => $request->destino_proyecto_id,
+                'destino'           => $request->destino_proyecto_id ?: 'SIN DESTINO',
                 'nombre_cabo'       => $request->nombre_cabo,
                 'estatus'           => 1,
                 'observaciones'     => $request->observaciones,
@@ -322,9 +328,14 @@ class SalidaController extends Controller
                 $devolvible = (int) ($it['devolvible'] ?? 0);
                 $destinos = $it['destinos'] ?? [];
 
-                // Validate destinos sum equals item cantidad
+                // When no distribution provided, treat the full quantity as one entry with no nivel/depto
+                if (empty($destinos)) {
+                    $destinos = [['nivel' => '', 'departamento' => '', 'cantidad' => $cantidad]];
+                }
+
+                // Validate destinos sum equals item cantidad (only when distribution was explicitly provided)
                 $sumaDestinos = array_sum(array_column($destinos, 'cantidad'));
-                if (abs($sumaDestinos - $cantidad) > 0.01) {
+                if (count($it['destinos'] ?? []) > 0 && abs($sumaDestinos - $cantidad) > 0.01) {
                     return response()->json([
                         'ok' => false,
                         'message' => "La distribución ({$sumaDestinos}) no coincide con la cantidad total ({$cantidad}) del producto #{$inventarioId}."
@@ -410,7 +421,7 @@ class SalidaController extends Controller
 
         $request->validate([
             'destinos'                    => ['required', 'array', 'min:1'],
-            'destinos.*.nivel'            => ['required', 'string', 'max:50'],
+            'destinos.*.nivel'            => ['nullable', 'string', 'max:50'],
             'destinos.*.departamento'     => ['nullable', 'string', 'max:100'],
             'destinos.*.cantidad'         => ['required', 'numeric', 'gt:0'],
         ]);

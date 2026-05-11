@@ -255,8 +255,8 @@ public function movimientoDetalles(Movimiento $movimiento)
             'importe'         => $r->precio_unitario !== null
                                     ? round((float) $r->cantidad * (float) $r->precio_unitario, 2)
                                     : null,
-            'nivel'           => (string) ($r->clasificacion   ?? ''),
-            'departamento'    => (string) ($r->clasificacion_d ?? ''),
+            'nivel'           => ($r->clasificacion   ?? '') !== '' ? (string) $r->clasificacion   : 'Sin especificar',
+            'departamento'    => ($r->clasificacion_d ?? '') !== '' ? (string) $r->clasificacion_d : '',
             'devolvible'      => (int)    ($r->devolvible      ?? 0),
         ])->values());
     }

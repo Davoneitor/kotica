@@ -171,95 +171,6 @@
                                     ></p>
                                 </div>
 
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                                        Destino <span class="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        class="w-full border rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-gray-400 focus:border-transparent"
-                                        :class="tabs[activeIdx] && tabs[activeIdx].errors && tabs[activeIdx].errors.destino
-                                            ? 'border-red-400 bg-red-50'
-                                            : 'border-gray-300'"
-                                        x-model="tabs[activeIdx].destino_proyecto_id"
-                                    >
-                                        <option value="">-- Selecciona destino --</option>
-                                        <template x-for="d in destinos" :key="d.IdProyecto">
-                                            <option :value="d.IdProyecto" x-text="'[' + d.Tipo + '] ' + d.Proyecto"></option>
-                                        </template>
-                                    </select>
-                                    <p
-                                        x-show="tabs[activeIdx] && tabs[activeIdx].errors && tabs[activeIdx].errors.destino"
-                                        class="text-red-600 text-xs mt-1"
-                                        x-text="tabs[activeIdx] ? (tabs[activeIdx].errors.destino || '') : ''"
-                                    ></p>
-                                </div>
-
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                                        Nivel <span class="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        class="w-full border rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-gray-400 focus:border-transparent"
-                                        :class="tabs[activeIdx] && tabs[activeIdx].errors && tabs[activeIdx].errors.nivel
-                                            ? 'border-red-400 bg-red-50'
-                                            : 'border-gray-300'"
-                                        x-model="tabs[activeIdx].nivel"
-                                        @change="onNivelChange()"
-                                    >
-                                        <option value="">-- Selecciona nivel --</option>
-                                        <optgroup label="Sótanos (sin departamento)">
-                                            <option value="S1">S1</option>
-                                            <option value="S2">S2</option>
-                                            <option value="S3">S3</option>
-                                            <option value="S4">S4</option>
-                                            <option value="S5">S5</option>
-                                        </optgroup>
-                                        <optgroup label="Áreas comunes (sin departamento)">
-                                            <option value="ROOFTOP">ROOFTOP GARDEN</option>
-                                            <option value="PASILLOS">PASILLOS</option>
-                                            <option value="CIMENTACION">CIMENTACIÓN</option>
-                                            <option value="PB">PB</option>
-                                            <option value="GYM">GYM</option>
-                                            <option value="AREAS_COMUNES">ÁREAS COMUNES</option>
-                                        </optgroup>
-                                        <optgroup label="Niveles">
-                                            @for($i = 1; $i <= 13; $i++)
-                                                <option value="L{{ $i }}">L{{ $i }}</option>
-                                            @endfor
-                                        </optgroup>
-                                    </select>
-                                    <p
-                                        x-show="tabs[activeIdx] && tabs[activeIdx].errors && tabs[activeIdx].errors.nivel"
-                                        class="text-red-600 text-xs mt-1"
-                                        x-text="tabs[activeIdx] ? (tabs[activeIdx].errors.nivel || '') : ''"
-                                    ></p>
-                                </div>
-
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                                        Departamento
-                                        <span x-show="!sinDepartamento" class="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        class="w-full border rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-gray-400 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                        :class="tabs[activeIdx] && tabs[activeIdx].errors && tabs[activeIdx].errors.departamento
-                                            ? 'border-red-400 bg-red-50'
-                                            : 'border-gray-300'"
-                                        x-model="tabs[activeIdx].departamento"
-                                        :disabled="sinDepartamento"
-                                    >
-                                        <option value="">
-                                            -- <template x-if="sinDepartamento"><span>No aplica</span></template><template x-if="!sinDepartamento"><span>Selecciona</span></template> --
-                                        </option>
-                                        @for($i = 1; $i <= 8; $i++)
-                                            <option value="D{{ $i }}">D{{ $i }}</option>
-                                        @endfor
-                                    </select>
-                                    <p class="text-xs text-gray-500 mt-1" x-show="sinDepartamento">
-                                        Este nivel no requiere departamento.
-                                    </p>
-                                </div>
-
                                 <div class="md:col-span-2">
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Observaciones</label>
                                     <textarea
@@ -282,25 +193,6 @@
                                     x-text="tabs[activeIdx] ? (tabs[activeIdx].errors.items || '') : ''"
                                 ></p>
 
-                                {{-- Toggle solo herramientas --}}
-                                <div class="mb-3 flex items-center gap-2">
-                                    <button type="button"
-                                        @click="if (!modoHerramientas) { tabs[activeIdx].soloHerramientas = !tabs[activeIdx].soloHerramientas; tabs[activeIdx].q = ''; tabs[activeIdx].resultados = []; tabs[activeIdx].selected = null; }"
-                                        :class="tabs[activeIdx] && tabs[activeIdx].soloHerramientas
-                                            ? 'bg-blue-600 text-white border-blue-700'
-                                            : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'"
-                                        :style="modoHerramientas ? 'cursor:not-allowed;opacity:.8;' : ''"
-                                        class="px-3 py-1.5 text-xs font-medium border rounded-full transition-colors flex items-center gap-1.5">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l5.654-4.654m5.65-4.647 3.033-2.498c.668-.549 1.61-.676 2.417-.349M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0Z"/>
-                                        </svg>
-                                        <span x-text="tabs[activeIdx] && tabs[activeIdx].soloHerramientas ? 'Solo herramientas' + (modoHerramientas ? ' 🔒' : ' ✕') : 'Solo herramientas'"></span>
-                                    </button>
-                                    <span class="text-xs text-gray-400"
-                                          x-show="tabs[activeIdx] && tabs[activeIdx].soloHerramientas">
-                                        Mostrando únicamente productos retornables
-                                    </span>
-                                </div>
 
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
 
@@ -399,7 +291,6 @@
                                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Cant.</th>
                                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Unidad</th>
                                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Retornable</th>
-                                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Destinos</th>
                                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Quitar</th>
                                                 </tr>
                                             </thead>
@@ -417,27 +308,6 @@
                                                             ></span>
                                                         </td>
                                                         <td class="px-4 py-3">
-                                                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                                                <span style="font-size:13px;color:#374151;">
-                                                                    <template x-if="it.destinos.length === 1">
-                                                                        <span>
-                                                                            <span x-text="it.destinos[0].nivel || '—'"></span><span x-show="it.destinos[0].departamento">/<span x-text="it.destinos[0].departamento"></span></span>
-                                                                        </span>
-                                                                    </template>
-                                                                    <template x-if="it.destinos.length > 1">
-                                                                        <span style="color:#1d4ed8;font-weight:600;" x-text="it.destinos.length + ' niveles'"></span>
-                                                                    </template>
-                                                                </span>
-                                                                <button
-                                                                    type="button"
-                                                                    @click="it.mostrarDestinos = !it.mostrarDestinos"
-                                                                    style="font-size:11px;padding:2px 9px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;color:#374151;white-space:nowrap;"
-                                                                >
-                                                                    <span x-text="it.mostrarDestinos ? 'Ocultar' : 'Cambiar nivel'"></span>
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                        <td class="px-4 py-3">
                                                             <button
                                                                 type="button"
                                                                 class="px-3 py-1.5 text-xs border rounded-lg hover:bg-red-50 hover:border-red-300 hover:text-red-700 transition-colors"
@@ -446,104 +316,6 @@
                                                         </td>
                                                     </tr>
 
-                                                    <tr x-show="it.mostrarDestinos" style="background:#f8fafc;">
-                                                        <td colspan="7" style="padding:12px 16px;">
-                                                            <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:10px;">
-                                                                Distribución por nivel / departamento
-                                                            </div>
-                                                            <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:10px;">
-                                                                <thead>
-                                                                    <tr style="background:#e5e7eb;">
-                                                                        <th style="padding:6px 10px;text-align:left;border:1px solid #d1d5db;width:28%;">Nivel</th>
-                                                                        <th style="padding:6px 10px;text-align:left;border:1px solid #d1d5db;width:28%;">Departamento</th>
-                                                                        <th style="padding:6px 10px;text-align:left;border:1px solid #d1d5db;width:28%;">Cantidad</th>
-                                                                        <th style="padding:6px 10px;text-align:center;border:1px solid #d1d5db;width:16%;"></th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    <template x-for="(dest, di) in it.destinos" :key="di">
-                                                                        <tr>
-                                                                            <td style="border:1px solid #d1d5db;padding:4px 6px;">
-                                                                                <select
-                                                                                    x-model="dest.nivel"
-                                                                                    @change="if(destinoSinDepto(dest.nivel)) dest.departamento=''"
-                                                                                    style="width:100%;border:none;background:transparent;font-size:12px;padding:2px;"
-                                                                                >
-                                                                                    <option value="">-- Nivel --</option>
-                                                                                    <optgroup label="Sótanos">
-                                                                                        <option>S1</option><option>S2</option><option>S3</option><option>S4</option><option>S5</option>
-                                                                                    </optgroup>
-                                                                                    <optgroup label="Áreas comunes">
-                                                                                        <option value="ROOFTOP">ROOFTOP</option>
-                                                                                        <option value="PASILLOS">PASILLOS</option>
-                                                                                        <option value="CIMENTACION">CIMENTACIÓN</option>
-                                                                                        <option value="PB">PB</option>
-                                                                                        <option value="GYM">GYM</option>
-                                                                                        <option value="AREAS_COMUNES">ÁREAS COMUNES</option>
-                                                                                    </optgroup>
-                                                                                    <optgroup label="Niveles">
-                                                                                        @for($i = 1; $i <= 13; $i++)
-                                                                                            <option value="L{{ $i }}">L{{ $i }}</option>
-                                                                                        @endfor
-                                                                                    </optgroup>
-                                                                                </select>
-                                                                            </td>
-                                                                            <td style="border:1px solid #d1d5db;padding:4px 6px;">
-                                                                                <select
-                                                                                    x-model="dest.departamento"
-                                                                                    :disabled="destinoSinDepto(dest.nivel)"
-                                                                                    style="width:100%;border:none;background:transparent;font-size:12px;padding:2px;"
-                                                                                    :style="destinoSinDepto(dest.nivel) ? 'color:#9ca3af;' : ''"
-                                                                                >
-                                                                                    <option value="">-- Depto --</option>
-                                                                                    @for($i = 1; $i <= 8; $i++)
-                                                                                        <option value="D{{ $i }}">D{{ $i }}</option>
-                                                                                    @endfor
-                                                                                </select>
-                                                                            </td>
-                                                                            <td style="border:1px solid #d1d5db;padding:4px 6px;">
-                                                                                <input
-                                                                                    type="number"
-                                                                                    step="0.01"
-                                                                                    min="0.01"
-                                                                                    x-model="dest.cantidad"
-                                                                                    style="width:100%;border:none;background:transparent;font-size:12px;padding:2px;"
-                                                                                >
-                                                                            </td>
-                                                                            <td style="border:1px solid #d1d5db;padding:4px 6px;text-align:center;">
-                                                                                <button
-                                                                                    type="button"
-                                                                                    x-show="it.destinos.length > 1"
-                                                                                    @click="quitarDestino(itIdx, di)"
-                                                                                    style="color:#ef4444;font-weight:bold;font-size:14px;cursor:pointer;background:none;border:none;padding:0 4px;"
-                                                                                    title="Quitar destino"
-                                                                                >×</button>
-                                                                            </td>
-                                                                        </tr>
-                                                                    </template>
-                                                                </tbody>
-                                                            </table>
-                                                            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-                                                                <button
-                                                                    type="button"
-                                                                    @click="agregarDestino(itIdx)"
-                                                                    style="font-size:12px;padding:5px 12px;border:1px dashed #6b7280;border-radius:8px;background:white;cursor:pointer;color:#374151;"
-                                                                >+ Agregar nivel</button>
-                                                                <span style="font-size:12px;"
-                                                                    :style="Math.abs(it.destinos.reduce((s,d)=>s+(+d.cantidad||0),0) - it.cantidad) > 0.01
-                                                                        ? 'color:#ef4444;font-weight:600;'
-                                                                        : 'color:#16a34a;font-weight:600;'"
-                                                                >
-                                                                    Distribuido:
-                                                                    <span x-text="it.destinos.reduce((s,d)=>s+(+d.cantidad||0),0).toFixed(2)"></span>
-                                                                    / <span x-text="parseFloat(it.cantidad).toFixed(2)"></span>
-                                                                    <span x-text="it.unidad"></span>
-                                                                    <span x-show="Math.abs(it.destinos.reduce((s,d)=>s+(+d.cantidad||0),0) - it.cantidad) > 0.01"> ⚠ No cuadra</span>
-                                                                    <span x-show="Math.abs(it.destinos.reduce((s,d)=>s+(+d.cantidad||0),0) - it.cantidad) <= 0.01"> ✓</span>
-                                                                </span>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
                                                 </tbody>
                                             </template>
                                         </table>
@@ -1170,12 +942,7 @@
                     alert('Selecciona un producto de la lista primero.');
                     return;
                 }
-                if (!tab.nivel) {
-                    alert('Selecciona un nivel antes de agregar productos.');
-                    return;
-                }
 
-                const deptoFinal = this.sinDepartamento ? null : (tab.departamento || null);
                 const qty = parseFloat(tab.qty);
 
                 if (!qty || qty <= 0) {
@@ -1197,7 +964,7 @@
                         return;
                     }
                     tab.items[existingIdx].cantidad = nueva;
-                    tab.items[existingIdx].destinos.push({ nivel: tab.nivel, departamento: deptoFinal, cantidad: qty });
+                    tab.items[existingIdx].destinos.push({ nivel: '', departamento: '', cantidad: qty });
                 } else {
                     tab.items.push({
                         inventario_id:   tab.selected.id,
@@ -1205,7 +972,7 @@
                         unidad:          tab.selected.unidad,
                         cantidad:        qty,
                         devolvible:      !!tab.devolvible,
-                        destinos:        [{ nivel: tab.nivel, departamento: deptoFinal, cantidad: qty }],
+                        destinos:        [{ nivel: '', departamento: '', cantidad: qty }],
                         mostrarDestinos: false,
                     });
                 }
@@ -1266,11 +1033,9 @@
             // ── Validación de pestaña ─────────────────────────
             validarTab(tab) {
                 const errors = {};
-                if (!tab.nombre_cabo)         errors.nombre_cabo = 'Selecciona quién recibe.';
-                if (!tab.destino_proyecto_id)  errors.destino     = 'Selecciona un destino.';
-                if (!tab.nivel)                errors.nivel       = 'Selecciona un nivel.';
-                if (!tab.items.length)         errors.items       = 'Agrega al menos un producto.';
-                if (!tab.firma_base64)         errors.firma       = 'Falta la firma digital.';
+                if (!tab.nombre_cabo)  errors.nombre_cabo = 'Selecciona quién recibe.';
+                if (!tab.items.length) errors.items       = 'Agrega al menos un producto.';
+                if (!tab.firma_base64) errors.firma       = 'Falta la firma digital.';
                 return errors;
             },
 

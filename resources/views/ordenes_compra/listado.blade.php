@@ -426,60 +426,44 @@
                           @submit="sending = true">
                         @csrf
 
-                        {{-- BUSCADOR DE INSUMO --}}
-                        <div class="relative">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Buscar insumo existente
-                                <span class="text-gray-400 font-normal">(por código ERP o descripción)</span>
-                            </label>
-                            <input type="text"
-                                   x-model="query"
-                                   @input.debounce.300ms="buscar()"
-                                   @keydown.escape="results = []"
-                                   @click.outside="results = []"
-                                   class="w-full border rounded-lg px-4 py-3 text-sm"
-                                   placeholder="Ej: 02ON-VAR o varilla corrugada...">
-
-                            <span x-show="loading" x-cloak
-                                  class="absolute right-3 top-10 text-xs text-gray-400">
-                                Buscando...
-                            </span>
-
-                            <div x-show="results.length > 0" x-cloak
-                                 class="absolute z-20 w-full bg-white border rounded-lg shadow-lg mt-1 max-h-64 overflow-y-auto">
-                                <template x-for="item in results" :key="item.id">
-                                    <button type="button"
-                                            @click="seleccionar(item)"
-                                            class="w-full text-left px-4 py-3 hover:bg-gray-50 border-b last:border-0">
-                                        <div class="flex items-center gap-2">
-                                            <span x-show="item.insumo_id" x-cloak
-                                                  class="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded"
-                                                  x-text="item.insumo_id"></span>
-                                            <span class="text-sm font-medium text-gray-800" x-text="item.descripcion"></span>
-                                        </div>
-                                        <div class="text-xs text-gray-500 mt-0.5">
-                                            <span x-text="item.unidad"></span>
-                                            · Stock actual: <span class="font-medium" x-text="item.cantidad"></span>
-                                        </div>
-                                    </button>
-                                </template>
-                            </div>
-                        </div>
-
-                        <input type="hidden" name="insumo_id" :value="selectedInsumoId">
-
-                        {{-- DESCRIPCIÓN + UNIDAD --}}
+                        {{-- DESCRIPCIÓN (autocomplete por descripción) --}}
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div class="md:col-span-2">
+                            <div class="md:col-span-2 relative">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
                                     Descripción <span class="text-red-500">*</span>
                                 </label>
                                 <input type="text"
                                        name="descripcion"
                                        x-model="descripcion"
+                                       @input.debounce.300ms="buscarPorDesc()"
+                                       @keydown.escape="resultsDesc = []"
+                                       @click.outside="resultsDesc = []"
                                        class="w-full border rounded-lg px-4 py-3 text-sm"
                                        placeholder="Descripción del insumo"
                                        required>
+
+                                <span x-show="loadingDesc" x-cloak
+                                      class="absolute right-3 top-10 text-xs text-gray-400">Buscando...</span>
+
+                                <div x-show="resultsDesc.length > 0" x-cloak
+                                     class="absolute z-20 w-full bg-white border rounded-lg shadow-lg mt-1 max-h-64 overflow-y-auto">
+                                    <template x-for="item in resultsDesc" :key="item.id">
+                                        <button type="button"
+                                                @click="seleccionarDesc(item)"
+                                                class="w-full text-left px-4 py-3 hover:bg-gray-50 border-b last:border-0">
+                                            <div class="flex items-center gap-2">
+                                                <span x-show="item.insumo_id" x-cloak
+                                                      class="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded"
+                                                      x-text="item.insumo_id"></span>
+                                                <span class="text-sm font-medium text-gray-800" x-text="item.descripcion"></span>
+                                            </div>
+                                            <div class="text-xs text-gray-500 mt-0.5">
+                                                <span x-text="item.unidad"></span>
+                                                · Stock: <span class="font-medium" x-text="item.cantidad"></span>
+                                            </div>
+                                        </button>
+                                    </template>
+                                </div>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -491,6 +475,44 @@
                                        class="w-full border rounded-lg px-4 py-3 text-sm"
                                        placeholder="PZA, M2, KG…"
                                        required>
+                            </div>
+                        </div>
+
+                        {{-- CÓDIGO DE INSUMO (autocomplete por código) --}}
+                        <div class="relative">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Código de insumo
+                                <span class="text-gray-400 font-normal">(opcional — búsqueda por código ERP)</span>
+                            </label>
+                            <input type="text"
+                                   name="insumo_id"
+                                   x-model="selectedInsumoId"
+                                   @input.debounce.300ms="buscarPorCode()"
+                                   @keydown.escape="resultsCode = []"
+                                   @click.outside="resultsCode = []"
+                                   class="w-full border rounded-lg px-4 py-3 text-sm font-mono"
+                                   placeholder="Ej: 02ON-VAR-00001">
+
+                            <span x-show="loadingCode" x-cloak
+                                  class="absolute right-3 top-10 text-xs text-gray-400">Buscando...</span>
+
+                            <div x-show="resultsCode.length > 0" x-cloak
+                                 class="absolute z-20 w-full bg-white border rounded-lg shadow-lg mt-1 max-h-64 overflow-y-auto">
+                                <template x-for="item in resultsCode" :key="item.id">
+                                    <button type="button"
+                                            @click="seleccionarCode(item)"
+                                            class="w-full text-left px-4 py-3 hover:bg-gray-50 border-b last:border-0">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded"
+                                                  x-text="item.insumo_id"></span>
+                                            <span class="text-sm font-medium text-gray-800" x-text="item.descripcion"></span>
+                                        </div>
+                                        <div class="text-xs text-gray-500 mt-0.5">
+                                            <span x-text="item.unidad"></span>
+                                            · Stock: <span class="font-medium" x-text="item.cantidad"></span>
+                                        </div>
+                                    </button>
+                                </template>
                             </div>
                         </div>
 
@@ -766,9 +788,6 @@
                 estado: 'todas',
 
                 // ── datos formulario entrada manual ──────────────────────
-                query:            '',
-                results:          [],
-                loading:          false,
                 sending:          false,
                 selectedInsumoId: '',
                 descripcion:      '',
@@ -777,6 +796,12 @@
                 costoUnitario:    '',
                 familia:          '',
                 subfamilia:       '',
+                // autocomplete descripción
+                resultsDesc:  [],
+                loadingDesc:  false,
+                // autocomplete código
+                resultsCode:  [],
+                loadingCode:  false,
 
                 // ── métodos tab OC ────────────────────────────────────────
                 estadoItem(recibida, pedida) {
@@ -793,19 +818,31 @@
                 },
 
                 // ── métodos formulario manual ─────────────────────────────
-                async buscar() {
-                    if (this.query.length < 2) { this.results = []; return; }
-                    this.loading = true;
+                async buscarPorDesc() {
+                    if (this.descripcion.length < 2) { this.resultsDesc = []; return; }
+                    this.loadingDesc = true;
                     try {
-                        const r = await fetch(`/salidas/buscar-productos?q=${encodeURIComponent(this.query)}`);
-                        if (r.ok) this.results = await r.json();
+                        const r = await fetch(`/salidas/buscar-productos?q=${encodeURIComponent(this.descripcion)}&mode=desc`);
+                        if (r.ok) this.resultsDesc = await r.json();
                     } catch (e) {
-                        this.results = [];
+                        this.resultsDesc = [];
                     }
-                    this.loading = false;
+                    this.loadingDesc = false;
                 },
 
-                seleccionar(item) {
+                async buscarPorCode() {
+                    if (this.selectedInsumoId.length < 2) { this.resultsCode = []; return; }
+                    this.loadingCode = true;
+                    try {
+                        const r = await fetch(`/salidas/buscar-productos?q=${encodeURIComponent(this.selectedInsumoId)}&mode=code`);
+                        if (r.ok) this.resultsCode = await r.json();
+                    } catch (e) {
+                        this.resultsCode = [];
+                    }
+                    this.loadingCode = false;
+                },
+
+                _poblarCampos(item) {
                     this.selectedInsumoId = item.insumo_id    || '';
                     this.descripcion      = item.descripcion  || '';
                     this.unidad           = item.unidad       || '';
@@ -813,15 +850,19 @@
                     this.costoUnitario    = item.costo_promedio > 0 ? item.costo_promedio : '';
                     this.familia          = item.familia      || '';
                     this.subfamilia       = item.subfamilia   || '';
-                    this.query = item.insumo_id
-                        ? `[${item.insumo_id}] ${item.descripcion}`
-                        : item.descripcion || '';
-                    this.results = [];
+                },
+
+                seleccionarDesc(item) {
+                    this._poblarCampos(item);
+                    this.resultsDesc = [];
+                },
+
+                seleccionarCode(item) {
+                    this._poblarCampos(item);
+                    this.resultsCode = [];
                 },
 
                 limpiar() {
-                    this.query            = '';
-                    this.results          = [];
                     this.selectedInsumoId = '';
                     this.descripcion      = '';
                     this.unidad           = '';
@@ -829,6 +870,8 @@
                     this.costoUnitario    = '';
                     this.familia          = '';
                     this.subfamilia       = '';
+                    this.resultsDesc      = [];
+                    this.resultsCode      = [];
                     this.sending          = false;
                 },
 
