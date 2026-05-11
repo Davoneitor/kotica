@@ -73,6 +73,9 @@ Route::get('/inventario/{inventario}/historial', [InventarioController::class, '
     Route::post('/ordenes-compra/recibir', [OrdenCompraController::class, 'recibir'])
         ->name('ordenes-compra.recibir');
 
+    Route::post('/ordenes-compra/finiquitar', [OrdenCompraController::class, 'finiquitar'])
+        ->name('ordenes-compra.finiquitar');
+
     Route::post('/entradas-manuales', [EntradaManualController::class, 'store'])
         ->name('entradas-manuales.store');
 

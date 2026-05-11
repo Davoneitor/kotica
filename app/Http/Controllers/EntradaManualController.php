@@ -42,7 +42,7 @@ class EntradaManualController extends Controller
             'subfamilia'     => ['nullable', 'string', 'max:80'],
         ]);
 
-        $insumoId    = trim((string) ($data['insumo_id'] ?? '')) ?: null;
+        $insumoId    = ($raw = trim((string) ($data['insumo_id'] ?? ''))) !== '' ? strtoupper($raw) : null;
         $descripcion = (string) $data['descripcion'];
         $unidad      = (string) $data['unidad'];
         $cantidad    = (float)  $data['cantidad'];

@@ -648,6 +648,7 @@
                     <option value="oc">🟢 Órdenes de Compra</option>
                     <option value="manual">🔵 Entradas Manuales</option>
                     <option value="transferencia">🟠 Transferencias</option>
+                    <option value="finiquito">⬛ Finiquitadas</option>
                 </select>
             </div>
             <div>
@@ -1036,6 +1037,78 @@
                                     x-text="row._fila==='familia'
                                         ? (row.importe_total>0 ? '$'+formatMoney(row.importe_total) : '—')
                                         : (row.importe!=null ? '$'+formatMoney(row.importe) : '—')"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {{-- ── FINIQUITADAS ── --}}
+        <div x-show="entradasPorTipo('finiquito').length > 0" class="rounded-lg overflow-hidden"
+             :style="dk('border:2px solid #64748b','border:2px solid #334155')">
+            <div @click="ent.seccionAbierta.finiquito = !ent.seccionAbierta.finiquito"
+                 class="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
+                 :style="dk('background:#475569;color:#fff','background:#1e293b;color:#cbd5e1;border-bottom:2px solid #334155')">
+                <div class="flex items-center gap-2">
+                    <svg :class="ent.seccionAbierta.finiquito ? 'rotate-90':''"
+                         class="w-4 h-4 transition-transform shrink-0"
+                         fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                    </svg>
+                    <span class="font-bold text-sm">⬛ Finiquitadas</span>
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.2)"
+                          x-text="entradasPorTipo('finiquito').length + ' registros'"></span>
+                </div>
+                <span class="text-xs opacity-75">Diferencias cerradas operativamente</span>
+            </div>
+            <div x-show="ent.seccionAbierta.finiquito" class="overflow-x-auto"
+                 :style="dk('background:#f8fafc','background:#0f172a')">
+                <table class="w-full text-sm">
+                    <thead class="text-xs uppercase border-b"
+                           :style="dk('background:#f1f5f9;color:#6b7280','background:#1e293b;color:#94a3b8')">
+                        <tr>
+                            <th class="w-8 px-2 py-2"></th>
+                            <th class="px-3 py-2 text-left">Fecha</th>
+                            <th class="px-3 py-2 text-left">Código</th>
+                            <th class="px-3 py-2 text-left">Descripción</th>
+                            <th class="px-3 py-2 text-left">Unidad</th>
+                            <th class="px-3 py-2 text-right">Diferencia</th>
+                            <th class="px-3 py-2 text-left">Observaciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="row in entradasFiniquitoGruposFlat()" :key="row._key">
+                            <tr :class="row._fila==='familia' ? 'cursor-pointer select-none' : ''"
+                                :style="row._fila==='familia'
+                                    ? dk('border-top:2px solid #94a3b8;background:#e2e8f0','border-top:2px solid #475569;background:#1e293b')
+                                    : dk('border-top:1px solid #e2e8f0','border-top:1px solid #1e293b')"
+                                @click="row._fila==='familia' && toggleFiniquitoGrupo(row.familia)">
+                                <td class="px-2 py-2 text-center w-8">
+                                    <svg x-show="row._fila==='familia'"
+                                         :class="finiquitoTablaExpandidos[row.familia] ? 'rotate-90' : ''"
+                                         class="inline w-4 h-4 transition-transform duration-150"
+                                         :style="dk('color:#64748b','color:#94a3b8')"
+                                         fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                    </svg>
+                                </td>
+                                <td class="px-3 py-2 text-xs whitespace-nowrap tabular-nums"
+                                    :style="row._fila==='familia' ? dk('color:#475569;font-weight:500','color:#94a3b8;font-weight:600') : dk('color:#6b7280;padding-left:1.5rem','color:#64748b;padding-left:1.5rem')"
+                                    x-text="row._fila==='familia' ? row.count+' registros' : formatFechaCorta(row.fecha_recibido)"></td>
+                                <td class="px-3 py-2 font-mono text-xs"
+                                    :style="row._fila==='familia' ? dk('color:#d1d5db','color:#334155') : dk('color:#4b5563;padding-left:1.5rem','color:#64748b;padding-left:1.5rem')"
+                                    x-text="row._fila!=='familia' ? row.insumo : ''"></td>
+                                <td class="px-3 py-2"
+                                    :style="row._fila==='familia' ? dk('color:#1e293b;font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em','color:#cbd5e1;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.05em') : dk('font-size:0.75rem;color:#374151;padding-left:1.5rem','font-size:0.75rem;color:#94a3b8;padding-left:1.5rem')"
+                                    x-text="row._fila==='familia' ? row.familia : row.descripcion"></td>
+                                <td class="px-3 py-2 text-xs" :style="dk('color:#6b7280','color:#64748b')"
+                                    x-text="row._fila!=='familia' ? row.unidad : ''"></td>
+                                <td class="px-3 py-2 text-right tabular-nums"
+                                    :style="row._fila==='familia' ? dk('color:#1e293b;font-weight:700','color:#94a3b8;font-weight:700') : dk('font-size:0.75rem;font-weight:500;color:#dc2626','font-size:0.75rem;font-weight:500;color:#f87171')"
+                                    x-text="row._fila==='familia' ? formatNum(row.cantidad_total) : formatNum(row.cantidad_llego)"></td>
+                                <td class="px-3 py-2 text-xs" :style="dk('color:#6b7280','color:#64748b')"
+                                    x-text="row._fila!=='familia' ? (row.observaciones||'—') : ''"></td>
                             </tr>
                         </template>
                     </tbody>
@@ -2042,7 +2115,7 @@
 
             function exploreUI() {
                 return {
-                    ent: { q:'', desde:'', hasta:'', vista:'tarjetas', tipo:'', seccionAbierta:{ oc:true, manual:true, transferencia:true } },
+                    ent: { q:'', desde:'', hasta:'', vista:'tarjetas', tipo:'', seccionAbierta:{ oc:true, manual:true, transferencia:true, finiquito:true } },
                     entradas: [],
                     detallesEntradaId: null,
                     entradaDetalle: null,
@@ -2068,6 +2141,7 @@
                     manualTablaExpandidos: {},
                     ocTablaExpandidos: {},
                     transTablaExpandidos: {},
+                    finiquitoTablaExpandidos: {},
                     inventarioFamiliaExpandidos: {},
                     inv: { q:'', vista:'tarjetas' },
                     oc:  { q:'', estado:'todas' },
@@ -2840,6 +2914,13 @@
                         this.transTablaExpandidos = { ...this.transTablaExpandidos, [familia]: !this.transTablaExpandidos[familia] };
                     },
 
+                    entradasFiniquitoGruposFlat() {
+                        return this._gruposFlat(this.entradasPorTipo('finiquito'), this.finiquitoTablaExpandidos, 'fq_');
+                    },
+                    toggleFiniquitoGrupo(familia) {
+                        this.finiquitoTablaExpandidos = { ...this.finiquitoTablaExpandidos, [familia]: !this.finiquitoTablaExpandidos[familia] };
+                    },
+
                     entradasGruposFlat() {
                         const mapped = this.entradas.map(e => ({
                             id:              e.id,
@@ -2976,7 +3057,7 @@
                         this.manualTablaExpandidos  = manNuevo;
                         this.transTablaExpandidos   = transNuevo;
                         if (expandir) {
-                            this.ent.seccionAbierta = { oc: true, manual: true, transferencia: true };
+                            this.ent.seccionAbierta = { oc: true, manual: true, transferencia: true, finiquito: true };
                         }
                     },
 

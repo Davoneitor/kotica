@@ -220,7 +220,7 @@
                                                 class="bg-white shadow-sm rounded-lg border p-4
                                                     {{ $it['vencida']    ? 'bg-red-50 border-red-200'     : '' }}
                                                     {{ $it['es_parcial'] ? 'bg-amber-50 border-amber-200' : '' }}"
-                                                x-data="{ open:false }"
+                                                x-data="{ open:false, openFin:false, sendingFin:false }"
                                             >
                                                 <div class="flex items-start justify-between gap-2">
                                                     <div>
@@ -263,15 +263,89 @@
                                                     @endif
                                                 </div>
 
-                                                <div class="mt-3">
+                                                <div class="mt-3 flex gap-2">
                                                     <button type="button"
-                                                            class="w-full px-4 py-3 text-base rounded bg-emerald-600 text-white hover:bg-emerald-700"
+                                                            class="flex-1 px-4 py-3 text-base rounded bg-emerald-600 text-white hover:bg-emerald-700"
                                                             @click="open=true">
                                                         Recibir
                                                     </button>
+                                                    <button type="button"
+                                                            class="px-4 py-3 text-sm rounded border border-gray-400 text-gray-600 hover:bg-gray-50"
+                                                            title="Cerrar esta entrada aunque no se haya completado la cantidad"
+                                                            @click="openFin=true">
+                                                        Finiquitar
+                                                    </button>
                                                 </div>
 
-                                                {{-- MODAL --}}
+                                                {{-- MODAL FINIQUITAR --}}
+                                                <div x-show="openFin" x-cloak class="fixed inset-0 z-50">
+                                                    <div class="absolute inset-0 bg-black/50" @click="openFin=false"></div>
+                                                    <div class="relative bg-white shadow-lg overflow-hidden
+                                                                w-full h-auto
+                                                                md:max-w-lg md:mx-auto md:mt-24
+                                                                md:rounded-lg">
+
+                                                        <div class="p-4 border-b flex items-center justify-between">
+                                                            <div class="font-semibold text-gray-800 text-lg">Finiquitar entrada</div>
+                                                            <button type="button" class="px-3 py-1 rounded border text-sm" @click="openFin=false">✕</button>
+                                                        </div>
+
+                                                        <div class="p-5 space-y-4">
+                                                            {{-- Resumen --}}
+                                                            <div class="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm space-y-1">
+                                                                <div><span class="text-gray-500">Insumo:</span> <strong>{{ $it['insumo'] }}</strong> — {{ $it['descripcion'] }}</div>
+                                                                <div><span class="text-gray-500">Cantidad pedida:</span> <strong>{{ number_format($it['cantidad'], 4) }} {{ $it['unidad'] }}</strong></div>
+                                                                <div><span class="text-gray-500">Cantidad recibida:</span> <strong>{{ number_format($it['parcial_actual'], 4) }} {{ $it['unidad'] }}</strong></div>
+                                                                <div class="text-red-700 font-semibold">Diferencia que quedará sin recibir: {{ number_format($it['faltante'], 4) }} {{ $it['unidad'] }}</div>
+                                                            </div>
+
+                                                            <p class="text-sm text-gray-700 font-medium">
+                                                                ⚠️ La orden quedará cerrada aunque exista diferencia pendiente. Esta acción no se puede deshacer desde la app.
+                                                            </p>
+                                                            <p class="text-sm text-gray-700">
+                                                                ¿Deseas continuar?
+                                                            </p>
+
+                                                            <form method="POST"
+                                                                  action="{{ route('ordenes-compra.finiquitar') }}"
+                                                                  @submit="sendingFin=true">
+                                                                @csrf
+                                                                <input type="hidden" name="pedido_det_id"     value="{{ $it['pedido_det_id'] }}">
+                                                                <input type="hidden" name="id_pedido"         value="{{ $o['idPedido'] }}">
+                                                                <input type="hidden" name="insumo"            value="{{ $it['insumo'] }}">
+                                                                <input type="hidden" name="descripcion"       value="{{ $it['descripcion'] }}">
+                                                                <input type="hidden" name="unidad"            value="{{ $it['unidad'] }}">
+                                                                <input type="hidden" name="cantidad_pedida"   value="{{ number_format((float)$it['cantidad'], 4, '.', '') }}">
+                                                                <input type="hidden" name="cantidad_recibida" value="{{ number_format((float)$it['parcial_actual'], 4, '.', '') }}">
+
+                                                                <div>
+                                                                    <label class="block text-sm text-gray-600 mb-1">Observaciones (opcional)</label>
+                                                                    <textarea name="observaciones"
+                                                                              rows="2"
+                                                                              maxlength="500"
+                                                                              class="w-full border rounded-lg px-3 py-2 text-sm resize-none"
+                                                                              placeholder="Ej: merma por corte, diferencia de báscula…"></textarea>
+                                                                </div>
+
+                                                                <div class="flex gap-3 mt-4">
+                                                                    <button type="button"
+                                                                            class="flex-1 px-4 py-3 rounded border text-sm text-gray-600 hover:bg-gray-50"
+                                                                            @click="openFin=false">
+                                                                        Cancelar
+                                                                    </button>
+                                                                    <button type="submit"
+                                                                            :disabled="sendingFin"
+                                                                            class="flex-1 px-4 py-3 rounded bg-gray-800 text-white text-sm font-semibold hover:bg-gray-700 disabled:opacity-60">
+                                                                        <span x-show="!sendingFin">Sí, finiquitar</span>
+                                                                        <span x-show="sendingFin" x-cloak>Procesando…</span>
+                                                                    </button>
+                                                                </div>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {{-- MODAL RECIBIR --}}
                                                 <div x-show="open" x-cloak class="fixed inset-0 z-50">
                                                     <div class="absolute inset-0 bg-black/50" @click="open=false"></div>
 
@@ -486,12 +560,14 @@
                             </label>
                             <input type="text"
                                    name="insumo_id"
-                                   x-model="selectedInsumoId"
+                                   :value="selectedInsumoId"
+                                   @input="selectedInsumoId = $event.target.value.toUpperCase()"
                                    @input.debounce.300ms="buscarPorCode()"
                                    @keydown.escape="resultsCode = []"
                                    @click.outside="resultsCode = []"
-                                   class="w-full border rounded-lg px-4 py-3 text-sm font-mono"
-                                   placeholder="Ej: 02ON-VAR-00001">
+                                   class="w-full border rounded-lg px-4 py-3 text-sm font-mono uppercase"
+                                   placeholder="Ej: 02ON-VAR-00001"
+                                   style="text-transform:uppercase">
 
                             <span x-show="loadingCode" x-cloak
                                   class="absolute right-3 top-10 text-xs text-gray-400">Buscando...</span>

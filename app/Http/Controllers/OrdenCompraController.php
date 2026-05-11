@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Models\OcRecepcion;
+use App\Models\OcFiniquito;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Intervention\Image\ImageManager;
@@ -90,6 +91,13 @@ class OrdenCompraController extends Controller
     $rows = $rows->filter(function ($r) {
         return (float)($r->ParcialPralmacen ?? 0) < (float)($r->Cantidad ?? 0);
     });
+
+    // ocultar detalles finiquitados localmente
+    $finiquitadosIds = OcFiniquito::where('obra_id', $obraLocalId)
+        ->pluck('pedido_det_id')
+        ->flip();
+
+    $rows = $rows->filter(fn ($r) => ! isset($finiquitadosIds[(int) $r->idPedidoDet]));
 
     // filtro texto
     if ($q !== '') {
@@ -364,6 +372,101 @@ if ($obraLocalId <= 0) abort(403);
         ->with('highlight_id', $insumoId)
         ->with('highlight_type', $accion)
         ->with('success', 'Recepción aplicada: ' . number_format($llego, 2));
+}
+
+public function finiquitar(Request $request)
+{
+    $user = Auth::user();
+    if (!$user) abort(401);
+
+    $obraLocalId = (int) ($user->obra_actual_id ?? 0);
+    if ($obraLocalId <= 0) abort(403);
+
+    $data = $request->validate([
+        'pedido_det_id'     => ['required', 'integer', 'min:1'],
+        'id_pedido'         => ['required', 'integer', 'min:1'],
+        'insumo'            => ['nullable', 'string', 'max:100'],
+        'descripcion'       => ['nullable', 'string', 'max:255'],
+        'unidad'            => ['nullable', 'string', 'max:50'],
+        'cantidad_pedida'   => ['required', 'numeric', 'min:0'],
+        'cantidad_recibida' => ['required', 'numeric', 'min:0'],
+        'observaciones'     => ['nullable', 'string', 'max:500'],
+    ]);
+
+    $pedidoDetId    = (int) $data['pedido_det_id'];
+    $cantidadPedida = round((float) $data['cantidad_pedida'], 4);
+    $cantidadRecibida = round((float) $data['cantidad_recibida'], 4);
+    $diferencia     = round(max(0, $cantidadPedida - $cantidadRecibida), 4);
+
+    // Idempotente: si ya existe, devolver éxito sin duplicar
+    $yaExiste = OcFiniquito::where('obra_id', $obraLocalId)
+        ->where('pedido_det_id', $pedidoDetId)
+        ->exists();
+
+    if ($yaExiste) {
+        return redirect()
+            ->route('ordenes-compra.index')
+            ->with('success', 'Esta entrada ya estaba finiquitada.');
+    }
+
+    // Registrar en bitácora de entradas para que aparezca en Explore
+    try {
+        OcRecepcion::create([
+            'obra_id'        => $obraLocalId,
+            'user_id'        => Auth::id(),
+            'id_pedido'      => (int) $data['id_pedido'],
+            'pedido_det_id'  => $pedidoDetId,
+            'insumo'         => $data['insumo']      ?: 'SIN CODIGO',
+            'descripcion'    => $data['descripcion'] ?: 'SIN DESCRIPCION',
+            'unidad'         => $data['unidad']      ?: 'PZA',
+            'fecha_oc'       => now()->toDateString(),
+            'fecha_recibido' => now(),
+            'cantidad_llego' => $diferencia,
+            'precio_unitario'=> null,
+            'foto_path'      => '',
+            'tipo'           => 'finiquito',
+            'observaciones'  => trim('Finiquito — diferencia: ' . number_format($diferencia, 4) . ' ' . ($data['unidad'] ?? '') . '. ' . ($data['observaciones'] ?? '')),
+        ]);
+    } catch (\Throwable $e) {
+        report($e);
+    }
+
+    // Registrar finiquito local
+    OcFiniquito::create([
+        'obra_id'           => $obraLocalId,
+        'user_id'           => Auth::id(),
+        'id_pedido'         => (int) $data['id_pedido'],
+        'pedido_det_id'     => $pedidoDetId,
+        'insumo'            => $data['insumo']      ?? null,
+        'descripcion'       => $data['descripcion'] ?? null,
+        'unidad'            => $data['unidad']      ?? null,
+        'cantidad_pedida'   => $cantidadPedida,
+        'cantidad_recibida' => $cantidadRecibida,
+        'diferencia'        => $diferencia,
+        'observaciones'     => $data['observaciones'] ?? null,
+    ]);
+
+    // Marcar en ERP como recibido completo (ParcialPralmacen = Cantidad)
+    // para que el ERP también lo considere cerrado
+    try {
+        DB::connection('erp')->transaction(function () use ($pedidoDetId, $cantidadPedida) {
+            DB::connection('erp')->statement(
+                "EXEC dbo.spActualizarParcialPralmacen @IdPedidoDet = ?, @ParcialPralmacen = ?",
+                [$pedidoDetId, $cantidadPedida]
+            );
+        });
+    } catch (\Throwable $e) {
+        report($e);
+        session()->flash('warning', '⚠️ Finiquito registrado localmente, pero no se pudo actualizar el ERP.');
+    }
+
+    $diferStr = $diferencia > 0
+        ? ' (diferencia: ' . number_format($diferencia, 4) . ' ' . ($data['unidad'] ?? '') . ')'
+        : '';
+
+    return redirect()
+        ->route('ordenes-compra.index')
+        ->with('success', 'Entrada finiquitada correctamente' . $diferStr . '.');
 }
 
 }
