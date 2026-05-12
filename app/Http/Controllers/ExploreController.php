@@ -210,6 +210,7 @@ public function movimientoDetalles(Movimiento $movimiento)
         $rows = MovimientoDetalle::query()
             ->join('movimientos', 'movimientos.id', '=', 'movimiento_detalles.movimiento_id')
             ->leftJoin('inventarios', 'inventarios.id', '=', 'movimiento_detalles.inventario_id')
+            ->leftJoin('users', 'users.id', '=', 'movimientos.user_id')
             ->when($obraId, fn($qq) => $qq->where('movimientos.obra_id', $obraId))
             ->when($desde, fn($qq) => $qq->whereDate('movimientos.fecha', '>=', $desde))
             ->when($hasta, fn($qq) => $qq->whereDate('movimientos.fecha', '<=', $hasta))
@@ -220,7 +221,9 @@ public function movimientoDetalles(Movimiento $movimiento)
                       ->orWhere('movimiento_detalles.inventario_id',  'like', "%{$q}%")
                       ->orWhere('inventarios.insumo_id',              'like', "%{$q}%")
                       ->orWhere('movimiento_detalles.clasificacion',   'like', "%{$q}%")
-                      ->orWhere('movimiento_detalles.clasificacion_d', 'like', "%{$q}%");
+                      ->orWhere('movimiento_detalles.clasificacion_d', 'like', "%{$q}%")
+                      ->orWhere('movimientos.destino',                 'like', "%{$q}%")
+                      ->orWhere('movimientos.nombre_cabo',             'like', "%{$q}%");
                 });
             })
             ->orderByDesc('movimientos.fecha')
@@ -239,14 +242,19 @@ public function movimientoDetalles(Movimiento $movimiento)
                 'movimiento_detalles.clasificacion_d',
                 'movimiento_detalles.devolvible',
                 'movimientos.fecha',
+                'movimientos.destino',
+                'movimientos.nombre_cabo',
                 DB::raw('inventarios.insumo_id as codigo_insumo'),
+                DB::raw('users.name as usuario'),
             ]);
 
         return response()->json($rows->map(fn($r) => [
             'id'              => $r->id,
-            'movimiento_id'   => $r->movimiento_id,
+            'movimiento_id'   => (int) $r->movimiento_id,
             'fecha'           => (string) $r->fecha,
-            'familia'         => (string) ($r->familia ?? 'SIN FAMILIA'),
+            'destino'         => (string) ($r->destino      ?? ''),
+            'nombre_cabo'     => (string) ($r->nombre_cabo  ?? ''),
+            'usuario'         => (string) ($r->usuario      ?? ''),
             'insumo_id'       => (string) ($r->codigo_insumo ?? $r->inventario_id ?? ''),
             'descripcion'     => (string) $r->descripcion,
             'unidad'          => (string) $r->unidad,
@@ -255,9 +263,7 @@ public function movimientoDetalles(Movimiento $movimiento)
             'importe'         => $r->precio_unitario !== null
                                     ? round((float) $r->cantidad * (float) $r->precio_unitario, 2)
                                     : null,
-            'nivel'           => ($r->clasificacion   ?? '') !== '' ? (string) $r->clasificacion   : 'Sin especificar',
-            'departamento'    => ($r->clasificacion_d ?? '') !== '' ? (string) $r->clasificacion_d : '',
-            'devolvible'      => (int)    ($r->devolvible      ?? 0),
+            'devolvible'      => (int) ($r->devolvible ?? 0),
         ])->values());
     }
 
@@ -326,8 +332,10 @@ public function movimientoDetalles(Movimiento $movimiento)
         $q      = trim((string) $request->get('q', ''));
 
         $rows = DB::table('transferencias_entre_obras_detalle as d')
-            ->join('transferencias_entre_obras as t', 't.id', '=', 'd.transferencia_id')
-            ->join('obras as od', 'od.id', '=', 't.obra_destino_id')
+            ->join('transferencias_entre_obras as t',   't.id',   '=', 'd.transferencia_id')
+            ->join('obras as od',  'od.id',  '=', 't.obra_destino_id')
+            ->join('obras as oo',  'oo.id',  '=', 't.obra_origen_id')
+            ->leftJoin('users as u', 'u.id', '=', 't.user_id')
             ->leftJoin('inventarios as inv', function ($join) use ($obraId) {
                 $join->on('inv.insumo_id', '=', 'd.insumo_id')
                      ->where('inv.obra_id', '=', $obraId);
@@ -354,23 +362,26 @@ public function movimientoDetalles(Movimiento $movimiento)
                 'd.unidad',
                 'd.cantidad',
                 DB::raw('od.nombre as obra_destino'),
+                DB::raw('oo.nombre as obra_origen'),
+                DB::raw('u.name as usuario'),
                 DB::raw("ISNULL(inv.familia, 'SIN FAMILIA') as familia"),
                 't.observaciones',
             ])
             ->get();
 
         return response()->json($rows->map(fn($r) => [
-            'id'             => $r->id,
-            'fecha'          => (string) $r->fecha,
-            'insumo_id'      => (string) ($r->insumo_id   ?? ''),
-            'descripcion'    => (string)  $r->descripcion,
-            'unidad'         => (string)  $r->unidad,
-            'cantidad'       => (float)   $r->cantidad,
-            'precio_unitario'=> null,
-            'importe'        => null,
-            'familia'        => (string) ($r->familia      ?? 'SIN FAMILIA'),
-            'obra_destino'   => (string) ($r->obra_destino ?? ''),
-            'observaciones'  => (string) ($r->observaciones ?? ''),
+            'id'              => $r->id,
+            'transferencia_id'=> (int)    $r->transferencia_id,
+            'fecha'           => (string) $r->fecha,
+            'insumo_id'       => (string) ($r->insumo_id    ?? ''),
+            'descripcion'     => (string)  $r->descripcion,
+            'unidad'          => (string)  $r->unidad,
+            'cantidad'        => (float)   $r->cantidad,
+            'familia'         => (string) ($r->familia      ?? 'SIN FAMILIA'),
+            'obra_destino'    => (string) ($r->obra_destino ?? ''),
+            'obra_origen'     => (string) ($r->obra_origen  ?? ''),
+            'usuario'         => (string) ($r->usuario      ?? ''),
+            'observaciones'   => (string) ($r->observaciones ?? ''),
         ])->values());
     }
 

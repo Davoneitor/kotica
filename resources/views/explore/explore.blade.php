@@ -40,12 +40,12 @@
                             @click="tab='escom'; cargarEscombro()">
                         Control Salida Camiones
                     </button>
-
                     <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
                             :class="tab==='trans' ? 'bg-gray-900 text-white' : 'bg-white'"
                             @click="tab='trans'; cargarTransferencias()">
                         Transferencias
                     </button>
+{{--                     </button> --}}
 
                     <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
                             :class="tab==='inv' ? 'bg-gray-900 text-white' : 'bg-white'"
@@ -425,11 +425,10 @@
                                 <thead class="text-xs text-gray-500 uppercase" style="background:#ede9fe">
                                     <tr>
                                         <th class="w-8 px-2 py-2"></th>
-                                        <th class="px-3 py-2 text-left">Fecha</th>
+                                        <th class="px-3 py-2 text-left">Folio / Fecha</th>
                                         <th class="px-3 py-2 text-left">Código</th>
                                         <th class="px-3 py-2 text-left">Descripción</th>
-                                        <th class="px-3 py-2 text-left">Unidad</th>
-                                        <th class="px-3 py-2 text-left">Destino</th>
+                                        <th class="px-3 py-2 text-left">Unidad / Responsable</th>
                                         <th class="px-3 py-2 text-right">Cantidad</th>
                                         <th class="px-3 py-2 text-right">P.U.</th>
                                         <th class="px-3 py-2 text-right">Importe</th>
@@ -437,54 +436,73 @@
                                 </thead>
                                 <tbody>
                                     <template x-for="row in salidasGruposFlat()" :key="row._key">
-                                        <tr :style="row._tipo === 'familia'
-                                                    ? 'border-top:2px solid #c7d2fe;background:#e0e7ff;cursor:pointer'
+                                        <tr :style="row._tipo==='salida'
+                                                    ? 'border-top:2px solid #c7d2fe;background:#e0e7ff;cursor:pointer;user-select:none'
                                                     : 'border-top:1px solid #e0e7ff'"
-                                            @click="row._tipo === 'familia' && toggleSalidaGrupo(row.familia)">
+                                            @click="row._tipo==='salida' && toggleSalidaGrupo(row.movimiento_id)">
+                                            {{-- Col 1: arrow --}}
                                             <td class="px-2 py-2 text-center w-8">
-                                                <svg x-show="row._tipo === 'familia'"
-                                                     :style="salidasTablaExpandidos[row.familia] ? 'transform:rotate(90deg)' : ''"
+                                                <svg x-show="row._tipo==='salida'"
+                                                     :style="salidasTablaExpandidos[row.movimiento_id] ? 'transform:rotate(90deg)' : ''"
                                                      style="display:inline;width:1rem;height:1rem;color:#4f46e5;transition:transform 0.15s"
                                                      fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                                                 </svg>
                                             </td>
+                                            {{-- Col 2: folio+fecha / fecha --}}
                                             <td class="px-3 py-2 text-xs tabular-nums whitespace-nowrap"
-                                                :style="row._tipo === 'familia' ? 'color:#818cf8;font-weight:500' : 'color:#6b7280;padding-left:1.5rem'"
-                                                x-text="row._tipo === 'familia' ? row.count + ' registros' : formatFechaCorta(row.fecha)">
-                                            </td>
-                                            <td class="px-3 py-2 font-mono text-xs"
-                                                :style="row._tipo === 'familia' ? 'color:#d1d5db' : 'color:#4b5563;padding-left:1.5rem'"
-                                                x-text="row._tipo !== 'familia' ? row.insumo_id : ''">
-                                            </td>
-                                            <td class="px-3 py-2"
-                                                :style="row._tipo === 'familia' ? 'color:#3730a3;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.025em' : 'font-size:0.75rem;color:#374151;padding-left:1.5rem'">
-                                                <span x-text="row._tipo === 'familia' ? row.familia : row.descripcion"></span>
-                                                <template x-if="row._tipo !== 'familia' && Number(row.devolvible) === 1">
-                                                    <span class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-medium">🔧 Ret.</span>
+                                                :style="row._tipo==='salida' ? 'color:#818cf8;font-weight:500' : 'color:#6b7280;padding-left:1.5rem'">
+                                                <template x-if="row._tipo==='salida'">
+                                                    <span>
+                                                        <b style="color:#3730a3" x-text="'#'+row.movimiento_id"></b>
+                                                        <span style="margin-left:0.4rem" x-text="formatFechaCorta(row.fecha)"></span>
+                                                    </span>
+                                                </template>
+                                                <template x-if="row._tipo==='detalle'">
+                                                    <span x-text="row.count !== undefined ? (row.count+' productos') : formatFechaCorta(row.fecha)"></span>
                                                 </template>
                                             </td>
-                                            <td class="px-3 py-2 text-xs"
-                                                :style="row._tipo !== 'familia' ? 'color:#6b7280' : ''"
-                                                x-text="row._tipo !== 'familia' ? row.unidad : ''">
+                                            {{-- Col 3: productos / código --}}
+                                            <td class="px-3 py-2 font-mono text-xs"
+                                                :style="row._tipo==='salida' ? 'color:#9ca3af' : 'color:#4b5563;padding-left:1.5rem'"
+                                                x-text="row._tipo==='salida' ? (row.count+' prod.') : row.insumo_id">
                                             </td>
-                                            <td class="px-3 py-2 text-xs"
-                                                :style="row._tipo !== 'familia' ? 'color:#374151' : ''"
-                                                x-text="row._tipo !== 'familia' ? ((row.nivel || '') + (row.departamento ? ' / ' + row.departamento : '') || '—') : ''">
+                                            {{-- Col 4: descripción --}}
+                                            <td class="px-3 py-2"
+                                                :style="row._tipo==='salida' ? 'color:#d1d5db' : 'font-size:0.75rem;color:#374151;padding-left:1.5rem'">
+                                                <template x-if="row._tipo==='salida'">
+                                                    <span></span>
+                                                </template>
+                                                <template x-if="row._tipo==='detalle'">
+                                                    <span>
+                                                        <span x-text="row.descripcion"></span>
+                                                        <template x-if="Number(row.devolvible)===1">
+                                                            <span class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-medium">🔧 Ret.</span>
+                                                        </template>
+                                                    </span>
+                                                </template>
                                             </td>
+                                            {{-- Col 5: responsable / unidad --}}
+                                            <td class="px-3 py-2 text-xs"
+                                                :style="row._tipo==='salida' ? 'color:#6366f1' : 'color:#6b7280'"
+                                                x-text="row._tipo==='salida' ? (row.nombre_cabo || row.usuario || '—') : row.unidad">
+                                            </td>
+                                            {{-- Col 6: cantidad --}}
                                             <td class="px-3 py-2 text-right tabular-nums"
-                                                :style="row._tipo === 'familia' ? 'color:#4338ca;font-weight:700' : 'font-size:0.75rem;font-weight:500;color:#374151'"
-                                                x-text="formatNum(row._tipo === 'familia' ? row.cantidad_total : row.cantidad)">
+                                                :style="row._tipo==='salida' ? 'color:#4338ca;font-weight:700' : 'font-size:0.75rem;font-weight:500;color:#374151'"
+                                                x-text="formatNum(row._tipo==='salida' ? row.cantidad_total : row.cantidad)">
                                             </td>
+                                            {{-- Col 7: P.U. --}}
                                             <td class="px-3 py-2 text-right text-xs tabular-nums"
-                                                :style="row._tipo === 'familia' ? 'color:#d1d5db' : 'color:#6b7280'"
-                                                x-text="row._tipo !== 'familia' && row.precio_unitario !== null ? '$' + formatMoney(row.precio_unitario) : '—'">
+                                                :style="row._tipo==='salida' ? 'color:#d1d5db' : 'color:#6b7280'"
+                                                x-text="row._tipo==='detalle' && row.precio_unitario !== null ? '$'+formatMoney(row.precio_unitario) : '—'">
                                             </td>
+                                            {{-- Col 8: importe --}}
                                             <td class="px-3 py-2 text-right tabular-nums"
-                                                :style="row._tipo === 'familia' ? 'color:#4338ca;font-weight:700' : 'font-size:0.75rem;color:#374151'"
-                                                x-text="row._tipo === 'familia'
-                                                    ? (row.importe_total > 0 ? '$' + formatMoney(row.importe_total) : '—')
-                                                    : (row.importe !== null ? '$' + formatMoney(row.importe) : '—')">
+                                                :style="row._tipo==='salida' ? 'color:#4338ca;font-weight:700' : 'font-size:0.75rem;color:#374151'"
+                                                x-text="row._tipo==='salida'
+                                                    ? (row.importe_total > 0 ? '$'+formatMoney(row.importe_total) : '—')
+                                                    : (row.importe !== null ? '$'+formatMoney(row.importe) : '—')">
                                             </td>
                                         </tr>
                                     </template>
@@ -517,46 +535,82 @@
                                 <thead class="text-xs text-gray-500 uppercase" style="background:#fff7ed">
                                     <tr>
                                         <th class="w-8 px-2 py-2"></th>
-                                        <th class="px-3 py-2 text-left">Fecha</th>
+                                        <th class="px-3 py-2 text-left">Fecha / Folio</th>
                                         <th class="px-3 py-2 text-left">Código</th>
-                                        <th class="px-3 py-2 text-left">Descripción</th>
-                                        <th class="px-3 py-2 text-left">Unidad</th>
+                                        <th class="px-3 py-2 text-left">Descripción / Obra</th>
+                                        <th class="px-3 py-2 text-left">Unidad / Usuario</th>
                                         <th class="px-3 py-2 text-right">Cantidad</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <template x-for="row in transSalidasGruposFlat()" :key="row._key">
-                                        <tr :style="row._fila === 'obra'
+                                        <tr :style="row._fila==='obra'
                                                     ? 'border-top:2px solid #f97316;background:#ffedd5;cursor:pointer;user-select:none'
-                                                    : 'border-top:1px solid #fed7aa'"
-                                            @click="row._fila === 'obra' && toggleTransSalidaGrupo(row.obra)">
-                                            <td class="px-2 py-2 text-center w-8">
-                                                <svg x-show="row._fila === 'obra'"
+                                                    : row._fila==='folio'
+                                                        ? 'border-top:1px solid #fed7aa;background:#fffbf5;cursor:pointer;user-select:none'
+                                                        : 'border-top:1px solid #fef3c7'"
+                                            @click="row._fila==='obra' ? toggleTransSalidaGrupo(row.obra) : (row._fila==='folio' ? toggleTransSalidaFolio(row._folioKey) : null)">
+                                            {{-- Col 1: arrow --}}
+                                            <td class="px-2 py-2 text-center w-8"
+                                                :style="row._fila==='folio' ? 'padding-left:1.5rem' : ''">
+                                                <svg x-show="row._fila==='obra'"
                                                      :style="transSalidasExpandidos[row.obra] ? 'transform:rotate(90deg)' : ''"
                                                      style="display:inline;width:1rem;height:1rem;color:#f97316;transition:transform 0.15s"
                                                      fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                                                 </svg>
+                                                <svg x-show="row._fila==='folio'"
+                                                     :style="transSalidasFoliosExpandidos[row._folioKey] ? 'transform:rotate(90deg)' : ''"
+                                                     style="display:inline;width:0.85rem;height:0.85rem;color:#ea580c;transition:transform 0.15s"
+                                                     fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                                </svg>
                                             </td>
+                                            {{-- Col 2: fecha / folio+fecha / fecha producto --}}
                                             <td class="px-3 py-2 text-xs tabular-nums whitespace-nowrap"
-                                                :style="row._fila === 'obra' ? 'color:#fb923c;font-weight:500' : 'color:#6b7280;padding-left:1.5rem'"
-                                                x-text="row._fila === 'obra' ? row.count + ' registros' : formatFechaCorta(row.fecha)">
+                                                :style="row._fila==='obra' ? 'color:#fb923c;font-weight:500'
+                                                      : row._fila==='folio' ? 'color:#b45309;padding-left:0.5rem'
+                                                      : 'color:#6b7280;padding-left:3rem'">
+                                                <template x-if="row._fila==='obra'">
+                                                    <span x-text="row.count + ' transfer' + (row.count!==1?'s':'')"></span>
+                                                </template>
+                                                <template x-if="row._fila==='folio'">
+                                                    <span>
+                                                        <b x-text="'#'+row.transferencia_id"></b>
+                                                        <span style="color:#9ca3af;margin-left:0.4rem" x-text="formatFechaCorta(row.fecha)"></span>
+                                                    </span>
+                                                </template>
+                                                <template x-if="row._fila==='detalle'">
+                                                    <span x-text="formatFechaCorta(row.fecha)"></span>
+                                                </template>
                                             </td>
+                                            {{-- Col 3: código / productos count / insumo_id --}}
                                             <td class="px-3 py-2 font-mono text-xs"
-                                                :style="row._fila === 'obra' ? 'color:#d1d5db' : 'color:#4b5563;padding-left:1.5rem'"
-                                                x-text="row._fila !== 'obra' ? row.insumo_id : ''">
+                                                :style="row._fila==='obra' ? 'color:#d1d5db'
+                                                      : row._fila==='folio' ? 'color:#9ca3af'
+                                                      : 'color:#4b5563'"
+                                                x-text="row._fila==='obra' ? '' : (row._fila==='folio' ? (row.count+' prod.') : row.insumo_id)">
                                             </td>
+                                            {{-- Col 4: obra / obra_origen / descripcion --}}
                                             <td class="px-3 py-2"
-                                                :style="row._fila === 'obra' ? 'color:#9a3412;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.025em' : 'font-size:0.75rem;color:#374151;padding-left:1.5rem'"
-                                                x-text="row._fila === 'obra' ? row.obra : row.descripcion">
+                                                :style="row._fila==='obra' ? 'color:#9a3412;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.025em'
+                                                      : row._fila==='folio' ? 'color:#78350f;font-weight:500;font-size:0.75rem'
+                                                      : 'color:#374151;font-size:0.75rem;padding-left:1.5rem'"
+                                                x-text="row._fila==='obra' ? row.obra
+                                                       : row._fila==='folio' ? (row.obra_origen ? 'Desde: '+row.obra_origen : '')
+                                                       : row.descripcion">
                                             </td>
+                                            {{-- Col 5: unidad / usuario / unidad --}}
                                             <td class="px-3 py-2 text-xs"
-                                                :style="row._fila !== 'obra' ? 'color:#6b7280' : ''"
-                                                x-text="row._fila !== 'obra' ? row.unidad : ''">
+                                                :style="row._fila!=='obra' ? 'color:#6b7280' : ''"
+                                                x-text="row._fila==='obra' ? '' : (row._fila==='folio' ? row.usuario : row.unidad)">
                                             </td>
+                                            {{-- Col 6: cantidad total / cantidad total / cantidad --}}
                                             <td class="px-3 py-2 text-right tabular-nums"
-                                                :style="row._fila === 'obra' ? 'color:#c2410c;font-weight:700' : 'font-size:0.75rem;font-weight:500;color:#374151'"
-                                                x-text="formatNum(row._fila === 'obra' ? row.cantidad_total : row.cantidad)">
+                                                :style="row._fila==='obra' ? 'color:#c2410c;font-weight:700'
+                                                      : row._fila==='folio' ? 'color:#b45309;font-weight:600;font-size:0.75rem'
+                                                      : 'color:#374151;font-size:0.75rem;font-weight:500'"
+                                                x-text="formatNum(row._fila==='detalle' ? row.cantidad : row.cantidad_total)">
                                             </td>
                                         </tr>
                                     </template>
@@ -983,11 +1037,10 @@
                     >
                         <tr>
                             <th class="w-8 px-2 py-2"></th>
-                            <th class="px-3 py-2 text-left">Fecha</th>
-                            <th class="px-3 py-2 text-left">Origen</th>
-                            <th class="px-3 py-2 text-left">Código</th>
+                            <th class="px-3 py-2 text-left">Folio / Fecha</th>
+                            <th class="px-3 py-2 text-left">Origen / Código</th>
                             <th class="px-3 py-2 text-left">Descripción</th>
-                            <th class="px-3 py-2 text-left">Unidad</th>
+                            <th class="px-3 py-2 text-left">Unidad / Usuario</th>
                             <th class="px-3 py-2 text-right">Cantidad</th>
                             <th class="px-3 py-2 text-right">P.U.</th>
                             <th class="px-3 py-2 text-right">Importe</th>
@@ -995,14 +1048,14 @@
                     </thead>
                     <tbody>
                         <template x-for="row in entradasTransGruposFlat()" :key="row._key">
-                            <tr :class="row._fila==='familia' ? 'cursor-pointer select-none' : ''"
-                                :style="row._fila==='familia'
+                            <tr :class="row._fila==='folio' ? 'cursor-pointer select-none' : ''"
+                                :style="row._fila==='folio'
                                     ? dk('border-top:2px solid #fdba74;background:#fed7aa','border-top:2px solid #f97316;background:#2e1400')
-                                    : dk('border-top:1px solid #fed7aa','border-top:1px solid #3a1800')"
-                                @click="row._fila==='familia' && toggleTransGrupo(row.familia)">
+                                    : dk('border-top:1px solid #fed7aa','border-top:1px solid #3a1800') + (row.revertida ? ';opacity:0.5' : '')"
+                                @click="row._fila==='folio' && toggleTransGrupo(row.folio_id)">
                                 <td class="px-2 py-2 text-center w-8">
-                                    <svg x-show="row._fila==='familia'"
-                                         :class="transTablaExpandidos[row.familia] ? 'rotate-90' : ''"
+                                    <svg x-show="row._fila==='folio'"
+                                         :class="transTablaExpandidos[row.folio_id] ? 'rotate-90' : ''"
                                          class="inline w-4 h-4 transition-transform duration-150"
                                          :style="dk('color:#f97316','color:#fb923c')"
                                          fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
@@ -1010,28 +1063,43 @@
                                     </svg>
                                 </td>
                                 <td class="px-3 py-2 text-xs whitespace-nowrap tabular-nums"
-                                    :style="row._fila==='familia' ? dk('color:#c2410c;font-weight:500','color:#fdba74;font-weight:600') : dk('color:#6b7280;padding-left:1.5rem','color:#7a5030;padding-left:1.5rem')"
-                                    x-text="row._fila==='familia' ? row.count+' registros' : formatFechaCorta(row.fecha_recibido)"></td>
-                                <td class="px-3 py-2 text-xs" :style="dk('color:#6b7280','color:#5a3a20')"
-                                    x-text="row._fila!=='familia' ? (row.obra_origen||'—') : ''"></td>
-                                <td class="px-3 py-2 font-mono text-xs"
-                                    :style="row._fila==='familia' ? dk('color:#d1d5db','color:#3a2010') : dk('color:#4b5563;padding-left:1.5rem','color:#7a5030;padding-left:1.5rem')"
-                                    x-text="row._fila!=='familia' ? row.insumo : ''"></td>
+                                    :style="row._fila==='folio' ? dk('color:#c2410c;font-weight:500','color:#fdba74;font-weight:600') : dk('color:#6b7280;padding-left:1.5rem','color:#7a5030;padding-left:1.5rem')">
+                                    <template x-if="row._fila==='folio'">
+                                        <span><b x-text="'#'+row.folio_id"></b><span style="margin-left:0.4rem;font-weight:400" x-text="formatFechaCorta(row.fecha)"></span></span>
+                                    </template>
+                                    <template x-if="row._fila==='detalle'">
+                                        <span x-text="formatFechaCorta(row.fecha_recibido)"></span>
+                                    </template>
+                                </td>
+                                <td class="px-3 py-2 text-xs"
+                                    :style="row._fila==='folio' ? dk('color:#7c2d12','color:#fdba74') : dk('color:#4b5563;padding-left:1.5rem;font-family:monospace','color:#7a5030;padding-left:1.5rem;font-family:monospace')">
+                                    <template x-if="row._fila==='folio'">
+                                        <span><span x-text="row.obra_origen||'—'"></span><span style="margin-left:0.5rem;opacity:0.6" x-text="'('+row.count+' prod.)'"></span></span>
+                                    </template>
+                                    <template x-if="row._fila==='detalle'">
+                                        <span x-text="row.insumo"></span>
+                                    </template>
+                                </td>
                                 <td class="px-3 py-2"
-                                    :style="row._fila==='familia' ? dk('color:#7c2d12;font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em','color:#fb923c;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.05em') : dk('font-size:0.75rem;color:#374151;padding-left:1.5rem','font-size:0.75rem;color:#8a6040;padding-left:1.5rem')"
-                                    x-text="row._fila==='familia' ? row.familia : row.descripcion"></td>
+                                    :style="row._fila==='folio' ? dk('color:#d1d5db','color:#3a2010') : dk('font-size:0.75rem;color:#374151;padding-left:1.5rem','font-size:0.75rem;color:#8a6040;padding-left:1.5rem')"
+                                    x-text="row._fila==='detalle' ? row.descripcion : ''">
+                                </td>
                                 <td class="px-3 py-2 text-xs" :style="dk('color:#6b7280','color:#5a3a20')"
-                                    x-text="row._fila!=='familia' ? row.unidad : ''"></td>
+                                    x-text="row._fila==='folio' ? (row.usuario||'—') : row.unidad">
+                                </td>
                                 <td class="px-3 py-2 text-right tabular-nums"
-                                    :style="row._fila==='familia' ? dk('color:#7c2d12;font-weight:700','color:#fbbf24;font-weight:700') : dk('font-size:0.75rem;font-weight:500;color:#374151','font-size:0.75rem;font-weight:500;color:#8a6040')"
-                                    x-text="formatNum(row._fila==='familia' ? row.cantidad_total : row.cantidad_llego)"></td>
+                                    :style="row._fila==='folio' ? dk('color:#7c2d12;font-weight:700','color:#fbbf24;font-weight:700') : dk('font-size:0.75rem;font-weight:500;color:#374151','font-size:0.75rem;font-weight:500;color:#8a6040')"
+                                    x-text="formatNum(row._fila==='folio' ? row.cantidad_total : row.cantidad_llego)">
+                                </td>
                                 <td class="px-3 py-2 text-right text-xs tabular-nums" :style="dk('color:#6b7280','color:#5a3a20')"
-                                    x-text="row._fila!=='familia' && row.precio_unitario!=null ? '$'+formatMoney(row.precio_unitario) : '—'"></td>
+                                    x-text="row._fila==='detalle' && row.precio_unitario!=null ? '$'+formatMoney(row.precio_unitario) : '—'">
+                                </td>
                                 <td class="px-3 py-2 text-right tabular-nums"
-                                    :style="row._fila==='familia' ? dk('color:#7c2d12;font-weight:700','color:#fbbf24;font-weight:700') : dk('font-size:0.75rem;color:#374151','font-size:0.75rem;color:#8a6040')"
-                                    x-text="row._fila==='familia'
+                                    :style="row._fila==='folio' ? dk('color:#7c2d12;font-weight:700','color:#fbbf24;font-weight:700') : dk('font-size:0.75rem;color:#374151','font-size:0.75rem;color:#8a6040')"
+                                    x-text="row._fila==='folio'
                                         ? (row.importe_total>0 ? '$'+formatMoney(row.importe_total) : '—')
-                                        : (row.importe!=null ? '$'+formatMoney(row.importe) : '—')"></td>
+                                        : (row.importe!=null ? '$'+formatMoney(row.importe) : '—')">
+                                </td>
                             </tr>
                         </template>
                     </tbody>
@@ -2131,6 +2199,8 @@
                     salidasTablaExpandidos: {},
                     transSalidasData: [],
                     transSalidasExpandidos: {},
+                    transSalidasFoliosExpandidos: {},
+                    _tv: 0,
                     seccionSalidasAbierta: { salidas: true, transferencias: true },
                     entradasTablaExpandidos: {},
                     manualTablaExpandidos: {},
@@ -2640,6 +2710,7 @@
                         this.loading = true;
                         this.salidasTablaExpandidos = {};
                         this.transSalidasExpandidos = {};
+                        this.transSalidasFoliosExpandidos = {};
                         try {
                             const params = new URLSearchParams();
                             if (this.mov.q)                 params.set('q',      this.mov.q);
@@ -2662,28 +2733,67 @@
                     },
 
                     transSalidasGruposFlat() {
-                        const grupos = {};
+                        void this._tv;
+                        // Nivel 1: obra_destino → Nivel 2: folio/transferencia → Nivel 3: producto
+                        const obrasMap = {};
                         for (const row of this.transSalidasData) {
                             const obra = (row.obra_destino || 'SIN DESTINO').trim();
-                            if (!grupos[obra]) grupos[obra] = { obra, cantidad_total: 0, count: 0, filas: [] };
-                            grupos[obra].cantidad_total += parseFloat(row.cantidad || 0);
-                            grupos[obra].count++;
-                            grupos[obra].filas.push(row);
+                            if (!obrasMap[obra]) obrasMap[obra] = { obra, cantidad_total: 0, foliosCount: 0, foliosMap: {} };
+                            const folioId = row.transferencia_id;
+                            if (!obrasMap[obra].foliosMap[folioId]) {
+                                obrasMap[obra].foliosMap[folioId] = {
+                                    transferencia_id: folioId,
+                                    fecha:       row.fecha,
+                                    obra_origen: row.obra_origen || '',
+                                    obra_destino:row.obra_destino || '',
+                                    usuario:     row.usuario || '',
+                                    observaciones: row.observaciones || '',
+                                    cantidad_total: 0,
+                                    filas: [],
+                                };
+                                obrasMap[obra].foliosCount++;
+                            }
+                            obrasMap[obra].foliosMap[folioId].cantidad_total += parseFloat(row.cantidad || 0);
+                            obrasMap[obra].foliosMap[folioId].filas.push(row);
+                            obrasMap[obra].cantidad_total += parseFloat(row.cantidad || 0);
                         }
-                        const sorted = Object.values(grupos).sort((a, b) => a.obra.localeCompare(b.obra, 'es-MX'));
+                        const sortedObras = Object.values(obrasMap).sort((a, b) => a.obra.localeCompare(b.obra, 'es-MX'));
                         const result = [];
-                        for (const grupo of sorted) {
-                            result.push({ _fila: 'obra', _key: 'ts_o_' + grupo.obra, obra: grupo.obra, cantidad_total: grupo.cantidad_total, count: grupo.count });
-                            if (this.transSalidasExpandidos[grupo.obra]) {
-                                for (const fila of grupo.filas) {
-                                    result.push({ _fila: 'detalle', _key: 'ts_d_' + fila.id, ...fila });
+                        for (const obraGrupo of sortedObras) {
+                            result.push({ _fila: 'obra', _key: 'ts_o_' + obraGrupo.obra,
+                                obra: obraGrupo.obra, cantidad_total: obraGrupo.cantidad_total, count: obraGrupo.foliosCount });
+                            if (this.transSalidasExpandidos[obraGrupo.obra]) {
+                                const folios = Object.values(obraGrupo.foliosMap).sort((a, b) => b.transferencia_id - a.transferencia_id);
+                                for (const folio of folios) {
+                                    const folioKey = obraGrupo.obra + '_' + folio.transferencia_id;
+                                    result.push({ _fila: 'folio', _key: 'ts_f_' + folioKey,
+                                        transferencia_id: folio.transferencia_id,
+                                        fecha:        folio.fecha,
+                                        obra_origen:  folio.obra_origen,
+                                        obra_destino: folio.obra_destino,
+                                        usuario:      folio.usuario,
+                                        observaciones:folio.observaciones,
+                                        cantidad_total: folio.cantidad_total,
+                                        count: folio.filas.length,
+                                        _folioKey: folioKey,
+                                    });
+                                    if (this.transSalidasFoliosExpandidos[folioKey]) {
+                                        for (const fila of folio.filas) {
+                                            result.push({ _fila: 'detalle', _key: 'ts_d_' + fila.id, ...fila });
+                                        }
+                                    }
                                 }
                             }
                         }
                         return result;
                     },
                     toggleTransSalidaGrupo(obra) {
-                        this.transSalidasExpandidos = { ...this.transSalidasExpandidos, [obra]: !this.transSalidasExpandidos[obra] };
+                        this.transSalidasExpandidos[obra] = !this.transSalidasExpandidos[obra];
+                        this._tv++;
+                    },
+                    toggleTransSalidaFolio(folioKey) {
+                        this.transSalidasFoliosExpandidos[folioKey] = !this.transSalidasFoliosExpandidos[folioKey];
+                        this._tv++;
                     },
 
                     async cargarHistorialAjustes() {
@@ -2837,19 +2947,48 @@
                     },
 
                     salidasGruposFlat() {
+                        void this._tv;
+                        const movMap = {};
+                        for (const row of this.salidasTablaData) {
+                            const mid = row.movimiento_id;
+                            if (!movMap[mid]) {
+                                movMap[mid] = {
+                                    movimiento_id: mid,
+                                    fecha:       row.fecha,
+                                    destino:     row.destino || '',
+                                    nombre_cabo: row.nombre_cabo || '',
+                                    usuario:     row.usuario || '',
+                                    cantidad_total: 0,
+                                    importe_total:  0,
+                                    count: 0,
+                                    filas: [],
+                                };
+                            }
+                            movMap[mid].cantidad_total += parseFloat(row.cantidad || 0);
+                            movMap[mid].importe_total  += parseFloat(row.importe  || 0);
+                            movMap[mid].count++;
+                            movMap[mid].filas.push(row);
+                        }
+                        const sorted = Object.values(movMap).sort((a, b) => {
+                            const fd = b.fecha.localeCompare(a.fecha);
+                            return fd !== 0 ? fd : b.movimiento_id - a.movimiento_id;
+                        });
                         const result = [];
-                        const grupos = this.agruparPorFamilia(this.salidasTablaData, 'cantidad');
-                        for (const grupo of grupos) {
+                        for (const mov of sorted) {
                             result.push({
-                                _tipo: 'familia', _key: 'f_' + grupo.familia,
-                                familia: grupo.familia,
-                                cantidad_total: grupo.cantidad_total,
-                                importe_total: grupo.importe_total,
-                                count: grupo.filas.length,
+                                _tipo: 'salida', _key: 'sm_' + mov.movimiento_id,
+                                movimiento_id: mov.movimiento_id,
+                                fecha:       mov.fecha,
+                                destino:     mov.destino,
+                                nombre_cabo: mov.nombre_cabo,
+                                usuario:     mov.usuario,
+                                cantidad_total: mov.cantidad_total,
+                                importe_total:  mov.importe_total,
+                                count: mov.count,
                             });
-                            if (this.salidasTablaExpandidos[grupo.familia]) {
-                                for (const fila of grupo.filas) {
-                                    result.push({ _tipo: 'detalle', _key: 'd_' + fila.id, ...fila });
+                            if (this.salidasTablaExpandidos[mov.movimiento_id]) {
+                                for (const fila of mov.filas) {
+                                    result.push({ _tipo: 'detalle', _key: 'sd_' + fila.id, ...fila });
                                 }
                             }
                         }
@@ -2883,13 +3022,16 @@
                     },
 
                     entradasOcGruposFlat() {
+                        void this._tv;
                         return this._gruposFlat(this.entradasPorTipo('oc'), this.ocTablaExpandidos, 'oc_');
                     },
                     toggleOcGrupo(familia) {
-                        this.ocTablaExpandidos = { ...this.ocTablaExpandidos, [familia]: !this.ocTablaExpandidos[familia] };
+                        this.ocTablaExpandidos[familia] = !this.ocTablaExpandidos[familia];
+                        this._tv++;
                     },
 
                     entradasManualGruposFlat() {
+                        void this._tv;
                         const items = this.entradasPorTipo('manual').map(e => ({
                             ...e,
                             familia: e.familia || 'SIN FAMILIA',
@@ -2914,21 +3056,68 @@
                     },
 
                     toggleManualGrupo(familia) {
-                        this.manualTablaExpandidos = { ...this.manualTablaExpandidos, [familia]: !this.manualTablaExpandidos[familia] };
+                        this.manualTablaExpandidos[familia] = !this.manualTablaExpandidos[familia];
+                        this._tv++;
                     },
 
                     entradasTransGruposFlat() {
-                        return this._gruposFlat(this.entradasPorTipo('transferencia'), this.transTablaExpandidos, 'tr_');
+                        void this._tv;
+                        const folioMap = {};
+                        for (const row of this.entradasPorTipo('transferencia')) {
+                            const fid = row.id_pedido || ('f_' + row.id);
+                            if (!folioMap[fid]) {
+                                folioMap[fid] = {
+                                    folio_id:    fid,
+                                    fecha:       row.fecha_recibido,
+                                    obra_origen: row.obra_origen || '',
+                                    usuario:     row.usuario    || '',
+                                    cantidad_total: 0,
+                                    importe_total:  0,
+                                    count: 0,
+                                    filas: [],
+                                };
+                            }
+                            folioMap[fid].cantidad_total += parseFloat(row.cantidad_llego || 0);
+                            folioMap[fid].importe_total  += parseFloat(row.importe        || 0);
+                            folioMap[fid].count++;
+                            folioMap[fid].filas.push(row);
+                        }
+                        const sorted = Object.values(folioMap).sort((a, b) => {
+                            const fd = (b.fecha || '').localeCompare(a.fecha || '');
+                            return fd !== 0 ? fd : String(b.folio_id).localeCompare(String(a.folio_id));
+                        });
+                        const result = [];
+                        for (const folio of sorted) {
+                            result.push({
+                                _fila: 'folio', _key: 'tr_f_' + folio.folio_id,
+                                folio_id:    folio.folio_id,
+                                fecha:       folio.fecha,
+                                obra_origen: folio.obra_origen,
+                                usuario:     folio.usuario,
+                                cantidad_total: folio.cantidad_total,
+                                importe_total:  folio.importe_total,
+                                count: folio.count,
+                            });
+                            if (this.transTablaExpandidos[folio.folio_id]) {
+                                for (const fila of folio.filas) {
+                                    result.push({ _fila: 'detalle', _key: 'tr_d_' + fila.id, ...fila });
+                                }
+                            }
+                        }
+                        return result;
                     },
-                    toggleTransGrupo(familia) {
-                        this.transTablaExpandidos = { ...this.transTablaExpandidos, [familia]: !this.transTablaExpandidos[familia] };
+                    toggleTransGrupo(folioId) {
+                        this.transTablaExpandidos[folioId] = !this.transTablaExpandidos[folioId];
+                        this._tv++;
                     },
 
                     entradasFiniquitoGruposFlat() {
+                        void this._tv;
                         return this._gruposFlat(this.entradasPorTipo('finiquito'), this.finiquitoTablaExpandidos, 'fq_');
                     },
                     toggleFiniquitoGrupo(familia) {
-                        this.finiquitoTablaExpandidos = { ...this.finiquitoTablaExpandidos, [familia]: !this.finiquitoTablaExpandidos[familia] };
+                        this.finiquitoTablaExpandidos[familia] = !this.finiquitoTablaExpandidos[familia];
+                        this._tv++;
                     },
 
                     entradasGruposFlat() {
@@ -2964,6 +3153,7 @@
                     },
 
                     inventarioGruposFlat() {
+                        void this._tv;
                         const result = [];
                         const grupos = this.agruparPorFamilia(this.inventario, 'cantidad');
                         for (const grupo of grupos) {
@@ -2995,11 +3185,9 @@
                         return this.inventario.reduce((s, p) => s + (p.importe ?? 0), 0);
                     },
 
-                    toggleSalidaGrupo(familia) {
-                        this.salidasTablaExpandidos = {
-                            ...this.salidasTablaExpandidos,
-                            [familia]: !this.salidasTablaExpandidos[familia]
-                        };
+                    toggleSalidaGrupo(movId) {
+                        this.salidasTablaExpandidos[movId] = !this.salidasTablaExpandidos[movId];
+                        this._tv++;
                     },
 
                     toggleEntradaGrupo(familia) {
@@ -3010,38 +3198,30 @@
                     },
 
                     toggleInventarioFamilia(familia) {
-                        this.inventarioFamiliaExpandidos = {
-                            ...this.inventarioFamiliaExpandidos,
-                            [familia]: !this.inventarioFamiliaExpandidos[familia]
-                        };
+                        this.inventarioFamiliaExpandidos[familia] = !this.inventarioFamiliaExpandidos[familia];
+                        this._tv++;
                     },
 
                     todosSalidasExpandidos() {
-                        const salGrupos   = this.agruparPorFamilia(this.salidasTablaData, 'cantidad');
-                        const transGrupos = this.agruparPorFamilia(
-                            this.transSalidasData.map(e => ({ ...e, familia: e.familia || 'SIN FAMILIA', cantidad_llego: e.cantidad })),
-                            'cantidad_llego'
-                        );
-                        const all = [...salGrupos, ...transGrupos];
-                        if (all.length === 0) return false;
-                        return salGrupos.every(g => this.salidasTablaExpandidos[g.familia])
-                            && transGrupos.every(g => this.transSalidasExpandidos[g.familia]);
+                        const movIds = [...new Set(this.salidasTablaData.map(r => r.movimiento_id))];
+                        const transObras = [...new Set(this.transSalidasData.map(r => (r.obra_destino || 'SIN DESTINO').trim()))];
+                        if (movIds.length + transObras.length === 0) return false;
+                        return movIds.every(id => this.salidasTablaExpandidos[id])
+                            && transObras.every(o => this.transSalidasExpandidos[o]);
                     },
 
                     toggleExpandirTodoSalidas() {
                         const expandir = !this.todosSalidasExpandidos();
-                        const salNuevo = {}, transNuevo = {};
-                        for (const g of this.agruparPorFamilia(this.salidasTablaData, 'cantidad'))
-                            salNuevo[g.familia] = expandir;
-                        for (const g of this.agruparPorFamilia(
-                            this.transSalidasData.map(e => ({ ...e, familia: e.familia || 'SIN FAMILIA', cantidad_llego: e.cantidad })),
-                            'cantidad_llego'
-                        )) transNuevo[g.familia] = expandir;
-                        this.salidasTablaExpandidos = salNuevo;
-                        this.transSalidasExpandidos = transNuevo;
+                        for (const id of [...new Set(this.salidasTablaData.map(r => r.movimiento_id))])
+                            this.salidasTablaExpandidos[id] = expandir;
+                        for (const obra of [...new Set(this.transSalidasData.map(r => (r.obra_destino || 'SIN DESTINO').trim()))])
+                            this.transSalidasExpandidos[obra] = expandir;
                         if (expandir) {
+                            const folioKeys = [...new Set(this.transSalidasData.map(r => (r.obra_destino || 'SIN DESTINO').trim() + '_' + r.transferencia_id))];
+                            for (const fk of folioKeys) this.transSalidasFoliosExpandidos[fk] = true;
                             this.seccionSalidasAbierta = { salidas: true, transferencias: true };
                         }
+                        this._tv++;
                     },
 
                     todosEntradasExpandidos() {
@@ -3056,16 +3236,12 @@
 
                     toggleExpandirTodoEntradas() {
                         const expandir = !this.todosEntradasExpandidos();
-                        const ocNuevo = {}, manNuevo = {}, transNuevo = {};
                         for (const g of this.agruparPorFamilia(this.entradasPorTipo('oc').map(e => ({ ...e, familia: e.familia || 'SIN FAMILIA' })), 'cantidad_llego'))
-                            ocNuevo[g.familia] = expandir;
-                        for (const g of this.agruparPorFamilia(this.entradasPorTipo('manual').map(e => ({ ...e, familia: e.familia || 'SIN FAMILIA' })), 'cantidad_llego'))
-                            manNuevo[g.familia] = expandir;
+                            this.ocTablaExpandidos[g.familia] = expandir;
+                        for (const g of this.agruparPorFamilia(this.entradasPorTipo('manual').map(e => ({ ...e, familia: e.familia || 'SIN FAMILIA' })), 'cantidad_llevo'))
+                            this.manualTablaExpandidos[g.familia] = expandir;
                         for (const g of this.agruparPorFamilia(this.entradasPorTipo('transferencia').map(e => ({ ...e, familia: e.familia || 'SIN FAMILIA' })), 'cantidad_llego'))
-                            transNuevo[g.familia] = expandir;
-                        this.ocTablaExpandidos     = ocNuevo;
-                        this.manualTablaExpandidos  = manNuevo;
-                        this.transTablaExpandidos   = transNuevo;
+                            this.transTablaExpandidos[g.familia] = expandir;
                         if (expandir) {
                             this.ent.seccionAbierta = { oc: true, manual: true, transferencia: true, finiquito: true };
                         }
@@ -3079,9 +3255,7 @@
                     toggleExpandirTodoInventario() {
                         const grupos = this.agruparPorFamilia(this.inventario, 'cantidad');
                         const expandir = !this.todosInventarioExpandidos();
-                        const nuevo = {};
-                        for (const g of grupos) nuevo[g.familia] = expandir;
-                        this.inventarioFamiliaExpandidos = nuevo;
+                        for (const g of grupos) this.inventarioFamiliaExpandidos[g.familia] = expandir;
                     },
 
                     // ─── Formatters ───────────────────────────────────────────
@@ -3148,6 +3322,7 @@
                     // Devuelve array de grupos: { fecha, total, count, filas[] }
                     // Preserva el orden DESC que viene del servidor usando Map
                     escomGrupos() {
+                        void this._tv;
                         const gruposMap = new Map();
                         for (const r of this.escombros) {
                             if (!gruposMap.has(r.fecha)) {
@@ -3162,7 +3337,8 @@
                     },
 
                     toggleEscomDia(fecha) {
-                        this.escomExpandidos = { ...this.escomExpandidos, [fecha]: !this.escomExpandidos[fecha] };
+                        this.escomExpandidos[fecha] = !this.escomExpandidos[fecha];
+                        this._tv++;
                     },
 
                     todosEscomExpandidos() {
@@ -3173,9 +3349,7 @@
                     toggleExpandirTodoEscombro() {
                         const dias = [...new Set(this.escombros.map(r => r.fecha))];
                         const expandir = !this.todosEscomExpandidos();
-                        const nuevo = {};
-                        for (const d of dias) nuevo[d] = expandir;
-                        this.escomExpandidos = nuevo;
+                        for (const d of dias) this.escomExpandidos[d] = expandir;
                     },
 
                 }
