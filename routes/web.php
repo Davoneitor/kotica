@@ -12,6 +12,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\TransferenciaController;
 use App\Http\Controllers\CamionEscombroController;
 use App\Http\Controllers\EntradaManualController;
+use App\Http\Controllers\AdminPuController;
 
 Route::get('/', function () {
     return redirect()->route('inventario.index');
@@ -184,6 +185,13 @@ Route::get('/inventario/{inventario}/historial', [InventarioController::class, '
     Route::get('/control-camiones/exportar',        [CamionEscombroController::class, 'exportar']) ->name('control-camiones.exportar');
     Route::get('/control-camiones/pdf',             [CamionEscombroController::class, 'pdf'])      ->name('control-camiones.pdf');
     Route::get('/control-camiones/{id}/foto/{tipo}',[CamionEscombroController::class, 'foto'])     ->name('control-camiones.foto');
+
+    // =========================
+    // ADMIN: ACTUALIZAR PU
+    // =========================
+    Route::get('/admin/actualizar-pu', [AdminPuController::class, 'index'])->name('admin.actualizar-pu');
+    Route::get('/admin/actualizar-pu/stats', [AdminPuController::class, 'stats'])->name('admin.actualizar-pu.stats');
+    Route::post('/admin/actualizar-pu/run', [AdminPuController::class, 'run'])->name('admin.actualizar-pu.run');
 
     // =========================
     // PROFILE

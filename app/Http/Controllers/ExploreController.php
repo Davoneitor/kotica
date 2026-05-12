@@ -255,6 +255,7 @@ public function movimientoDetalles(Movimiento $movimiento)
             'destino'         => (string) ($r->destino      ?? ''),
             'nombre_cabo'     => (string) ($r->nombre_cabo  ?? ''),
             'usuario'         => (string) ($r->usuario      ?? ''),
+            'familia'         => (string) ($r->familia       ?? 'SIN FAMILIA'),
             'insumo_id'       => (string) ($r->codigo_insumo ?? $r->inventario_id ?? ''),
             'descripcion'     => (string) $r->descripcion,
             'unidad'          => (string) $r->unidad,
@@ -361,6 +362,7 @@ public function movimientoDetalles(Movimiento $movimiento)
                 'd.descripcion',
                 'd.unidad',
                 'd.cantidad',
+                'd.precio_unitario',
                 DB::raw('od.nombre as obra_destino'),
                 DB::raw('oo.nombre as obra_origen'),
                 DB::raw('u.name as usuario'),
@@ -377,6 +379,10 @@ public function movimientoDetalles(Movimiento $movimiento)
             'descripcion'     => (string)  $r->descripcion,
             'unidad'          => (string)  $r->unidad,
             'cantidad'        => (float)   $r->cantidad,
+            'precio_unitario' => $r->precio_unitario !== null ? (float) $r->precio_unitario : null,
+            'importe'         => $r->precio_unitario !== null
+                                    ? round((float) $r->cantidad * (float) $r->precio_unitario, 2)
+                                    : null,
             'familia'         => (string) ($r->familia      ?? 'SIN FAMILIA'),
             'obra_destino'    => (string) ($r->obra_destino ?? ''),
             'obra_origen'     => (string) ($r->obra_origen  ?? ''),

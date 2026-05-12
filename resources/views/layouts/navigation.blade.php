@@ -128,6 +128,9 @@ HIDDEN --}}
                             <x-dropdown-link :href="route('users.index')">
                                 Usuarios
                             </x-dropdown-link>
+                            <x-dropdown-link :href="route('admin.actualizar-pu')">
+                                Actualizar PU
+                            </x-dropdown-link>
                         @endif
 
                         <form method="POST" action="{{ route('logout') }}">
@@ -258,6 +261,9 @@ HIDDEN --}}
                 @if($isAdmin)
                     <x-responsive-nav-link :href="route('users.index')">
                         Usuarios
+                    </x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('admin.actualizar-pu')">
+                        Actualizar PU
                     </x-responsive-nav-link>
                 @endif
 
