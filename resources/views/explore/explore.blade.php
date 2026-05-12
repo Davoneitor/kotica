@@ -521,47 +521,42 @@
                                         <th class="px-3 py-2 text-left">Código</th>
                                         <th class="px-3 py-2 text-left">Descripción</th>
                                         <th class="px-3 py-2 text-left">Unidad</th>
-                                        <th class="px-3 py-2 text-left">Destino</th>
                                         <th class="px-3 py-2 text-right">Cantidad</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <template x-for="row in transSalidasGruposFlat()" :key="row._key">
-                                        <tr :style="row._fila === 'familia'
-                                                    ? 'border-top:2px solid #fed7aa;background:#ffedd5;cursor:pointer'
+                                        <tr :style="row._fila === 'obra'
+                                                    ? 'border-top:2px solid #f97316;background:#ffedd5;cursor:pointer;user-select:none'
                                                     : 'border-top:1px solid #fed7aa'"
-                                            @click="row._fila === 'familia' && toggleTransSalidaGrupo(row.familia)">
+                                            @click="row._fila === 'obra' && toggleTransSalidaGrupo(row.obra)">
                                             <td class="px-2 py-2 text-center w-8">
-                                                <svg x-show="row._fila === 'familia'"
-                                                     :style="transSalidasExpandidos[row.familia] ? 'transform:rotate(90deg)' : ''"
+                                                <svg x-show="row._fila === 'obra'"
+                                                     :style="transSalidasExpandidos[row.obra] ? 'transform:rotate(90deg)' : ''"
                                                      style="display:inline;width:1rem;height:1rem;color:#f97316;transition:transform 0.15s"
                                                      fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                                                 </svg>
                                             </td>
                                             <td class="px-3 py-2 text-xs tabular-nums whitespace-nowrap"
-                                                :style="row._fila === 'familia' ? 'color:#fb923c;font-weight:500' : 'color:#6b7280;padding-left:1.5rem'"
-                                                x-text="row._fila === 'familia' ? row.count + ' registros' : formatFechaCorta(row.fecha)">
+                                                :style="row._fila === 'obra' ? 'color:#fb923c;font-weight:500' : 'color:#6b7280;padding-left:1.5rem'"
+                                                x-text="row._fila === 'obra' ? row.count + ' registros' : formatFechaCorta(row.fecha)">
                                             </td>
                                             <td class="px-3 py-2 font-mono text-xs"
-                                                :style="row._fila === 'familia' ? 'color:#d1d5db' : 'color:#4b5563;padding-left:1.5rem'"
-                                                x-text="row._fila !== 'familia' ? row.insumo_id : ''">
+                                                :style="row._fila === 'obra' ? 'color:#d1d5db' : 'color:#4b5563;padding-left:1.5rem'"
+                                                x-text="row._fila !== 'obra' ? row.insumo_id : ''">
                                             </td>
                                             <td class="px-3 py-2"
-                                                :style="row._fila === 'familia' ? 'color:#9a3412;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.025em' : 'font-size:0.75rem;color:#374151;padding-left:1.5rem'"
-                                                x-text="row._fila === 'familia' ? row.familia : row.descripcion">
+                                                :style="row._fila === 'obra' ? 'color:#9a3412;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.025em' : 'font-size:0.75rem;color:#374151;padding-left:1.5rem'"
+                                                x-text="row._fila === 'obra' ? row.obra : row.descripcion">
                                             </td>
                                             <td class="px-3 py-2 text-xs"
-                                                :style="row._fila !== 'familia' ? 'color:#6b7280' : ''"
-                                                x-text="row._fila !== 'familia' ? row.unidad : ''">
-                                            </td>
-                                            <td class="px-3 py-2 text-xs"
-                                                :style="row._fila !== 'familia' ? 'color:#374151' : ''"
-                                                x-text="row._fila !== 'familia' ? row.obra_destino : ''">
+                                                :style="row._fila !== 'obra' ? 'color:#6b7280' : ''"
+                                                x-text="row._fila !== 'obra' ? row.unidad : ''">
                                             </td>
                                             <td class="px-3 py-2 text-right tabular-nums"
-                                                :style="row._fila === 'familia' ? 'color:#c2410c;font-weight:700' : 'font-size:0.75rem;font-weight:500;color:#374151'"
-                                                x-text="formatNum(row._fila === 'familia' ? row.cantidad_total : row.cantidad)">
+                                                :style="row._fila === 'obra' ? 'color:#c2410c;font-weight:700' : 'font-size:0.75rem;font-weight:500;color:#374151'"
+                                                x-text="formatNum(row._fila === 'obra' ? row.cantidad_total : row.cantidad)">
                                             </td>
                                         </tr>
                                     </template>
@@ -2667,13 +2662,28 @@
                     },
 
                     transSalidasGruposFlat() {
-                        return this._gruposFlat(
-                            this.transSalidasData.map(e => ({ ...e, cantidad_llego: e.cantidad })),
-                            this.transSalidasExpandidos, 'ts_'
-                        );
+                        const grupos = {};
+                        for (const row of this.transSalidasData) {
+                            const obra = (row.obra_destino || 'SIN DESTINO').trim();
+                            if (!grupos[obra]) grupos[obra] = { obra, cantidad_total: 0, count: 0, filas: [] };
+                            grupos[obra].cantidad_total += parseFloat(row.cantidad || 0);
+                            grupos[obra].count++;
+                            grupos[obra].filas.push(row);
+                        }
+                        const sorted = Object.values(grupos).sort((a, b) => a.obra.localeCompare(b.obra, 'es-MX'));
+                        const result = [];
+                        for (const grupo of sorted) {
+                            result.push({ _fila: 'obra', _key: 'ts_o_' + grupo.obra, obra: grupo.obra, cantidad_total: grupo.cantidad_total, count: grupo.count });
+                            if (this.transSalidasExpandidos[grupo.obra]) {
+                                for (const fila of grupo.filas) {
+                                    result.push({ _fila: 'detalle', _key: 'ts_d_' + fila.id, ...fila });
+                                }
+                            }
+                        }
+                        return result;
                     },
-                    toggleTransSalidaGrupo(familia) {
-                        this.transSalidasExpandidos = { ...this.transSalidasExpandidos, [familia]: !this.transSalidasExpandidos[familia] };
+                    toggleTransSalidaGrupo(obra) {
+                        this.transSalidasExpandidos = { ...this.transSalidasExpandidos, [obra]: !this.transSalidasExpandidos[obra] };
                     },
 
                     async cargarHistorialAjustes() {
