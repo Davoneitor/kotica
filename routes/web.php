@@ -154,10 +154,12 @@ Route::get('/inventario/{inventario}/historial', [InventarioController::class, '
     // =========================
     // USUARIOS (CRUD admin)
     // =========================
-    Route::get('/usuarios', [UserController::class, 'index'])->name('users.index');
-    Route::get('/usuarios/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
-    Route::put('/usuarios/{user}', [UserController::class, 'update'])->name('users.update');
-    Route::delete('/usuarios/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+    Route::middleware('admin')->group(function () {
+        Route::get('/usuarios', [UserController::class, 'index'])->name('users.index');
+        Route::get('/usuarios/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
+        Route::put('/usuarios/{user}', [UserController::class, 'update'])->name('users.update');
+        Route::delete('/usuarios/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+    });
 
     // =========================
     // TRANSFERENCIA ENTRE OBRAS
@@ -189,9 +191,11 @@ Route::get('/inventario/{inventario}/historial', [InventarioController::class, '
     // =========================
     // ADMIN: ACTUALIZAR PU
     // =========================
-    Route::get('/admin/actualizar-pu', [AdminPuController::class, 'index'])->name('admin.actualizar-pu');
-    Route::get('/admin/actualizar-pu/stats', [AdminPuController::class, 'stats'])->name('admin.actualizar-pu.stats');
-    Route::post('/admin/actualizar-pu/run', [AdminPuController::class, 'run'])->name('admin.actualizar-pu.run');
+    Route::middleware('admin')->group(function () {
+        Route::get('/admin/actualizar-pu', [AdminPuController::class, 'index'])->name('admin.actualizar-pu');
+        Route::get('/admin/actualizar-pu/stats', [AdminPuController::class, 'stats'])->name('admin.actualizar-pu.stats');
+        Route::post('/admin/actualizar-pu/run', [AdminPuController::class, 'run'])->name('admin.actualizar-pu.run');
+    });
 
     // =========================
     // PROFILE

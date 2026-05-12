@@ -40,11 +40,11 @@
                             @click="tab='escom'; cargarEscombro()">
                         Control Salida Camiones
                     </button>
-                    <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
+                    {{-- <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
                             :class="tab==='trans' ? 'bg-gray-900 text-white' : 'bg-white'"
                             @click="tab='trans'; cargarTransferencias()">
                         Transferencias
-                    </button>
+                    </button> --}}
 {{--                     </button> --}}
 
                     <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
@@ -151,18 +151,7 @@
                                 :class="mov.vista==='tabla' ? 'bg-gray-900 text-white' : 'bg-white hover:bg-gray-50'"
                                 class="px-3 py-1 rounded border text-sm transition-colors">Tabla</button>
 
-                        {{-- Toggle solo herramientas (solo en vista tabla) --}}
-                        <template x-if="mov.vista === 'tabla'">
-                            <button @click="if (!modoHerramientas) { mov.soloHerramientas = !mov.soloHerramientas; cargarSalidasTabla(); }"
-                                    :class="mov.soloHerramientas ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'"
-                                    :style="modoHerramientas ? 'cursor:not-allowed;opacity:.8;' : ''"
-                                    class="px-3 py-1 rounded border text-sm transition-colors flex items-center gap-1">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l5.654-4.654m5.65-4.647 3.033-2.498c.668-.549 1.61-.676 2.417-.349M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0Z"/>
-                                </svg>
-                                <span x-text="mov.soloHerramientas ? 'Herramientas' + (modoHerramientas ? ' 🔒' : ' ✕') : 'Herramientas'"></span>
-                            </button>
-                        </template>
+                        {{-- Toggle solo herramientas — OCULTO --}}
                         <button @click="mov.vista='ajustes'; cargarHistorialAjustes()"
                                 :class="mov.vista==='ajustes' ? 'bg-amber-700 text-white' : 'bg-white hover:bg-amber-50'"
                                 class="px-3 py-1 rounded border text-sm transition-colors">Historial ajustes</button>
@@ -1099,12 +1088,12 @@
                                         <span x-text="formatFechaCorta(row.fecha_recibido)"></span>
                                     </template>
                                 </td>
-                                {{-- Col 3: — / N prod. / insumo_id --}}
+                                {{-- Col 3: — / N prod. / insumo --}}
                                 <td class="px-3 py-2 font-mono text-xs"
                                     :style="row._fila==='obra' ? ''
                                           : row._fila==='folio' ? dk('color:#9ca3af','color:#6b7280')
                                           : dk('color:#4b5563','color:#7a5030')"
-                                    x-text="row._fila==='obra' ? '' : (row._fila==='folio' ? (row.count+' prod.') : row.insumo_id)">
+                                    x-text="row._fila==='obra' ? '' : (row._fila==='folio' ? (row.count+' prod.') : row.insumo)">
                                 </td>
                                 {{-- Col 4: obra name / — / descripcion --}}
                                 <td class="px-3 py-2"
@@ -2113,8 +2102,7 @@
                                     </thead>
                                     <tbody>
                                         <template x-for="r in grupo.filas" :key="r.id">
-                                            <tr class="border-t border-gray-50 hover:bg-gray-50"
-                                                :style="r.placa_repetida ? 'background:#fff7ed;' : ''">
+                                            <tr class="border-t border-gray-50 hover:bg-gray-50">
                                                 <td class="px-3 py-2 whitespace-nowrap text-gray-700"
                                                     x-text="formatHoraEscom(r.hora_entrada)"></td>
                                                 <td class="px-3 py-2 whitespace-nowrap text-gray-700"
@@ -2123,12 +2111,6 @@
                                                     x-text="r.tipo_material || '—'"></td>
                                                 <td class="px-3 py-2">
                                                     <span x-text="r.placas || '—'"></span>
-                                                    <template x-if="r.placa_repetida">
-                                                        <span title="Esta placa aparece más de una vez hoy — posible duplicado"
-                                                              style="margin-left:4px;font-size:11px;background:#fed7aa;color:#c2410c;border-radius:4px;padding:1px 5px;font-weight:600;">
-                                                            ⚠ repetida
-                                                        </span>
-                                                    </template>
                                                 </td>
                                                 <td class="px-3 py-2 text-right font-bold tabular-nums whitespace-nowrap"
                                                     x-text="(parseFloat(r.metros_cubicos) || 0).toFixed(1) + ' m³'"></td>
@@ -3073,7 +3055,7 @@
                         for (const row of this.entradasPorTipo('transferencia')) {
                             const obra = (row.obra_origen || 'SIN ORIGEN').trim();
                             if (!obrasMap[obra]) obrasMap[obra] = { obra, cantidad_total: 0, importe_total: 0, foliosCount: 0, foliosMap: {} };
-                            const fid = row.id_pedido || ('f_' + row.id);
+                            const fid = row.transferencia_id > 0 ? row.transferencia_id : ('f_' + row.id);
                             if (!obrasMap[obra].foliosMap[fid]) {
                                 obrasMap[obra].foliosMap[fid] = {
                                     folio_id: fid,
@@ -3256,7 +3238,7 @@
                         if (expandir) {
                             for (const row of this.entradasPorTipo('transferencia')) {
                                 const obra = (row.obra_origen || 'SIN ORIGEN').trim();
-                                const fid = row.id_pedido || ('f_' + row.id);
+                                const fid = row.transferencia_id > 0 ? row.transferencia_id : ('f_' + row.id);
                                 this.transTablaExpandidos[obra + '_' + fid] = true;
                             }
                             this.ent.seccionAbierta = { oc: true, manual: true, transferencia: true, finiquito: true };

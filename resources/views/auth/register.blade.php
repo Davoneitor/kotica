@@ -73,15 +73,18 @@
                         <x-input-error :messages="$errors->get('obras')" class="mt-2" />
                     </div>
 
-                    <!-- Rol -->
+                    <!-- Acceso al sistema -->
                     <div class="mt-7">
+                        <h3 class="text-base font-semibold text-gray-800 mb-3">Acceso al sistema</h3>
+                        <p class="text-sm text-gray-500 mb-4">Solo un tipo de acceso puede estar activo a la vez.</p>
+
+                        {{-- Administrador --}}
                         <div class="p-5 rounded-xl border border-gray-200 bg-gray-50">
                             <div class="flex items-start justify-between gap-4">
                                 <div>
-                                    <h3 class="text-base font-semibold text-gray-800">Rol</h3>
-                                    <p class="text-sm text-gray-600 mt-1">Activa solo si debe administrar el sistema.</p>
+                                    <h4 class="text-sm font-semibold text-gray-800">Administrador</h4>
+                                    <p class="text-xs text-gray-500 mt-0.5">Acceso completo al sistema.</p>
                                 </div>
-
                                 <label class="inline-flex items-center cursor-pointer select-none">
                                     <input type="checkbox" id="is_admin_toggle" name="is_admin" value="1" class="sr-only peer"
                                         {{ old('is_admin') ? 'checked' : '' }}>
@@ -91,34 +94,44 @@
                                     <span class="ml-3 text-sm font-medium text-gray-800">Administrador</span>
                                 </label>
                             </div>
-
                             <x-input-error :messages="$errors->get('is_admin')" class="mt-2" />
                         </div>
-                    </div>
 
-                    <!-- Solo Explore -->
-                    <div class="mt-4">
-                        <div class="p-5 rounded-xl border border-amber-200 bg-amber-50">
+                        {{-- Solo Reportes --}}
+                        <div class="mt-3 p-5 rounded-xl border border-amber-200 bg-amber-50">
                             <div class="flex items-start justify-between gap-4">
                                 <div>
-                                    <h3 class="text-base font-semibold text-gray-800">Solo Explore</h3>
-                                    <p class="text-sm text-gray-600 mt-1">
-                                        Perfil de consulta. Solo puede acceder al módulo Explore.<br>
-                                        <span class="text-amber-700 font-medium">Incompatible con Administrador.</span>
-                                    </p>
+                                    <h4 class="text-sm font-semibold text-gray-800">Solo Reportes</h4>
+                                    <p class="text-xs text-gray-500 mt-0.5">Acceso únicamente al módulo de Reportes (Explore).</p>
                                 </div>
-
                                 <label class="inline-flex items-center cursor-pointer select-none">
                                     <input type="checkbox" id="solo_explore_toggle" name="solo_explore" value="1" class="sr-only peer"
                                         {{ old('solo_explore') ? 'checked' : '' }}>
                                     <div class="w-14 h-8 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-200 rounded-full peer peer-checked:bg-amber-500 relative transition">
                                         <div class="absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition peer-checked:translate-x-6"></div>
                                     </div>
-                                    <span class="ml-3 text-sm font-medium text-gray-800">Solo Explore</span>
+                                    <span class="ml-3 text-sm font-medium text-gray-800">Solo Reportes</span>
                                 </label>
                             </div>
-
                             <x-input-error :messages="$errors->get('solo_explore')" class="mt-2" />
+                        </div>
+
+                        {{-- Operador Camiones --}}
+                        <div class="mt-3 p-5 rounded-xl border border-orange-200 bg-orange-50">
+                            <div class="flex items-start justify-between gap-4">
+                                <div>
+                                    <h4 class="text-sm font-semibold text-gray-800">Operador Camiones</h4>
+                                    <p class="text-xs text-gray-500 mt-0.5">Solo puede usar el módulo de Control de Salida de Camiones.</p>
+                                </div>
+                                <label class="inline-flex items-center cursor-pointer select-none">
+                                    <input type="checkbox" id="operador_camiones_toggle" name="rol" value="operador_camiones" class="sr-only peer"
+                                        {{ old('rol') === 'operador_camiones' ? 'checked' : '' }}>
+                                    <div class="w-14 h-8 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-200 rounded-full peer peer-checked:bg-orange-500 relative transition">
+                                        <div class="absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition peer-checked:translate-x-6"></div>
+                                    </div>
+                                    <span class="ml-3 text-sm font-medium text-gray-800">Operador Camiones</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
 
@@ -161,31 +174,34 @@
 
 <script>
 (function () {
-    // ── Exclusión mutua: Administrador ↔ Solo Explore ──────────────
-    const adminToggle       = document.getElementById('is_admin_toggle');
-    const soloExploreToggle = document.getElementById('solo_explore_toggle');
+    // ── Exclusión mutua: Administrador / Solo Reportes / Operador Camiones ──
+    const adminToggle    = document.getElementById('is_admin_toggle');
+    const exploreToggle  = document.getElementById('solo_explore_toggle');
+    const camionesToggle = document.getElementById('operador_camiones_toggle');
+    const allToggles     = [adminToggle, exploreToggle, camionesToggle];
 
-    function syncExclusion(changed, other) {
-        if (changed.checked) {
-            other.checked  = false;
-            other.disabled = true;
-            other.closest('label').classList.add('opacity-40', 'cursor-not-allowed');
-            other.closest('label').classList.remove('cursor-pointer');
-        } else {
-            other.disabled = false;
-            other.closest('label').classList.remove('opacity-40', 'cursor-not-allowed');
-            other.closest('label').classList.add('cursor-pointer');
-        }
+    function syncExclusion(active) {
+        allToggles.forEach(function (t) {
+            if (t === active) return;
+            if (active.checked) {
+                t.checked  = false;
+                t.disabled = true;
+                t.closest('label').classList.add('opacity-40', 'cursor-not-allowed');
+                t.closest('label').classList.remove('cursor-pointer');
+            } else {
+                t.disabled = false;
+                t.closest('label').classList.remove('opacity-40', 'cursor-not-allowed');
+                t.closest('label').classList.add('cursor-pointer');
+            }
+        });
     }
 
-    if (adminToggle.checked)       syncExclusion(adminToggle, soloExploreToggle);
-    if (soloExploreToggle.checked) syncExclusion(soloExploreToggle, adminToggle);
-
-    adminToggle.addEventListener('change', function () {
-        syncExclusion(adminToggle, soloExploreToggle);
+    allToggles.forEach(function (t) {
+        if (t.checked) syncExclusion(t);
     });
-    soloExploreToggle.addEventListener('change', function () {
-        syncExclusion(soloExploreToggle, adminToggle);
+
+    allToggles.forEach(function (t) {
+        t.addEventListener('change', function () { syncExclusion(t); });
     });
 
     // ── Multiobra ───────────────────────────────────────────────────

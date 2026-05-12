@@ -831,17 +831,40 @@ $user = Auth::user();
         ->limit(2000)
         ->get();
 
-    // Lookup obra_origen for transferencias (id_pedido = transferencia id)
-    $transPedidoIds = $rows->filter(fn($r) => ($r->tipo ?? 'oc') === 'transferencia')
-        ->pluck('id_pedido')->unique()->filter()->values()->toArray();
-    $origenMap = [];
-    if (!empty($transPedidoIds)) {
-        $origenMap = DB::table('transferencias_entre_obras as t')
-            ->join('obras as oo', 'oo.id', '=', 't.obra_origen_id')
-            ->whereIn('t.id', $transPedidoIds)
-            ->pluck('oo.nombre', 't.id')
-            ->toArray();
+    // Lookup obra_origen + transferencia_id for transferencias by matching insumo + obra_destino_id
+    // (id_pedido is 0 on all transfer receipts, so we match by insumo and pick closest date)
+    $transIds   = $rows->filter(fn($r) => ($r->tipo ?? 'oc') === 'transferencia')
+        ->pluck('id')->values()->toArray();
+    $transMatchMap = []; // ocr.id → ['trans_id' => int, 'obra_origen' => string]
+    if (!empty($transIds)) {
+        $matched = DB::select("
+            SELECT ocr_id, trans_id, origen_nombre
+            FROM (
+                SELECT
+                    ocr.id AS ocr_id,
+                    te.id  AS trans_id,
+                    oo.nombre AS origen_nombre,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY ocr.id
+                        ORDER BY ABS(DATEDIFF(day, CAST(ocr.fecha_recibido AS DATE), te.fecha))
+                    ) AS rn
+                FROM oc_recepciones ocr
+                INNER JOIN transferencias_entre_obras_detalle ted ON ted.insumo_id = ocr.insumo
+                INNER JOIN transferencias_entre_obras te
+                    ON te.id = ted.transferencia_id AND te.obra_destino_id = ocr.obra_id
+                INNER JOIN obras oo ON oo.id = te.obra_origen_id
+                WHERE ocr.id IN (" . implode(',', array_map('intval', $transIds)) . ")
+            ) ranked
+            WHERE rn = 1
+        ");
+        foreach ($matched as $m) {
+            $transMatchMap[(int)$m->ocr_id] = [
+                'trans_id'    => (int) $m->trans_id,
+                'obra_origen' => (string) $m->origen_nombre,
+            ];
+        }
     }
+    $origenMap = []; // kept for backward compat but unused below
 
     // Lookup de familia desde inventarios (fallback para registros anteriores a la migración)
     $insumosList = $rows->pluck('insumo')->unique()->filter()->values()->toArray();
@@ -879,7 +902,7 @@ $user = Auth::user();
             ->toArray();
     }
 
-    return $rows->map(function ($r) use ($familiasMap, $usersMap, $origenMap) {
+    return $rows->map(function ($r) use ($familiasMap, $usersMap, $transMatchMap) {
         // Preferir familia almacenada en el registro; caer al lookup si está vacía
         $familia = (string) ($r->familia ?? '');
         if ($familia === '' || $familia === 'SIN FAMILIA') {
@@ -910,8 +933,11 @@ $user = Auth::user();
             'motivo_reversion' => (string) ($r->motivo_reversion ?? ''),
             'revertida_por'    => (string) ($usersMap[$r->revertida_por] ?? ''),
             'obra_origen'      => ($r->tipo ?? 'oc') === 'transferencia'
-                                     ? (string) ($origenMap[$r->id_pedido] ?? '')
+                                     ? (string) ($transMatchMap[(int)$r->id]['obra_origen'] ?? '')
                                      : '',
+            'transferencia_id' => ($r->tipo ?? 'oc') === 'transferencia'
+                                     ? (int) ($transMatchMap[(int)$r->id]['trans_id'] ?? 0)
+                                     : 0,
         ];
     });
 }

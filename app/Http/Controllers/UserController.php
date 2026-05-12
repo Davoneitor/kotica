@@ -13,6 +13,10 @@ class UserController extends Controller
 {
     public function index()
     {
+        if (! Auth::user()?->isAdmin()) {
+            abort(403);
+        }
+
         $users = User::with('obras', 'obraActual')
             ->orderBy('name')
             ->get();
@@ -22,6 +26,10 @@ class UserController extends Controller
 
     public function edit(User $user)
     {
+        if (! Auth::user()?->isAdmin()) {
+            abort(403);
+        }
+
         $obras = Obra::orderBy('nombre')->get(['id', 'nombre']);
         $obrasSeleccionadas = $user->obras->pluck('id')->toArray();
 
@@ -30,47 +38,64 @@ class UserController extends Controller
 
     public function update(Request $request, User $user)
     {
-        $isMultiobra            = $request->boolean('is_multiobra');
-        $isSoloExplore          = $request->boolean('solo_explore');
-        $isAdmin                = $request->boolean('is_admin');
-        $puedeEditarDescAux     = $request->boolean('puede_editar_desc_auxiliar');
+        if (! Auth::user()?->isAdmin()) {
+            abort(403);
+        }
 
-        // Exclusión mutua: no puede ser admin Y solo_explore a la vez
+        $isMultiobra        = $request->boolean('is_multiobra');
+        $isSoloExplore      = $request->boolean('solo_explore');
+        $isAdmin            = $request->boolean('is_admin');
+        $puedeEditarDescAux = $request->boolean('puede_editar_desc_auxiliar');
+        $rol                = $request->input('rol'); // null | 'operador_camiones'
+
+        // Roles excluyentes entre sí
         if ($isSoloExplore && $isAdmin) {
             return back()
                 ->withErrors(['solo_explore' => 'Un usuario no puede ser Administrador y Solo Explore al mismo tiempo.'])
                 ->withInput();
         }
 
+        $rolesPermitidos = [null, '', 'operador_camiones'];
+        if (! in_array($rol, $rolesPermitidos, true)) {
+            $rol = null;
+        }
+
+        // operador_camiones es incompatible con is_admin y solo_explore
+        if ($rol === 'operador_camiones') {
+            $isAdmin       = false;
+            $isSoloExplore = false;
+        }
+
+        $obrasOpcionales = $isMultiobra || $rol === 'operador_camiones';
+
         $rules = [
             'name'     => ['required', 'string', 'max:255'],
             'email'    => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email,' . $user->id],
             'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
-            'is_admin' => ['nullable', 'boolean'],
-            'obras'    => [$isMultiobra ? 'nullable' : 'required', 'array', $isMultiobra ? 'min:0' : 'min:1'],
+            'obras'    => [$obrasOpcionales ? 'nullable' : 'required', 'array', $obrasOpcionales ? 'min:0' : 'min:1'],
             'obras.*'  => ['integer', 'exists:obras,id'],
         ];
 
         $validated = $request->validate($rules);
 
-        $user->name         = $validated['name'];
-        $user->email        = $validated['email'];
-        $user->is_admin                    = $isSoloExplore ? false : $isAdmin;
-        $user->is_multiobra                = $isMultiobra ? 1 : 0;
-        $user->solo_explore                = $isSoloExplore;
-        $user->puede_editar_desc_auxiliar  = $puedeEditarDescAux;
+        $user->name                       = $validated['name'];
+        $user->email                      = $validated['email'];
+        $user->is_admin                   = $isSoloExplore ? false : $isAdmin;
+        $user->is_multiobra               = $isMultiobra ? 1 : 0;
+        $user->solo_explore               = $isSoloExplore;
+        $user->puede_editar_desc_auxiliar = $puedeEditarDescAux;
+        $user->rol                        = ($rol === '') ? null : $rol;
 
-        if (!empty($validated['password'])) {
+        if (! empty($validated['password'])) {
             $user->password = Hash::make($validated['password']);
         }
 
         if ($isMultiobra) {
             $todasLasObras = Obra::pluck('id')->toArray();
             $user->obras()->sync($todasLasObras);
-            // Asigna la primera obra de obra_user si no tiene asignada o si cambió a multiobra
             $primeraObra = $user->obras()->orderBy('obra_id')->first();
             $user->obra_actual_id = $primeraObra ? $primeraObra->id : null;
-        } else {
+        } elseif (!empty($validated['obras'])) {
             $user->obras()->sync($validated['obras']);
             $user->obra_actual_id = $validated['obras'][0];
         }

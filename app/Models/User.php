@@ -71,4 +71,14 @@ class User extends Authenticatable
     {
         return $this->belongsTo(\App\Models\Obra::class, 'obra_actual_id');
     }
+
+    public function isOperadorCamiones(): bool
+    {
+        return $this->rol === 'operador_camiones';
+    }
+
+    public function isAdmin(): bool
+    {
+        return (bool) $this->is_admin;
+    }
 }

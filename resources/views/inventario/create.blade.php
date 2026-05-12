@@ -267,7 +267,7 @@
 function inventarioForm() {
     return {
         // --- lo que ya tenías ---
-        familias: @js(config('familias')),
+        familias: @js($familias),
         familia: @js(old('familia','')),
         subfamilia: @js(old('subfamilia','')),
         cantidad: Number(@js(old('cantidad',0))),

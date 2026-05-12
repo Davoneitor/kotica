@@ -28,14 +28,24 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        // Si el usuario no tiene obra actual asignada, tomar la primera de obra_user
         $user = Auth::user();
+
+        // Si el usuario no tiene obra actual asignada, tomar la primera de obra_user
         if ($user && is_null($user->obra_actual_id)) {
             $primeraObra = $user->obras()->orderBy('obra_id')->first();
             if ($primeraObra) {
                 $user->obra_actual_id = $primeraObra->id;
                 $user->save();
             }
+        }
+
+        // Redirigir al módulo correspondiente según el rol
+        if ($user?->isOperadorCamiones()) {
+            return redirect()->route('control-camiones.index');
+        }
+
+        if ($user?->solo_explore) {
+            return redirect()->route('explore.index');
         }
 
         return redirect()->intended(route('inventario.index'));

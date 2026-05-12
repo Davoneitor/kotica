@@ -1,11 +1,11 @@
 <nav x-data="{ open: false }" class="bg-white border-b border-gray-100">
     @php
-        $hasProfile   = \Illuminate\Support\Facades\Route::has('profile.edit');
-        $enInventario = request()->routeIs('inventario.*');
-
-        // ✅ SOLO ESTE USUARIO VE "CREAR USUARIOS"
-        $isAdmin     = auth()->check() && auth()->user()->email === 'david.berumen.lozano@gmail.com';
-        $soloExplore = auth()->check() && auth()->user()->solo_explore;
+        $hasProfile         = \Illuminate\Support\Facades\Route::has('profile.edit');
+        $enInventario       = request()->routeIs('inventario.*');
+        $authUser           = auth()->user();
+        $isAdmin            = $authUser?->isAdmin();
+        $soloExplore        = $authUser?->solo_explore;
+        $esOperadorCamiones = $authUser?->isOperadorCamiones();
     @endphp
 
     <!-- Primary Navigation Menu -->
@@ -42,52 +42,52 @@
 
                 <!-- Navigation Links (DESKTOP) -->
                 <div class="hidden space-x-8 sm:-my-px sm:ml-10 sm:flex">
-                    @if(!$soloExplore)
-                    <x-nav-link
-                        :href="route('inventario.index')"
-                        :active="request()->routeIs('inventario.*')">
-                        Inventario
-                    </x-nav-link>
+                    @if($esOperadorCamiones)
+                        {{-- Operador camiones: solo ve su módulo --}}
+                        <x-nav-link
+                            :href="route('control-camiones.index')"
+                            :active="request()->routeIs('control-camiones.*')">
+                            Control Salida Camiones
+                        </x-nav-link>
+                    @else
+                        @if(!$soloExplore)
+                        <x-nav-link
+                            :href="route('inventario.index')"
+                            :active="request()->routeIs('inventario.*')">
+                            Inventario
+                        </x-nav-link>
 
-                    <x-nav-link
-                        :href="route('salidas.index')"
-                        :active="request()->routeIs('salidas.*')">
-                        Salidas
-                    </x-nav-link>
+                        <x-nav-link
+                            :href="route('salidas.index')"
+                            :active="request()->routeIs('salidas.*')">
+                            Salidas
+                        </x-nav-link>
 
-                    <x-nav-link
-                        :href="route('ordenes-compra.index')"
-                        :active="request()->routeIs('ordenes-compra.*')">
-                        Entradas
-                    </x-nav-link>
+                        <x-nav-link
+                            :href="route('ordenes-compra.index')"
+                            :active="request()->routeIs('ordenes-compra.*')">
+                            Entradas
+                        </x-nav-link>
 
-                    <x-nav-link
-                        :href="route('retornables.index')"
-                        :active="request()->routeIs('retornables.*')">
-                        Retornables
-                    </x-nav-link>
+                        <x-nav-link
+                            :href="route('retornables.index')"
+                            :active="request()->routeIs('retornables.*')">
+                            Retornables
+                        </x-nav-link>
 
-                    <x-nav-link
-                        :href="route('control-camiones.index')"
-                        :active="request()->routeIs('control-camiones.*')">
-                        Control Salida Camiones
-                    </x-nav-link>
+                        <x-nav-link
+                            :href="route('control-camiones.index')"
+                            :active="request()->routeIs('control-camiones.*')">
+                            Control Salida Camiones
+                        </x-nav-link>
+                        @endif
 
-                    {{-- HIDDEN
-<x-nav-link
-                        :href="route('transferencias.index')"
-                        :active="request()->routeIs('transferencias.*')">
-                        Transferencias
-                    </x-nav-link>
-HIDDEN --}}
+                        <x-nav-link
+                            :href="route('explore.index')"
+                            :active="request()->routeIs('explore.*')">
+                            Reportes
+                        </x-nav-link>
                     @endif
-
-                    <x-nav-link
-                        :href="route('explore.index')"
-                        :active="request()->routeIs('explore.*')">
-                        Reportes
-                    </x-nav-link>
-
                 </div>
             </div>
 
@@ -177,65 +177,66 @@ HIDDEN --}}
     <div :class="{ 'block': open, 'hidden': ! open }" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
 
-            @if(!$soloExplore)
-            {{-- ✅ Acciones SOLO aquí (móvil) --}}
-            @if($enInventario)
-                <x-responsive-nav-link :href="route('inventario.create')">
-                    + Nuevo producto
+            @if($esOperadorCamiones)
+                {{-- Operador camiones: solo ve su módulo --}}
+                <x-responsive-nav-link
+                    :href="route('control-camiones.index')"
+                    :active="request()->routeIs('control-camiones.*')">
+                    Control Salida Camiones
+                </x-responsive-nav-link>
+            @else
+                @if(!$soloExplore)
+                {{-- Acciones rápidas (móvil, solo en inventario) --}}
+                @if($enInventario)
+                    <x-responsive-nav-link :href="route('inventario.create')">
+                        + Nuevo producto
+                    </x-responsive-nav-link>
+
+                    <button type="button"
+                            x-data="{}"
+                            @click="$store.salidas.show = true; open = false"
+                            class="w-full text-left px-4 py-2 text-base text-white bg-gray-800 hover:bg-gray-700">
+                        Salida
+                    </button>
+                @endif
+
+                <x-responsive-nav-link
+                    :href="route('inventario.index')"
+                    :active="request()->routeIs('inventario.*')">
+                    Inventario
                 </x-responsive-nav-link>
 
-                <button type="button"
-                        x-data="{}"
-                        @click="$store.salidas.show = true; open = false"
-                        class="w-full text-left px-4 py-2 text-base text-white bg-gray-800 hover:bg-gray-700">
-                    Salida
-                </button>
+                <x-responsive-nav-link
+                    :href="route('salidas.index')"
+                    :active="request()->routeIs('salidas.*')">
+                    Salidas
+                </x-responsive-nav-link>
+
+                <x-responsive-nav-link
+                    :href="route('ordenes-compra.index')"
+                    :active="request()->routeIs('ordenes-compra.*')">
+                    Entradas
+                </x-responsive-nav-link>
+
+                <x-responsive-nav-link
+                    :href="route('retornables.index')"
+                    :active="request()->routeIs('retornables.*')">
+                    Retornables
+                </x-responsive-nav-link>
+
+                <x-responsive-nav-link
+                    :href="route('control-camiones.index')"
+                    :active="request()->routeIs('control-camiones.*')">
+                    Control Salida Camiones
+                </x-responsive-nav-link>
+                @endif
+
+                <x-responsive-nav-link
+                    :href="route('explore.index')"
+                    :active="request()->routeIs('explore.*')">
+                    Reportes
+                </x-responsive-nav-link>
             @endif
-
-            <x-responsive-nav-link
-                :href="route('inventario.index')"
-                :active="request()->routeIs('inventario.*')">
-                Inventario
-            </x-responsive-nav-link>
-
-            <x-responsive-nav-link
-                :href="route('salidas.index')"
-                :active="request()->routeIs('salidas.*')">
-                Salidas
-            </x-responsive-nav-link>
-
-            <x-responsive-nav-link
-                :href="route('ordenes-compra.index')"
-                :active="request()->routeIs('ordenes-compra.*')">
-                Entradas
-            </x-responsive-nav-link>
-
-            <x-responsive-nav-link
-                :href="route('retornables.index')"
-                :active="request()->routeIs('retornables.*')">
-                Retornables
-            </x-responsive-nav-link>
-
-            <x-responsive-nav-link
-                :href="route('control-camiones.index')"
-                :active="request()->routeIs('control-camiones.*')">
-                Control Salida Camiones
-            </x-responsive-nav-link>
-
-            {{-- HIDDEN
-<x-responsive-nav-link
-                :href="route('transferencias.index')"
-                :active="request()->routeIs('transferencias.*')">
-                Transferencias
-            </x-responsive-nav-link>
-HIDDEN --}}
-            @endif
-
-            <x-responsive-nav-link
-                :href="route('explore.index')"
-                :active="request()->routeIs('explore.*')">
-                Reportes
-            </x-responsive-nav-link>
 
         </div>
 

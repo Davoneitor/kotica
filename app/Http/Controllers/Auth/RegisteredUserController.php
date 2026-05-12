@@ -31,9 +31,23 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        \Log::info('Register request fields', $request->except(['password', 'password_confirmation']));
+
         $isMultiobra   = $request->boolean('is_multiobra');
         $isSoloExplore = $request->boolean('solo_explore');
         $isAdmin       = $request->boolean('is_admin');
+        $rol           = $request->input('rol');
+
+        $rolesPermitidos = [null, '', 'operador_camiones'];
+        if (! in_array($rol, $rolesPermitidos, true)) {
+            $rol = null;
+        }
+
+        // operador_camiones es incompatible con is_admin y solo_explore
+        if ($rol === 'operador_camiones') {
+            $isAdmin       = false;
+            $isSoloExplore = false;
+        }
 
         if ($isSoloExplore && $isAdmin) {
             return back()
@@ -41,12 +55,13 @@ class RegisteredUserController extends Controller
                 ->withInput();
         }
 
+        $obrasOpcionales = $isMultiobra || $rol === 'operador_camiones';
+
         $validated = $request->validate([
             'name'     => ['required', 'string', 'max:255'],
             'email'    => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'is_admin' => ['nullable', 'boolean'],
-            'obras'    => [$isMultiobra ? 'nullable' : 'required', 'array', $isMultiobra ? 'min:0' : 'min:1'],
+            'obras'    => [$obrasOpcionales ? 'nullable' : 'required', 'array', $obrasOpcionales ? 'min:0' : 'min:1'],
             'obras.*'  => ['integer', 'exists:obras,id'],
         ]);
 
@@ -57,18 +72,16 @@ class RegisteredUserController extends Controller
             'is_admin'       => $isSoloExplore ? false : $isAdmin,
             'is_multiobra'   => $isMultiobra ? 1 : 0,
             'solo_explore'   => $isSoloExplore,
+            'rol'            => ($rol === '') ? null : $rol,
             'obra_actual_id' => null,
         ]);
 
         if ($isMultiobra) {
-            // Asignar todas las obras disponibles
             $todasLasObras = \App\Models\Obra::pluck('id')->toArray();
             $user->obras()->sync($todasLasObras);
-            // Toma la primera obra de obra_user como obra actual
             $primeraObra = $user->obras()->orderBy('obra_id')->first();
             $user->obra_actual_id = $primeraObra ? $primeraObra->id : null;
-        } else {
-            // Asignar obras seleccionadas y guardar la primera como actual
+        } elseif (!empty($validated['obras'])) {
             $user->obras()->sync($validated['obras']);
             $user->obra_actual_id = $validated['obras'][0];
         }

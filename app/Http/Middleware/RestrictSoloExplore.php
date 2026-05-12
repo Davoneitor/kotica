@@ -7,52 +7,76 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 /**
- * Si el usuario tiene solo_explore = true, solo puede acceder a:
- *   - Rutas que comienzan con "explore."
- *   - Rutas que comienzan con "profile."
- *   - Endpoints de datos que el módulo Explore consume directamente
- *   - logout
+ * Restringe el acceso según el rol del usuario:
  *
- * Cualquier otra ruta redirige al inicio de Explore.
+ *  - solo_explore      → solo rutas de Explore, Profile y endpoints de datos relacionados
+ *  - operador_camiones → solo rutas de Control Camiones y Profile
+ *
+ * Cualquier otra ruta redirige al módulo correspondiente.
  */
 class RestrictSoloExplore
 {
-    /**
-     * Prefijos de rutas permitidos para usuarios Solo Explore.
-     */
-    private const ALLOWED_PREFIXES = [
+    private const EXPLORE_PREFIXES = [
         'explore.',
         'profile.',
     ];
 
-    /**
-     * Rutas exactas adicionales que Explore consume como endpoints de datos.
-     */
-    private const ALLOWED_ROUTES = [
+    private const EXPLORE_ROUTES = [
         'logout',
-        // PDF y datos de transferencias (usados desde Explore)
         'transferencias.pdf',
-        // Endpoints de Control Salida Camiones usados por la pestaña Explore
         'control-camiones.explore',
         'control-camiones.foto',
         'control-camiones.exportar',
         'control-camiones.pdf',
-        // PDF de salida (usado desde Explore)
         'salidas.pdf',
         'movimientos.pdf',
+    ];
+
+    private const CAMIONES_PREFIXES = [
+        'profile.',
+    ];
+
+    private const CAMIONES_ROUTES = [
+        'logout',
+        'control-camiones.index',
+        'control-camiones.store',
+        'control-camiones.catalogos',
+        'control-camiones.choferInfo',
+        'control-camiones.totalDia',
+        'control-camiones.explore',
+        'control-camiones.exportar',
+        'control-camiones.pdf',
+        'control-camiones.foto',
     ];
 
     public function handle(Request $request, Closure $next): mixed
     {
         $user = auth()->user();
 
-        if ($user?->solo_explore) {
+        if (! $user) {
+            return $next($request);
+        }
+
+        if ($user->isOperadorCamiones()) {
             $routeName = $request->route()?->getName() ?? '';
 
-            $isAllowed = Str::startsWith($routeName, self::ALLOWED_PREFIXES)
-                      || in_array($routeName, self::ALLOWED_ROUTES, true);
+            $allowed = Str::startsWith($routeName, self::CAMIONES_PREFIXES)
+                    || in_array($routeName, self::CAMIONES_ROUTES, true);
 
-            if (! $isAllowed) {
+            if (! $allowed) {
+                return redirect()->route('control-camiones.index');
+            }
+
+            return $next($request);
+        }
+
+        if ($user->solo_explore) {
+            $routeName = $request->route()?->getName() ?? '';
+
+            $allowed = Str::startsWith($routeName, self::EXPLORE_PREFIXES)
+                    || in_array($routeName, self::EXPLORE_ROUTES, true);
+
+            if (! $allowed) {
                 return redirect()->route('explore.index');
             }
         }

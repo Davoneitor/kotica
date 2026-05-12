@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Familia;
 use App\Models\Inventario;
 use App\Models\Obra;
 use Illuminate\Http\Request;
@@ -171,7 +172,8 @@ class InventarioController extends Controller
     {
         $obras = Obra::orderBy('nombre')->get(['id', 'nombre']);
         $isMultiobra = (int) (Auth::user()->is_multiobra ?? 0) === 1;
-        return view('inventario.create', compact('obras', 'isMultiobra'));
+        $familias = Familia::toSelectArray();
+        return view('inventario.create', compact('obras', 'isMultiobra', 'familias'));
     }
 
     /**
@@ -327,6 +329,11 @@ class InventarioController extends Controller
 
             DB::commit();
 
+            Familia::registrarSiNuevo(
+                trim((string) ($data['familia'] ?? '')),
+                trim((string) ($data['subfamilia'] ?? ''))
+            );
+
             $msg = $guardarEnErp
                 ? 'Producto creado y enviado al ERP.'
                 : 'Producto creado.';
@@ -357,7 +364,7 @@ class InventarioController extends Controller
         }
 
         $obras = Obra::orderBy('nombre')->get(['id','nombre']);
-        $familias = config('familias');
+        $familias = Familia::toSelectArray();
         $isMultiobra = (int) (Auth::user()->is_multiobra ?? 0) === 1;
         $page = (int) $request->query('page', 1);
 
