@@ -289,33 +289,64 @@ class AdminPuController extends Controller
 
     private function actualizarEnviadas(bool $forzado, array &$cambios): array
     {
-        $vacios = $forzado ? '' : "AND (precio_unitario IS NULL OR precio_unitario = 0)";
-
-        $insumoIds = DB::table('transferencias_entre_obras_detalle')
-            ->whereNotNull('insumo_id')->where('insumo_id', '!=', '')
+        $rows = DB::table('transferencias_entre_obras_detalle')
             ->when(!$forzado, fn($q) => $q->where(fn($q2) => $q2->whereNull('precio_unitario')->orWhere('precio_unitario', 0)))
-            ->pluck('insumo_id')->unique()->values()->toArray();
+            ->select('id', 'insumo_id', 'descripcion', 'precio_unitario')
+            ->get();
 
-        $costos = $this->erpCostos($insumoIds);
-        $sinCoincidencia = count(array_diff($insumoIds, array_keys($costos)));
-        if (empty($costos)) return ['actualizados' => 0, 'sinCoincidencia' => $sinCoincidencia];
+        if ($rows->isEmpty()) return ['actualizados' => 0, 'sinCoincidencia' => 0];
 
-        $oldRows = DB::table('transferencias_entre_obras_detalle')
-            ->whereIn('insumo_id', array_keys($costos))
-            ->when(!$forzado, fn($q) => $q->where(fn($q2) => $q2->whereNull('precio_unitario')->orWhere('precio_unitario', 0)))
-            ->select('insumo_id as insumo', 'descripcion', 'precio_unitario')->get()->groupBy('insumo');
+        // 1) ERP lookup by insumo_id
+        $insumoIds = $rows->pluck('insumo_id')
+            ->filter(fn($v) => $v !== null && (string)$v !== '')
+            ->unique()->values()->toArray();
+        $erpCostos = $this->erpCostos($insumoIds);
 
-        $actualizados = $this->caseWhenUpdate('transferencias_entre_obras_detalle', 'insumo_id', $costos,
-            $vacios ? "AND {$vacios}" : '');
-
-        foreach ($costos as $insumoId => $puNuevo) {
-            $rows = $oldRows->get($insumoId);
-            if ($rows && $rows->isNotEmpty()) {
-                $cambios[] = $this->buildCambio('Enviadas', $insumoId,
-                    (string)($rows->first()->descripcion ?? ''),
-                    $rows->pluck('precio_unitario'), $puNuevo, $rows->count());
+        // 2) Fallback: inventarios.costo_promedio by description for rows not found in ERP
+        $sinErp = $rows->filter(fn($r) => !isset($erpCostos[(string)$r->insumo_id]));
+        $descCostos = [];
+        if ($sinErp->isNotEmpty()) {
+            $descs = $sinErp->pluck('descripcion')->filter()->unique()->values()->toArray();
+            if (!empty($descs)) {
+                $invRows = DB::table('inventarios')
+                    ->whereIn('descripcion', $descs)
+                    ->where('costo_promedio', '>', 0)
+                    ->select('descripcion', DB::raw('MAX(costo_promedio) as costo'))
+                    ->groupBy('descripcion')
+                    ->get();
+                foreach ($invRows as $inv) {
+                    $descCostos[mb_strtolower(trim((string)$inv->descripcion))] = (float)$inv->costo;
+                }
             }
         }
+
+        // 3) Build id => cost map
+        $idCostos  = [];
+        $cambioMap = [];
+        foreach ($rows as $row) {
+            $costo = $erpCostos[(string)$row->insumo_id]
+                ?? $descCostos[mb_strtolower(trim((string)$row->descripcion))]
+                ?? null;
+            if ($costo === null) continue;
+
+            $idCostos[$row->id] = $costo;
+            $key = (string)$row->insumo_id !== '' ? (string)$row->insumo_id : mb_strtolower(trim((string)$row->descripcion));
+            if (!isset($cambioMap[$key])) {
+                $cambioMap[$key] = ['desc' => (string)$row->descripcion, 'viejos' => collect(), 'nuevo' => $costo, 'count' => 0];
+            }
+            $cambioMap[$key]['viejos']->push($row->precio_unitario);
+            $cambioMap[$key]['count']++;
+        }
+
+        $sinCoincidencia = $rows->count() - count($idCostos);
+        if (empty($idCostos)) return ['actualizados' => 0, 'sinCoincidencia' => $sinCoincidencia];
+
+        $actualizados = $this->caseWhenUpdate('transferencias_entre_obras_detalle', 'id', $idCostos, '');
+
+        foreach ($cambioMap as $insumoId => $g) {
+            $cambios[] = $this->buildCambio('Enviadas', $insumoId, $g['desc'], $g['viejos'], $g['nuevo'], $g['count']);
+        }
+
         return compact('actualizados', 'sinCoincidencia');
     }
 
