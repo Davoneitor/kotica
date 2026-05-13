@@ -278,11 +278,7 @@
                                                             <span x-show="d.clasificacion_d"> · Depto: <span x-text="d.clasificacion_d"></span></span>
                                                         </span>
                                                     </template>
-                                                    <button
-                                                        type="button"
-                                                        @click="abrirEditNivel(d)"
-                                                        style="font-size:11px;padding:2px 8px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;color:#374151;"
-                                                    >Editar nivel</button>
+                                                    {{-- Editar nivel oculto --}}
                                                 </div>
                                             </template>
 

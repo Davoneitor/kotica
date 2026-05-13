@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Familia;
 use App\Models\Inventario;
 use App\Models\Obra;
 use Illuminate\Http\Request;
@@ -271,6 +272,7 @@ if ($obraLocalId <= 0) abort(403);
         if ($erpRow) {
             $familia = $erpRow->Familia ?: 'SIN FAMILIA';
             $subfamilia = $erpRow->SubFamilia ?: 'SIN SUBFAMILIA';
+            Familia::registrarSiNuevo($familia, $subfamilia);
         }
     } catch (\Throwable $e) {
         report($e);

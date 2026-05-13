@@ -13,6 +13,7 @@ use App\Http\Controllers\TransferenciaController;
 use App\Http\Controllers\CamionEscombroController;
 use App\Http\Controllers\EntradaManualController;
 use App\Http\Controllers\AdminPuController;
+use App\Http\Controllers\AdminMasivoController;
 
 Route::get('/', function () {
     return redirect()->route('inventario.index');
@@ -195,6 +196,11 @@ Route::get('/inventario/{inventario}/historial', [InventarioController::class, '
         Route::get('/admin/actualizar-pu', [AdminPuController::class, 'index'])->name('admin.actualizar-pu');
         Route::get('/admin/actualizar-pu/stats', [AdminPuController::class, 'stats'])->name('admin.actualizar-pu.stats');
         Route::post('/admin/actualizar-pu/run', [AdminPuController::class, 'run'])->name('admin.actualizar-pu.run');
+        Route::post('/admin/actualizar-pu/manual', [AdminPuController::class, 'runManual'])->name('admin.actualizar-pu.manual');
+
+        Route::get('/admin/actualizar-masivo/obras',    [AdminMasivoController::class, 'obras'])->name('admin.masivo.obras');
+        Route::get('/admin/actualizar-masivo/analizar', [AdminMasivoController::class, 'analizar'])->name('admin.masivo.analizar');
+        Route::post('/admin/actualizar-masivo/ejecutar',[AdminMasivoController::class, 'ejecutar'])->name('admin.masivo.ejecutar');
     });
 
     // =========================

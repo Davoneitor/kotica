@@ -519,21 +519,26 @@
                                 <span x-show="loadingDesc" x-cloak
                                       class="absolute right-3 top-10 text-xs text-gray-400">Buscando...</span>
 
-                                <div x-show="resultsDesc.length > 0" x-cloak
+                                <p class="text-xs text-red-500 mt-1" x-text="'DEBUG resultados: ' + resultsDesc.length"></p>
+
+                                <div :style="resultsDesc.length === 0 ? 'display:none' : ''"
                                      class="absolute z-20 w-full bg-white border rounded-lg shadow-lg mt-1 max-h-64 overflow-y-auto">
-                                    <template x-for="item in resultsDesc" :key="item.id">
+                                    <template x-for="item in resultsDesc" :key="item.insumo_id || item.id || item.descripcion">
                                         <button type="button"
                                                 @click="seleccionarDesc(item)"
                                                 class="w-full text-left px-4 py-3 hover:bg-gray-50 border-b last:border-0">
                                             <div class="flex items-center gap-2">
-                                                <span x-show="item.insumo_id" x-cloak
+                                                <span x-show="item.insumo_id"
                                                       class="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded"
                                                       x-text="item.insumo_id"></span>
                                                 <span class="text-sm font-medium text-gray-800" x-text="item.descripcion"></span>
+                                                <span x-show="item.from_erp"
+                                                      class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">ERP</span>
                                             </div>
                                             <div class="text-xs text-gray-500 mt-0.5">
                                                 <span x-text="item.unidad"></span>
-                                                · Stock: <span class="font-medium" x-text="item.cantidad"></span>
+                                                <span x-show="!item.from_erp">&nbsp;· Stock: <span class="font-medium" x-text="item.cantidad"></span></span>
+                                                <span x-show="item.from_erp" class="text-blue-500">&nbsp;· Insumo del catálogo ERP</span>
                                             </div>
                                         </button>
                                     </template>
@@ -572,9 +577,9 @@
                             <span x-show="loadingCode" x-cloak
                                   class="absolute right-3 top-10 text-xs text-gray-400">Buscando...</span>
 
-                            <div x-show="resultsCode.length > 0" x-cloak
+                            <div :style="resultsCode.length === 0 ? 'display:none' : ''"
                                  class="absolute z-20 w-full bg-white border rounded-lg shadow-lg mt-1 max-h-64 overflow-y-auto">
-                                <template x-for="item in resultsCode" :key="item.id">
+                                <template x-for="item in resultsCode" :key="item.insumo_id">
                                     <button type="button"
                                             @click="seleccionarCode(item)"
                                             class="w-full text-left px-4 py-3 hover:bg-gray-50 border-b last:border-0">
@@ -582,10 +587,13 @@
                                             <span class="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded"
                                                   x-text="item.insumo_id"></span>
                                             <span class="text-sm font-medium text-gray-800" x-text="item.descripcion"></span>
+                                            <span x-show="item.from_erp"
+                                                  class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">ERP</span>
                                         </div>
                                         <div class="text-xs text-gray-500 mt-0.5">
                                             <span x-text="item.unidad"></span>
-                                            · Stock: <span class="font-medium" x-text="item.cantidad"></span>
+                                            <span x-show="!item.from_erp">&nbsp;· Stock: <span class="font-medium" x-text="item.cantidad"></span></span>
+                                            <span x-show="item.from_erp" class="text-blue-500">&nbsp;· Insumo del catálogo ERP</span>
                                         </div>
                                     </button>
                                 </template>
@@ -621,28 +629,16 @@
                             </div>
                         </div>
 
-                        {{-- PROVEEDOR + FECHA --}}
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Proveedor
-                                </label>
-                                <input type="text"
-                                       name="proveedor"
-                                       x-model="proveedor"
-                                       class="w-full border rounded-lg px-4 py-3 text-sm"
-                                       placeholder="Nombre del proveedor (opcional)">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Fecha de entrada <span class="text-red-500">*</span>
-                                </label>
-                                <input type="date"
-                                       name="fecha_entrada"
-                                       value="{{ date('Y-m-d') }}"
-                                       class="w-full border rounded-lg px-4 py-3 text-sm"
-                                       required>
-                            </div>
+                        {{-- FECHA --}}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Fecha de entrada <span class="text-red-500">*</span>
+                            </label>
+                            <input type="date"
+                                   name="fecha_entrada"
+                                   value="{{ date('Y-m-d') }}"
+                                   class="w-full border rounded-lg px-4 py-3 text-sm"
+                                   required>
                         </div>
 
                         {{-- FAMILIA + SUBFAMILIA --}}
@@ -899,7 +895,8 @@
                     this.loadingDesc = true;
                     try {
                         const r = await fetch(`/salidas/buscar-productos?q=${encodeURIComponent(this.descripcion)}&mode=desc`);
-                        if (r.ok) this.resultsDesc = await r.json();
+                        const data = await r.json();
+                        this.resultsDesc = Array.isArray(data) ? data : [];
                     } catch (e) {
                         this.resultsDesc = [];
                     }
@@ -911,7 +908,8 @@
                     this.loadingCode = true;
                     try {
                         const r = await fetch(`/salidas/buscar-productos?q=${encodeURIComponent(this.selectedInsumoId)}&mode=code`);
-                        if (r.ok) this.resultsCode = await r.json();
+                        const data = await r.json();
+                        this.resultsCode = Array.isArray(data) ? data : [];
                     } catch (e) {
                         this.resultsCode = [];
                     }

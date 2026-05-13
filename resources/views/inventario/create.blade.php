@@ -241,12 +241,12 @@
 
                         {{-- Costo --}}
                         <div>
-                            <label class="text-sm">Costo promedio</label>
+                            <label class="text-sm">Costo unitario</label>
                             <input name="costo_promedio"
                                    type="number"
                                    step="0.01"
+                                   x-model.number="costo_promedio"
                                    class="w-full border rounded px-3 py-2 {{ $bloqueado ? 'bg-gray-100' : '' }}"
-                                   value="{{ old('costo_promedio',0) }}"
                                    @if($bloqueado) readonly @endif
                                    required>
                         </div>
@@ -279,7 +279,8 @@ function inventarioForm() {
         descripcion: @js(old('descripcion','')),
         proveedor: @js(old('proveedor','')),
         unidad: @js(old('unidad','PZA')),
-        tipo: Number(@js(old('tipo', 0))), // ✅ AQUÍ
+        tipo: Number(@js(old('tipo', 0))),
+        costo_promedio: Number(@js(old('costo_promedio', 0))),
 
         // ✅ devolvible automático por código "13"
         devolvible: Boolean(Number(@js(old('devolvible', 0)))),
@@ -348,12 +349,23 @@ function inventarioForm() {
                     if (d.unidad !== undefined) this.unidad = d.unidad ?? 'PZA';
                     if (d.proveedor !== undefined) this.proveedor = d.proveedor ?? '';
 
-                    if (d.familia) this.familia = d.familia;
+                    if (d.familia) {
+                        if (!this.familias[d.familia]) {
+                            this.familias[d.familia] = [];
+                        }
+                        if (d.subfamilia && !this.familias[d.familia].includes(d.subfamilia)) {
+                            this.familias[d.familia].push(d.subfamilia);
+                        }
+                        this.familia = d.familia;
+                    }
                     if (d.subfamilia) this.subfamilia = d.subfamilia;
                     if (d.tipo !== undefined) {
-    this.tipo = Number(d.tipo || 0);
-    this.aplicarReglaDevolviblePorTipo(this.tipo);
-}
+                        this.tipo = Number(d.tipo || 0);
+                        this.aplicarReglaDevolviblePorTipo(this.tipo);
+                    }
+                    if (d.costo_promedio !== undefined) {
+                        this.costo_promedio = Number(d.costo_promedio || 0);
+                    }
 
 
                 } else {

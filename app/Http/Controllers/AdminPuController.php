@@ -40,61 +40,78 @@ class AdminPuController extends Controller
     public function run(Request $request)
     {
         $this->authorize();
+        set_time_limit(300);
 
         $tipo    = $request->input('tipo', 'todos');
         $forzado = $request->boolean('forzado', false);
 
         $t0      = microtime(true);
         $results = [];
+        $cambios = [];
 
         if ($tipo === 'todos' || $tipo === 'entradas') {
-            $results['entradas'] = $this->actualizarEntradas($forzado);
+            $results['entradas'] = $this->actualizarEntradas($forzado, $cambios);
         }
         if ($tipo === 'todos' || $tipo === 'salidas') {
-            $results['salidas'] = $this->actualizarSalidas($forzado);
+            $results['salidas'] = $this->actualizarSalidas($forzado, $cambios);
         }
         if ($tipo === 'todos' || $tipo === 'enviadas') {
-            $results['enviadas'] = $this->actualizarEnviadas($forzado);
+            $results['enviadas'] = $this->actualizarEnviadas($forzado, $cambios);
         }
         if ($tipo === 'todos' || $tipo === 'recibidas') {
-            $results['recibidas'] = $this->actualizarRecibidas($forzado);
+            $results['recibidas'] = $this->actualizarRecibidas($forzado, $cambios);
         }
 
         $results['tiempo_ms'] = round((microtime(true) - $t0) * 1000);
+        $results['cambios']   = $cambios;
 
         return response()->json($results);
     }
+
+    // ─── Helpers ──────────────────────────────────────────────────────────────
+
+    /** Devuelve [insumo_id => costo] para los insumos dados, consultando el ERP en chunks. */
+    private function erpCostos(array $insumoIds): array
+    {
+        if (empty($insumoIds)) return [];
+        $result = [];
+        foreach (array_chunk($insumoIds, 500) as $chunk) {
+            try {
+                $rows = DB::connection('erp')
+                    ->table('AcCatInsumos')
+                    ->whereIn('INSUMO', $chunk)
+                    ->where('Costo', '>', 0)
+                    ->pluck('Costo', 'INSUMO');
+                foreach ($rows as $k => $v) {
+                    $result[$k] = (float) $v;
+                }
+            } catch (\Throwable) {}
+        }
+        return $result;
+    }
+
 
     // ─── Stats ────────────────────────────────────────────────────────────────
 
     private function statsEntradas(): array
     {
-        $base   = DB::table('oc_recepciones')->whereIn('tipo', ['oc', 'manual']);
+        // Incluye: tipo NULL (OC), 'oc', 'manual' — excluye transferencia y finiquito
+        $base = DB::table('oc_recepciones')
+            ->where(fn($q) => $q->whereNull('tipo')->orWhereIn('tipo', ['oc', 'manual']));
         $total  = (clone $base)->count();
         $conPu  = (clone $base)->where('precio_unitario', '>', 0)->count();
         $sinPu  = (clone $base)->whereNull('precio_unitario')->count();
         $puCero = (clone $base)->where('precio_unitario', 0)->count();
 
-        $actualizables = (int)(DB::selectOne("
-            SELECT COUNT(*) AS cnt
-            FROM oc_recepciones ocr
-            INNER JOIN inventarios inv
-                ON inv.insumo_id = ocr.insumo AND inv.obra_id = ocr.obra_id
-            WHERE ocr.tipo IN ('oc', 'manual')
-              AND inv.costo_promedio > 0
-              AND (ocr.precio_unitario IS NULL OR ocr.precio_unitario = 0)
-        ")->cnt ?? 0);
+        $actualizables = (clone $base)
+            ->where(fn($q) => $q->whereNull('precio_unitario')->orWhere('precio_unitario', 0))
+            ->whereNotNull('insumo')->where('insumo', '!=', '')
+            ->count();
 
-        $sinCoincidencia = (int)(DB::selectOne("
-            SELECT COUNT(*) AS cnt
-            FROM oc_recepciones ocr
-            LEFT JOIN inventarios inv
-                ON inv.insumo_id = ocr.insumo AND inv.obra_id = ocr.obra_id
-                AND inv.costo_promedio > 0
-            WHERE ocr.tipo IN ('oc', 'manual')
-              AND (ocr.precio_unitario IS NULL OR ocr.precio_unitario = 0)
-              AND inv.id IS NULL
-        ")->cnt ?? 0);
+        $sinCoincidencia = (clone $base)
+            ->where(fn($q) => $q->whereNull('precio_unitario')->orWhere('precio_unitario', 0))
+            ->where(fn($q) => $q->whereNull('insumo')->orWhere('insumo', ''))
+            ->count();
 
         return compact('total', 'conPu', 'sinPu', 'puCero', 'actualizables', 'sinCoincidencia');
     }
@@ -106,22 +123,15 @@ class AdminPuController extends Controller
         $sinPu    = DB::table('movimiento_detalles')->whereNull('precio_unitario')->count();
         $puCero   = DB::table('movimiento_detalles')->where('precio_unitario', 0)->count();
 
-        $actualizables = (int)(DB::selectOne("
-            SELECT COUNT(*) AS cnt
-            FROM movimiento_detalles md
-            INNER JOIN inventarios inv ON inv.id = md.inventario_id
-            WHERE inv.costo_promedio > 0
-              AND (md.precio_unitario IS NULL OR md.precio_unitario = 0)
-        ")->cnt ?? 0);
+        $actualizables = DB::table('movimiento_detalles')
+            ->where(fn($q) => $q->whereNull('precio_unitario')->orWhere('precio_unitario', 0))
+            ->whereNotNull('insumo_id')->where('insumo_id', '!=', '')
+            ->count();
 
-        $sinCoincidencia = (int)(DB::selectOne("
-            SELECT COUNT(*) AS cnt
-            FROM movimiento_detalles md
-            LEFT JOIN inventarios inv
-                ON inv.id = md.inventario_id AND inv.costo_promedio > 0
-            WHERE (md.precio_unitario IS NULL OR md.precio_unitario = 0)
-              AND inv.id IS NULL
-        ")->cnt ?? 0);
+        $sinCoincidencia = DB::table('movimiento_detalles')
+            ->where(fn($q) => $q->whereNull('precio_unitario')->orWhere('precio_unitario', 0))
+            ->where(fn($q) => $q->whereNull('insumo_id')->orWhere('insumo_id', ''))
+            ->count();
 
         return compact('total', 'conPu', 'sinPu', 'puCero', 'actualizables', 'sinCoincidencia');
     }
@@ -207,171 +217,305 @@ class AdminPuController extends Controller
         return compact('total', 'conPu', 'sinPu', 'puCero', 'actualizables', 'sinCoincidencia');
     }
 
-    // ─── Updates (SQL Server FROM…JOIN syntax) ────────────────────────────────
+    // ─── Updates (ERP como fuente de PU) — batch con CASE WHEN ──────────────
 
-    private function actualizarEntradas(bool $forzado): array
+    private function actualizarEntradas(bool $forzado, array &$cambios): array
     {
-        $whereVacios = "ocr.tipo IN ('oc', 'manual') AND inv.costo_promedio > 0 AND (ocr.precio_unitario IS NULL OR ocr.precio_unitario = 0)";
-        $whereTodos  = "ocr.tipo IN ('oc', 'manual') AND inv.costo_promedio > 0";
+        $vacios = $forzado ? '' : "AND (precio_unitario IS NULL OR precio_unitario = 0)";
+        $tipoSQL = "(tipo IS NULL OR tipo IN ('oc', 'manual'))";
 
-        $sinCoincidencia = (int)(DB::selectOne("
-            SELECT COUNT(*) AS cnt
-            FROM oc_recepciones ocr
-            LEFT JOIN inventarios inv
-                ON inv.insumo_id = ocr.insumo AND inv.obra_id = ocr.obra_id
-                AND inv.costo_promedio > 0
-            WHERE ocr.tipo IN ('oc', 'manual')
-              AND (ocr.precio_unitario IS NULL OR ocr.precio_unitario = 0)
-              AND inv.id IS NULL
-        ")->cnt ?? 0);
+        $insumoIds = DB::table('oc_recepciones')
+            ->whereRaw($tipoSQL)
+            ->whereNotNull('insumo')->where('insumo', '!=', '')
+            ->when(!$forzado, fn($q) => $q->where(fn($q2) => $q2->whereNull('precio_unitario')->orWhere('precio_unitario', 0)))
+            ->pluck('insumo')->unique()->values()->toArray();
 
-        $actualizados = DB::update("
-            UPDATE ocr
-            SET ocr.precio_unitario = inv.costo_promedio,
-                ocr.updated_at = GETDATE()
-            FROM oc_recepciones AS ocr
-            INNER JOIN inventarios AS inv
-                ON inv.insumo_id = ocr.insumo AND inv.obra_id = ocr.obra_id
-            WHERE " . ($forzado ? $whereTodos : $whereVacios));
+        $costos = $this->erpCostos($insumoIds);
+        $sinCoincidencia = count(array_diff($insumoIds, array_keys($costos)));
+        if (empty($costos)) return ['actualizados' => 0, 'sinCoincidencia' => $sinCoincidencia];
 
-        return [
-            'actualizados'    => $actualizados,
-            'sin_coincidencia'=> $sinCoincidencia,
-        ];
+        // Un SELECT para obtener todos los valores anteriores
+        $oldRows = DB::table('oc_recepciones')
+            ->whereRaw($tipoSQL)->whereIn('insumo', array_keys($costos))
+            ->when(!$forzado, fn($q) => $q->where(fn($q2) => $q2->whereNull('precio_unitario')->orWhere('precio_unitario', 0)))
+            ->select('insumo', 'descripcion', 'precio_unitario')->get()->groupBy('insumo');
+
+        // UPDATEs en chunks con CASE WHEN
+        $actualizados = $this->caseWhenUpdate('oc_recepciones', 'insumo', $costos,
+            "AND {$tipoSQL} {$vacios}");
+
+        foreach ($costos as $insumoId => $puNuevo) {
+            $rows = $oldRows->get($insumoId);
+            if ($rows && $rows->isNotEmpty()) {
+                $cambios[] = $this->buildCambio('Entradas', $insumoId,
+                    (string)($rows->first()->descripcion ?? ''),
+                    $rows->pluck('precio_unitario'), $puNuevo, $rows->count());
+            }
+        }
+        return compact('actualizados', 'sinCoincidencia');
     }
 
-    private function actualizarSalidas(bool $forzado): array
+    private function actualizarSalidas(bool $forzado, array &$cambios): array
     {
-        $whereVacios = "inv.costo_promedio > 0 AND (md.precio_unitario IS NULL OR md.precio_unitario = 0)";
-        $whereTodos  = "inv.costo_promedio > 0";
+        $vacios = $forzado ? '' : "AND (precio_unitario IS NULL OR precio_unitario = 0)";
 
-        $sinCoincidencia = (int)(DB::selectOne("
-            SELECT COUNT(*) AS cnt
-            FROM movimiento_detalles md
-            LEFT JOIN inventarios inv ON inv.id = md.inventario_id AND inv.costo_promedio > 0
-            WHERE (md.precio_unitario IS NULL OR md.precio_unitario = 0)
-              AND inv.id IS NULL
-        ")->cnt ?? 0);
+        $insumoIds = DB::table('movimiento_detalles')
+            ->whereNotNull('insumo_id')->where('insumo_id', '!=', '')
+            ->when(!$forzado, fn($q) => $q->where(fn($q2) => $q2->whereNull('precio_unitario')->orWhere('precio_unitario', 0)))
+            ->pluck('insumo_id')->unique()->values()->toArray();
 
-        $actualizados = DB::update("
-            UPDATE md
-            SET md.precio_unitario = inv.costo_promedio,
-                md.updated_at = GETDATE()
-            FROM movimiento_detalles AS md
-            INNER JOIN inventarios AS inv ON inv.id = md.inventario_id
-            WHERE " . ($forzado ? $whereTodos : $whereVacios));
+        $costos = $this->erpCostos($insumoIds);
+        $sinCoincidencia = count(array_diff($insumoIds, array_keys($costos)));
+        if (empty($costos)) return ['actualizados' => 0, 'sinCoincidencia' => $sinCoincidencia];
 
-        return [
-            'actualizados'    => $actualizados,
-            'sin_coincidencia'=> $sinCoincidencia,
-        ];
+        $oldRows = DB::table('movimiento_detalles')
+            ->whereIn('insumo_id', array_keys($costos))
+            ->when(!$forzado, fn($q) => $q->where(fn($q2) => $q2->whereNull('precio_unitario')->orWhere('precio_unitario', 0)))
+            ->select('insumo_id as insumo', 'descripcion', 'precio_unitario')->get()->groupBy('insumo');
+
+        $actualizados = $this->caseWhenUpdate('movimiento_detalles', 'insumo_id', $costos,
+            $vacios ? "AND {$vacios}" : '');
+
+        foreach ($costos as $insumoId => $puNuevo) {
+            $rows = $oldRows->get($insumoId);
+            if ($rows && $rows->isNotEmpty()) {
+                $cambios[] = $this->buildCambio('Salidas', $insumoId,
+                    (string)($rows->first()->descripcion ?? ''),
+                    $rows->pluck('precio_unitario'), $puNuevo, $rows->count());
+            }
+        }
+        return compact('actualizados', 'sinCoincidencia');
     }
 
-    private function actualizarEnviadas(bool $forzado): array
+    private function actualizarEnviadas(bool $forzado, array &$cambios): array
     {
-        $condVacios = "(ted.precio_unitario IS NULL OR ted.precio_unitario = 0)";
-        $condPU     = "inv.costo_promedio > 0";
+        $vacios = $forzado ? '' : "AND (precio_unitario IS NULL OR precio_unitario = 0)";
 
-        // Paso 1: match por insumo_id + obra_origen
-        $n1 = DB::update("
-            UPDATE ted
-            SET ted.precio_unitario = inv.costo_promedio,
-                ted.updated_at = GETDATE()
-            FROM transferencias_entre_obras_detalle AS ted
-            INNER JOIN transferencias_entre_obras AS te ON te.id = ted.transferencia_id
-            INNER JOIN inventarios AS inv
-                ON inv.insumo_id = ted.insumo_id AND inv.obra_id = te.obra_origen_id
-            WHERE {$condPU}
-              AND " . ($forzado ? '1=1' : $condVacios));
+        $insumoIds = DB::table('transferencias_entre_obras_detalle')
+            ->whereNotNull('insumo_id')->where('insumo_id', '!=', '')
+            ->when(!$forzado, fn($q) => $q->where(fn($q2) => $q2->whereNull('precio_unitario')->orWhere('precio_unitario', 0)))
+            ->pluck('insumo_id')->unique()->values()->toArray();
 
-        // Paso 2: fallback por descripción (insumo_ids distintos entre sistemas)
-        $n2 = DB::update("
-            UPDATE ted
-            SET ted.precio_unitario = (
-                SELECT TOP 1 inv.costo_promedio
-                FROM inventarios inv
-                WHERE LTRIM(RTRIM(LOWER(inv.descripcion))) = LTRIM(RTRIM(LOWER(ted.descripcion)))
-                  AND inv.costo_promedio > 0
-                ORDER BY inv.updated_at DESC
-            ),
-            ted.updated_at = GETDATE()
-            FROM transferencias_entre_obras_detalle AS ted
-            WHERE {$condVacios}
-              AND EXISTS (
-                SELECT 1 FROM inventarios inv
-                WHERE LTRIM(RTRIM(LOWER(inv.descripcion))) = LTRIM(RTRIM(LOWER(ted.descripcion)))
-                  AND inv.costo_promedio > 0
-              )");
+        $costos = $this->erpCostos($insumoIds);
+        $sinCoincidencia = count(array_diff($insumoIds, array_keys($costos)));
+        if (empty($costos)) return ['actualizados' => 0, 'sinCoincidencia' => $sinCoincidencia];
 
-        $sinCoincidencia = (int)(DB::selectOne("
-            SELECT COUNT(*) AS cnt
-            FROM transferencias_entre_obras_detalle ted
-            WHERE (ted.precio_unitario IS NULL OR ted.precio_unitario = 0)
-              AND NOT EXISTS (
-                SELECT 1 FROM inventarios inv
-                WHERE LTRIM(RTRIM(LOWER(inv.descripcion))) = LTRIM(RTRIM(LOWER(ted.descripcion)))
-                  AND inv.costo_promedio > 0
-              )
-        ")->cnt ?? 0);
+        $oldRows = DB::table('transferencias_entre_obras_detalle')
+            ->whereIn('insumo_id', array_keys($costos))
+            ->when(!$forzado, fn($q) => $q->where(fn($q2) => $q2->whereNull('precio_unitario')->orWhere('precio_unitario', 0)))
+            ->select('insumo_id as insumo', 'descripcion', 'precio_unitario')->get()->groupBy('insumo');
 
-        return [
-            'actualizados'    => $n1 + $n2,
-            'sin_coincidencia'=> $sinCoincidencia,
-        ];
+        $actualizados = $this->caseWhenUpdate('transferencias_entre_obras_detalle', 'insumo_id', $costos,
+            $vacios ? "AND {$vacios}" : '');
+
+        foreach ($costos as $insumoId => $puNuevo) {
+            $rows = $oldRows->get($insumoId);
+            if ($rows && $rows->isNotEmpty()) {
+                $cambios[] = $this->buildCambio('Enviadas', $insumoId,
+                    (string)($rows->first()->descripcion ?? ''),
+                    $rows->pluck('precio_unitario'), $puNuevo, $rows->count());
+            }
+        }
+        return compact('actualizados', 'sinCoincidencia');
     }
 
-    private function actualizarRecibidas(bool $forzado): array
+    private function actualizarRecibidas(bool $forzado, array &$cambios): array
     {
-        $condVacios = "(ocr.precio_unitario IS NULL OR ocr.precio_unitario = 0)";
-        $condPU     = "inv.costo_promedio > 0";
+        $vacios = $forzado ? '' : "AND (precio_unitario IS NULL OR precio_unitario = 0)";
 
-        // Paso 1: match por insumo_id + obra
-        $n1 = DB::update("
-            UPDATE ocr
-            SET ocr.precio_unitario = inv.costo_promedio,
-                ocr.updated_at = GETDATE()
-            FROM oc_recepciones AS ocr
-            INNER JOIN inventarios AS inv
-                ON inv.insumo_id = ocr.insumo AND inv.obra_id = ocr.obra_id
-            WHERE ocr.tipo = 'transferencia'
-              AND {$condPU}
-              AND " . ($forzado ? '1=1' : $condVacios));
+        $insumoIds = DB::table('oc_recepciones')
+            ->where('tipo', 'transferencia')
+            ->whereNotNull('insumo')->where('insumo', '!=', '')
+            ->when(!$forzado, fn($q) => $q->where(fn($q2) => $q2->whereNull('precio_unitario')->orWhere('precio_unitario', 0)))
+            ->pluck('insumo')->unique()->values()->toArray();
 
-        // Paso 2: fallback por descripción
-        $n2 = DB::update("
-            UPDATE ocr
-            SET ocr.precio_unitario = (
-                SELECT TOP 1 inv.costo_promedio
-                FROM inventarios inv
-                WHERE LTRIM(RTRIM(LOWER(inv.descripcion))) = LTRIM(RTRIM(LOWER(ocr.descripcion)))
-                  AND inv.costo_promedio > 0
-                ORDER BY inv.updated_at DESC
-            ),
-            ocr.updated_at = GETDATE()
-            FROM oc_recepciones AS ocr
-            WHERE ocr.tipo = 'transferencia'
-              AND {$condVacios}
-              AND EXISTS (
-                SELECT 1 FROM inventarios inv
-                WHERE LTRIM(RTRIM(LOWER(inv.descripcion))) = LTRIM(RTRIM(LOWER(ocr.descripcion)))
-                  AND inv.costo_promedio > 0
-              )");
+        $costos = $this->erpCostos($insumoIds);
+        $sinCoincidencia = count(array_diff($insumoIds, array_keys($costos)));
+        if (empty($costos)) return ['actualizados' => 0, 'sinCoincidencia' => $sinCoincidencia];
 
-        $sinCoincidencia = (int)(DB::selectOne("
-            SELECT COUNT(*) AS cnt
-            FROM oc_recepciones ocr
-            WHERE ocr.tipo = 'transferencia'
-              AND (ocr.precio_unitario IS NULL OR ocr.precio_unitario = 0)
-              AND NOT EXISTS (
-                SELECT 1 FROM inventarios inv
-                WHERE LTRIM(RTRIM(LOWER(inv.descripcion))) = LTRIM(RTRIM(LOWER(ocr.descripcion)))
-                  AND inv.costo_promedio > 0
-              )
-        ")->cnt ?? 0);
+        $oldRows = DB::table('oc_recepciones')
+            ->where('tipo', 'transferencia')->whereIn('insumo', array_keys($costos))
+            ->when(!$forzado, fn($q) => $q->where(fn($q2) => $q2->whereNull('precio_unitario')->orWhere('precio_unitario', 0)))
+            ->select('insumo', 'descripcion', 'precio_unitario')->get()->groupBy('insumo');
+
+        $actualizados = $this->caseWhenUpdate('oc_recepciones', 'insumo', $costos,
+            "AND tipo = 'transferencia'" . ($vacios ? " AND {$vacios}" : ''));
+
+        foreach ($costos as $insumoId => $puNuevo) {
+            $rows = $oldRows->get($insumoId);
+            if ($rows && $rows->isNotEmpty()) {
+                $cambios[] = $this->buildCambio('Recibidas', $insumoId,
+                    (string)($rows->first()->descripcion ?? ''),
+                    $rows->pluck('precio_unitario'), $puNuevo, $rows->count());
+            }
+        }
+        return compact('actualizados', 'sinCoincidencia');
+    }
+
+    // ─── Override manual ─────────────────────────────────────────────────────
+
+    public function runManual(Request $request)
+    {
+        $this->authorize();
+        set_time_limit(300);
+
+        $precios = $request->input('precios', []);
+        if (empty($precios) || !is_array($precios)) {
+            return response()->json(['error' => 'No se recibieron precios válidos.'], 422);
+        }
+
+        // Validar: claves = insumo_id (string), valores = número > 0
+        $costos = [];
+        foreach ($precios as $insumoId => $pu) {
+            $insumoId = trim((string) $insumoId);
+            $pu = (float) $pu;
+            if ($insumoId !== '' && $pu > 0) {
+                $costos[$insumoId] = $pu;
+            }
+        }
+
+        if (empty($costos)) {
+            return response()->json(['error' => 'Ningún precio válido (> 0).'], 422);
+        }
+
+        $t0      = microtime(true);
+        $cambios = [];
+
+        $entradas  = $this->aplicarManualEntradas($costos, $cambios);
+        $salidas   = $this->aplicarManualSalidas($costos, $cambios);
+        $enviadas  = $this->aplicarManualEnviadas($costos, $cambios);
+        $recibidas = $this->aplicarManualRecibidas($costos, $cambios);
+
+        return response()->json([
+            'entradas'  => $entradas,
+            'salidas'   => $salidas,
+            'enviadas'  => $enviadas,
+            'recibidas' => $recibidas,
+            'tiempo_ms' => round((microtime(true) - $t0) * 1000),
+            'cambios'   => $cambios,
+        ]);
+    }
+
+    private function aplicarManualEntradas(array $costos, array &$cambios): array
+    {
+        $tipoSQL = "(tipo IS NULL OR tipo IN ('oc', 'manual'))";
+        $oldRows = DB::table('oc_recepciones')
+            ->whereRaw($tipoSQL)->whereIn('insumo', array_keys($costos))
+            ->select('insumo', 'descripcion', 'precio_unitario')->get()->groupBy('insumo');
+
+        $actualizados = $this->caseWhenUpdate('oc_recepciones', 'insumo', $costos, "AND {$tipoSQL}");
+
+        foreach ($costos as $id => $pu) {
+            $rows = $oldRows->get($id);
+            if ($rows && $rows->isNotEmpty()) {
+                $cambios[] = $this->buildCambio('Entradas', $id,
+                    (string)($rows->first()->descripcion ?? ''),
+                    $rows->pluck('precio_unitario'), $pu, $rows->count());
+            }
+        }
+        return ['actualizados' => $actualizados];
+    }
+
+    private function aplicarManualSalidas(array $costos, array &$cambios): array
+    {
+        $oldRows = DB::table('movimiento_detalles')
+            ->whereIn('insumo_id', array_keys($costos))
+            ->select('insumo_id as insumo', 'descripcion', 'precio_unitario')->get()->groupBy('insumo');
+
+        $actualizados = $this->caseWhenUpdate('movimiento_detalles', 'insumo_id', $costos, '');
+
+        foreach ($costos as $id => $pu) {
+            $rows = $oldRows->get($id);
+            if ($rows && $rows->isNotEmpty()) {
+                $cambios[] = $this->buildCambio('Salidas', $id,
+                    (string)($rows->first()->descripcion ?? ''),
+                    $rows->pluck('precio_unitario'), $pu, $rows->count());
+            }
+        }
+        return ['actualizados' => $actualizados];
+    }
+
+    private function aplicarManualEnviadas(array $costos, array &$cambios): array
+    {
+        $oldRows = DB::table('transferencias_entre_obras_detalle')
+            ->whereIn('insumo_id', array_keys($costos))
+            ->select('insumo_id as insumo', 'descripcion', 'precio_unitario')->get()->groupBy('insumo');
+
+        $actualizados = $this->caseWhenUpdate('transferencias_entre_obras_detalle', 'insumo_id', $costos, '');
+
+        foreach ($costos as $id => $pu) {
+            $rows = $oldRows->get($id);
+            if ($rows && $rows->isNotEmpty()) {
+                $cambios[] = $this->buildCambio('Enviadas', $id,
+                    (string)($rows->first()->descripcion ?? ''),
+                    $rows->pluck('precio_unitario'), $pu, $rows->count());
+            }
+        }
+        return ['actualizados' => $actualizados];
+    }
+
+    private function aplicarManualRecibidas(array $costos, array &$cambios): array
+    {
+        $oldRows = DB::table('oc_recepciones')
+            ->where('tipo', 'transferencia')->whereIn('insumo', array_keys($costos))
+            ->select('insumo', 'descripcion', 'precio_unitario')->get()->groupBy('insumo');
+
+        $actualizados = $this->caseWhenUpdate('oc_recepciones', 'insumo', $costos,
+            "AND tipo = 'transferencia'");
+
+        foreach ($costos as $id => $pu) {
+            $rows = $oldRows->get($id);
+            if ($rows && $rows->isNotEmpty()) {
+                $cambios[] = $this->buildCambio('Recibidas', $id,
+                    (string)($rows->first()->descripcion ?? ''),
+                    $rows->pluck('precio_unitario'), $pu, $rows->count());
+            }
+        }
+        return ['actualizados' => $actualizados];
+    }
+
+    /**
+     * UPDATE masivo usando CASE WHEN en chunks de 100 insumos.
+     * Evita N+1 queries — una sola pasada por chunk.
+     */
+    private function caseWhenUpdate(string $tabla, string $col, array $costos, string $extraWhere): int
+    {
+        $total = 0;
+        foreach (array_chunk($costos, 100, true) as $chunk) {
+            $cases   = '';
+            $binds   = [];
+            foreach ($chunk as $insumoId => $costo) {
+                $cases   .= ' WHEN ? THEN ?';
+                $binds[]  = $insumoId;
+                $binds[]  = $costo;
+            }
+            $inList  = implode(',', array_fill(0, count($chunk), '?'));
+            $inBinds = array_keys($chunk);
+
+            $sql = "UPDATE [{$tabla}]
+                    SET [precio_unitario] = CASE [{$col}]{$cases} END,
+                        [updated_at] = GETDATE()
+                    WHERE [{$col}] IN ({$inList})
+                    {$extraWhere}";
+
+            $total += DB::affectingStatement($sql, array_merge($binds, $inBinds));
+        }
+        return $total;
+    }
+
+    private function buildCambio(string $tabla, string $insumoId, string $descripcion, $puViejosCol, float $puNuevo, int $registros): array
+    {
+        $puViejos = $puViejosCol
+            ->map(fn($p) => $p !== null ? round((float)$p, 2) : null)
+            ->unique()->sort()->values()->toArray();
 
         return [
-            'actualizados'    => $n1 + $n2,
-            'sin_coincidencia'=> $sinCoincidencia,
+            'tabla'       => $tabla,
+            'insumo_id'   => $insumoId,
+            'descripcion' => $descripcion,
+            'pu_anterior' => $puViejos,
+            'pu_nuevo'    => $puNuevo,
+            'registros'   => $registros,
         ];
     }
 }

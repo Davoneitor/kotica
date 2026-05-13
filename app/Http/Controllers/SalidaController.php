@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Familia;
 use App\Models\Inventario;
 use App\Models\Movimiento;
 use App\Models\Obra;
@@ -141,6 +142,7 @@ class SalidaController extends Controller
         }
 
         $obraId = (int) $user->obra_actual_id;
+        \Log::info('buscarProductos', ['user_id' => $user->id, 'obra_actual_id' => $user->obra_actual_id, 'obraId' => $obraId, 'q' => $q, 'mode' => $request->input('mode')]);
         $soloH  = $request->boolean('solo_h');
 
         if (str_starts_with($q, '#')) {
@@ -180,6 +182,79 @@ class SalidaController extends Controller
                 'proveedor',
                 'costo_promedio',
             ]);
+
+        // Fallback al ERP cuando no hay resultados locales (búsqueda por código o descripción)
+        if ($items->isEmpty() && in_array($mode, ['code', 'desc']) && $q !== '') {
+            try {
+                $erpQuery = DB::connection('erp')
+                    ->table('AcCatInsumos as I')
+                    ->join('AcFamilias as FI', 'I.idFamilia', '=', 'FI.idFamilia')
+                    ->join('AcCatUnidades as U', 'I.idUnidad', '=', 'U.IdUnidad')
+                    ->join('ACtiposInsumos as TI', 'I.idTipoInsumo', '=', 'TI.idTipoInsumo')
+                    ->select(
+                        'I.INSUMO as insumo_id',
+                        'I.DescripcionLarga as descripcion',
+                        'I.Costo as costo_promedio',
+                        'U.Unidad as unidad',
+                        'FI.FamiliaPrincipal as familia',
+                        'FI.Familia as subfamilia'
+                    )
+                    ->whereIn('TI.tipo', [1, 3]);
+
+                if ($mode === 'code') {
+                    $erpQuery->where('I.INSUMO', 'like', "%{$q}%");
+                } else {
+                    $erpQuery->where('I.DescripcionLarga', 'like', "%{$q}%");
+                }
+
+                $erpRows = $erpQuery->limit(10)->get();
+
+                if ($erpRows->isNotEmpty()) {
+                    $erpRows->each(fn($r) => Familia::registrarSiNuevo(
+                        trim((string) $r->familia),
+                        trim((string) $r->subfamilia)
+                    ));
+
+                    return response()->json($erpRows->map(fn($r) => [
+                        'id'             => null,
+                        'insumo_id'      => (string) $r->insumo_id,
+                        'descripcion'    => (string) $r->descripcion,
+                        'unidad'         => (string) $r->unidad,
+                        'cantidad'       => null,
+                        'devolvible'     => 0,
+                        'familia'        => (string) ($r->familia ?? ''),
+                        'subfamilia'     => (string) ($r->subfamilia ?? ''),
+                        'proveedor'      => null,
+                        'costo_promedio' => (float) ($r->costo_promedio ?? 0),
+                        'from_erp'       => true,
+                    ]));
+                }
+            } catch (\Throwable) {
+                // Si el ERP falla, devolvemos vacío normalmente
+            }
+        }
+
+        // Para resultados locales, enriquecer con Costo del ERP
+        if ($items->isNotEmpty()) {
+            $insumoIds = $items->pluck('insumo_id')->filter()->values()->toArray();
+            $erpCostos = [];
+            try {
+                $erpCostos = DB::connection('erp')
+                    ->table('AcCatInsumos')
+                    ->whereIn('INSUMO', $insumoIds)
+                    ->pluck('Costo', 'INSUMO')
+                    ->map(fn($c) => (float) $c)
+                    ->toArray();
+            } catch (\Throwable) {}
+
+            return response()->json($items->map(function ($item) use ($erpCostos) {
+                $arr = $item->toArray();
+                if (isset($erpCostos[$item->insumo_id])) {
+                    $arr['costo_promedio'] = $erpCostos[$item->insumo_id];
+                }
+                return $arr;
+            }));
+        }
 
         return response()->json($items);
     }
@@ -364,6 +439,18 @@ class SalidaController extends Controller
                     ], 422);
                 }
 
+                // Obtener PU del ERP; si falla, usar costo_promedio local
+                $erpPrecio = null;
+                try {
+                    $erpCosto = DB::connection('erp')
+                        ->table('AcCatInsumos')
+                        ->where('INSUMO', $inv->insumo_id)
+                        ->value('Costo');
+                    $erpPrecio = $erpCosto !== null ? (float) $erpCosto : null;
+                } catch (\Throwable) {}
+
+                $precioFinal = $erpPrecio ?? ($inv->costo_promedio > 0 ? (float) $inv->costo_promedio : null);
+
                 $detalleId = DB::table('movimiento_detalles')->insertGetId([
                     'movimiento_id'   => $mov->id,
                     'inventario_id'   => $inv->id,
@@ -373,6 +460,7 @@ class SalidaController extends Controller
                     'descripcion'     => $inv->descripcion,
                     'unidad'          => $inv->unidad       ?? '',
                     'cantidad'        => $cantidad,
+                    'precio_unitario' => $precioFinal,
                     'devolvible'      => $devolvible,
                     'clasificacion'   => $primerNivel,
                     'clasificacion_d' => $primerDepto,

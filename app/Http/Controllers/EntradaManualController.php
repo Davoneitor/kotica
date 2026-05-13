@@ -47,6 +47,19 @@ class EntradaManualController extends Controller
         $unidad      = (string) $data['unidad'];
         $cantidad    = (float)  $data['cantidad'];
         $pu          = (float)  $data['costo_unitario'];
+
+        // Sobreescribir PU con Costo del ERP si el insumo existe en catálogo
+        if ($insumoId) {
+            try {
+                $erpCosto = DB::connection('erp')
+                    ->table('AcCatInsumos')
+                    ->where('INSUMO', $insumoId)
+                    ->value('Costo');
+                if ($erpCosto !== null) {
+                    $pu = (float) $erpCosto;
+                }
+            } catch (\Throwable) {}
+        }
         $familia     = trim((string) ($data['familia']    ?? '')) ?: 'SIN FAMILIA';
         $subfamilia  = trim((string) ($data['subfamilia'] ?? '')) ?: 'SIN SUBFAMILIA';
 

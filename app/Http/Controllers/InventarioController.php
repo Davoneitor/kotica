@@ -681,8 +681,8 @@ public function buscarPorInsumo(Request $request)
     }
 
     $sql = "
-        SELECT  FI.idFamilia, FI.FamiliaPrincipal AS Familia, FI.Familia AS SubFamilia, 
-I.idInsumo, I.INSUMO, I.DescripcionLarga,
+        SELECT  FI.idFamilia, FI.FamiliaPrincipal AS Familia, FI.Familia AS SubFamilia,
+I.idInsumo, I.INSUMO, I.DescripcionLarga, I.Costo,
 'INVENTARIO INICIAL' AS PROVEDOR,
 U.IdUnidad, U.Unidad, TI.tipo
 FROM AcCatInsumos I 
@@ -714,18 +714,23 @@ INNER JOIN ACtiposInsumos TI on I.idTipoInsumo=TI.idTipoInsumo
     }
 
     $descripcion = (string) ($row->DescripcionLarga ?: $row->INSUMO);
+    $familia     = trim((string) ($row->Familia ?? ''));
+    $subfamilia  = trim((string) ($row->SubFamilia ?? ''));
+
+    Familia::registrarSiNuevo($familia, $subfamilia);
 
     return response()->json([
         'ok' => true,
         'found' => true,
         'data' => [
-            'insumo_id'   => (string) $row->INSUMO,
-            'descripcion' => $descripcion,
-            'unidad'      => (string) ($row->Unidad ?? 'PZA'),
-            'proveedor'   => 'INVENTARIO INICIAL',
-            'familia'     => (string) ($row->Familia ?? ''),
-            'subfamilia'  => (string) ($row->SubFamilia ?? ''),
-            'tipo'        => (int) ($row->tipo ?? 0),
+            'insumo_id'      => (string) $row->INSUMO,
+            'descripcion'    => $descripcion,
+            'unidad'         => (string) ($row->Unidad ?? 'PZA'),
+            'proveedor'      => 'INVENTARIO INICIAL',
+            'familia'        => $familia,
+            'subfamilia'     => $subfamilia,
+            'tipo'           => (int) ($row->tipo ?? 0),
+            'costo_promedio' => (float) ($row->Costo ?? 0),
         ],
     ]);
 }
