@@ -911,7 +911,7 @@
                         + '?q=' + encodeURIComponent(clean)
                         + (tab.soloHerramientas ? '&solo_h=1' : '')
                         + '&_=' + Date.now();
-                    const res = await fetch(url, {
+                    const res = await fetchConCsrf(url, {
                         headers: { 'Accept': 'application/json' },
                         cache: 'no-store',
                     });
@@ -1128,7 +1128,7 @@
                 if (!q) { this.transferResultados = []; return; }
                 this.transferBuscando = true;
                 try {
-                    const res = await fetch('/transferencias/buscar?q=' + encodeURIComponent(q) + '&_=' + Date.now(), {
+                    const res = await fetchConCsrf('/transferencias/buscar?q=' + encodeURIComponent(q) + '&_=' + Date.now(), {
                         headers: { 'Accept': 'application/json' },
                         cache: 'no-store',
                     });

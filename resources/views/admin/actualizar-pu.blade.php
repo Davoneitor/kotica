@@ -749,7 +749,7 @@
                 this.resultado  = null;
                 this.cambios    = [];
                 try {
-                    const r = await fetch('{{ route('admin.actualizar-pu.manual') }}', {
+                    const r = await fetchConCsrf('{{ route('admin.actualizar-pu.manual') }}', {
                         method: 'POST',
                         headers: {
                             'Content-Type':  'application/json',
@@ -790,7 +790,7 @@
             async cargarStats() {
                 this.statsLoading = true;
                 try {
-                    const r = await fetch('{{ route('admin.actualizar-pu.stats') }}', {
+                    const r = await fetchConCsrf('{{ route('admin.actualizar-pu.stats') }}', {
                         headers: { 'X-Requested-With': 'XMLHttpRequest' }
                     });
                     this.stats = await r.json();
@@ -810,7 +810,7 @@
                 this.ejecutando = true;
                 const label = { todos: 'Todos', entradas: 'Entradas', salidas: 'Salidas', enviadas: 'Enviadas', recibidas: 'Recibidas' }[tipo] || tipo;
                 try {
-                    const r = await fetch('{{ route('admin.actualizar-pu.run') }}', {
+                    const r = await fetchConCsrf('{{ route('admin.actualizar-pu.run') }}', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -890,7 +890,7 @@
 
             async cargarObras() {
                 try {
-                    const r = await fetch('{{ route('admin.masivo.obras') }}', {
+                    const r = await fetchConCsrf('{{ route('admin.masivo.obras') }}', {
                         headers: { 'X-Requested-With': 'XMLHttpRequest' }
                     });
                     this.obras = await r.json();
@@ -910,7 +910,7 @@
                     const params = new URLSearchParams();
                     this.camposSeleccionados.forEach(c => params.append('campos[]', c));
                     this.obrasSeleccionadas.forEach(o => params.append('obras[]', o));
-                    const r = await fetch('{{ route('admin.masivo.analizar') }}?' + params, {
+                    const r = await fetchConCsrf('{{ route('admin.masivo.analizar') }}?' + params, {
                         headers: { 'X-Requested-With': 'XMLHttpRequest' }
                     });
                     this.analisis = await r.json();
@@ -930,7 +930,7 @@
                 this.ejecutando     = true;
                 this.resultado      = null;
                 try {
-                    const r = await fetch('{{ route('admin.masivo.ejecutar') }}', {
+                    const r = await fetchConCsrf('{{ route('admin.masivo.ejecutar') }}', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

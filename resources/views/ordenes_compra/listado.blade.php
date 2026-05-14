@@ -501,7 +501,7 @@
                         @csrf
 
                         {{-- DESCRIPCIÓN (autocomplete por descripción) --}}
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 overflow-visible">
                             <div class="md:col-span-2 relative">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
                                     Descripción <span class="text-red-500">*</span>
@@ -519,10 +519,8 @@
                                 <span x-show="loadingDesc" x-cloak
                                       class="absolute right-3 top-10 text-xs text-gray-400">Buscando...</span>
 
-                                <p class="text-xs text-red-500 mt-1" x-text="'DEBUG resultados: ' + resultsDesc.length"></p>
-
-                                <div :style="resultsDesc.length === 0 ? 'display:none' : ''"
-                                     class="absolute z-20 w-full bg-white border rounded-lg shadow-lg mt-1 max-h-64 overflow-y-auto">
+                                <div x-show="resultsDesc.length > 0" x-cloak
+                                     class="absolute z-50 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-xl mt-1 max-h-64 overflow-y-auto">
                                     <template x-for="item in resultsDesc" :key="item.insumo_id || item.id || item.descripcion">
                                         <button type="button"
                                                 @click="seleccionarDesc(item)"
@@ -577,8 +575,8 @@
                             <span x-show="loadingCode" x-cloak
                                   class="absolute right-3 top-10 text-xs text-gray-400">Buscando...</span>
 
-                            <div :style="resultsCode.length === 0 ? 'display:none' : ''"
-                                 class="absolute z-20 w-full bg-white border rounded-lg shadow-lg mt-1 max-h-64 overflow-y-auto">
+                            <div x-show="resultsCode.length > 0" x-cloak
+                                 class="absolute z-50 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-xl mt-1 max-h-64 overflow-y-auto">
                                 <template x-for="item in resultsCode" :key="item.insumo_id">
                                     <button type="button"
                                             @click="seleccionarCode(item)"
@@ -894,7 +892,7 @@
                     if (this.descripcion.length < 2) { this.resultsDesc = []; return; }
                     this.loadingDesc = true;
                     try {
-                        const r = await fetch(`/salidas/buscar-productos?q=${encodeURIComponent(this.descripcion)}&mode=desc`);
+                        const r = await fetchConCsrf(`/salidas/buscar-productos?q=${encodeURIComponent(this.descripcion)}&mode=desc`);
                         const data = await r.json();
                         this.resultsDesc = Array.isArray(data) ? data : [];
                     } catch (e) {
@@ -907,7 +905,7 @@
                     if (this.selectedInsumoId.length < 2) { this.resultsCode = []; return; }
                     this.loadingCode = true;
                     try {
-                        const r = await fetch(`/salidas/buscar-productos?q=${encodeURIComponent(this.selectedInsumoId)}&mode=code`);
+                        const r = await fetchConCsrf(`/salidas/buscar-productos?q=${encodeURIComponent(this.selectedInsumoId)}&mode=code`);
                         const data = await r.json();
                         this.resultsCode = Array.isArray(data) ? data : [];
                     } catch (e) {
@@ -960,7 +958,7 @@
                     if (this.transLoaded) return;
                     this.transLoading = true;
                     try {
-                        const r = await fetch('/transferencias/pendientes');
+                        const r = await fetchConCsrf('/transferencias/pendientes');
                         if (r.ok) this.transPendientes = await r.json();
                     } catch (e) {}
                     this.transLoading = false;
@@ -987,7 +985,7 @@
                     this.transSending = true;
                     const token = document.querySelector('meta[name="csrf-token"]').content;
                     try {
-                        const r = await fetch(`/transferencias/${this.transModal.id}/recibir`, {
+                        const r = await fetchConCsrf(`/transferencias/${this.transModal.id}/recibir`, {
                             method:  'POST',
                             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token },
                             body:    JSON.stringify({ items }),
@@ -1010,7 +1008,7 @@
                     this.transSending = true;
                     const token = document.querySelector('meta[name="csrf-token"]').content;
                     try {
-                        const r = await fetch(`/transferencias/${this.transModal.id}/rechazar`, {
+                        const r = await fetchConCsrf(`/transferencias/${this.transModal.id}/rechazar`, {
                             method:  'POST',
                             headers: { 'X-CSRF-TOKEN': token },
                         });

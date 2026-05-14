@@ -1155,6 +1155,7 @@
                         <tr>
                             <th class="w-8 px-2 py-2"></th>
                             <th class="px-3 py-2 text-left">Fecha</th>
+                            <th class="px-3 py-2 text-left">OC</th>
                             <th class="px-3 py-2 text-left">Código</th>
                             <th class="px-3 py-2 text-left">Descripción</th>
                             <th class="px-3 py-2 text-left">Unidad</th>
@@ -1181,6 +1182,9 @@
                                 <td class="px-3 py-2 text-xs whitespace-nowrap tabular-nums"
                                     :style="row._fila==='familia' ? dk('color:#475569;font-weight:500','color:#94a3b8;font-weight:600') : dk('color:#6b7280;padding-left:1.5rem','color:#64748b;padding-left:1.5rem')"
                                     x-text="row._fila==='familia' ? row.count+' registros' : formatFechaCorta(row.fecha_recibido)"></td>
+                                <td class="px-3 py-2 font-mono text-xs whitespace-nowrap"
+                                    :style="row._fila==='familia' ? dk('color:#d1d5db','color:#334155') : dk('color:#6366f1;padding-left:1.5rem','color:#818cf8;padding-left:1.5rem')"
+                                    x-text="row._fila!=='familia' ? (row.id_pedido || '—') : ''"></td>
                                 <td class="px-3 py-2 font-mono text-xs"
                                     :style="row._fila==='familia' ? dk('color:#d1d5db','color:#334155') : dk('color:#4b5563;padding-left:1.5rem','color:#64748b;padding-left:1.5rem')"
                                     x-text="row._fila!=='familia' ? row.insumo : ''"></td>
@@ -2291,7 +2295,7 @@
 
                             const url = "{{ route('explore.ordenes_compra_reporte_pdf') }}?" + params.toString();
 
-                            const res = await fetch(url, {
+                            const res = await fetchConCsrf(url, {
                                 headers: { 'Accept': 'application/pdf' },
                                 cache: 'no-store'
                             });
@@ -2356,7 +2360,7 @@
                             if (this.mov.desde) params.set('desde', this.mov.desde);
                             if (this.mov.hasta) params.set('hasta', this.mov.hasta);
 
-                            const res = await fetch("{{ route('explore.movimientos') }}?" + params.toString(), {
+                            const res = await fetchConCsrf("{{ route('explore.movimientos') }}?" + params.toString(), {
                                 headers: {'Accept':'application/json'},
                                 cache: 'no-store'
                             });
@@ -2380,7 +2384,7 @@
     this.loading = true;
 
     try {
-        const res = await fetch("/explore/movimientos/" + movId + "/detalles", {
+        const res = await fetchConCsrf("/explore/movimientos/" + movId + "/detalles", {
             headers: { 'Accept': 'application/json' },
             cache: 'no-store'
         });
@@ -2457,7 +2461,7 @@
                             });
 
                             const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-                            const res = await fetch('/salidas/detalles/' + detalleId + '/destinos', {
+                            const res = await fetchConCsrf('/salidas/detalles/' + detalleId + '/destinos', {
                                 method: 'POST',
                                 headers: {
                                     'Accept': 'application/json',
@@ -2499,7 +2503,7 @@
                             if (this.inv.q) params.set('q', this.inv.q);
                             if (this.modoHerramientas) params.set('solo_h', '1');
 
-                            const res = await fetch("{{ route('explore.inventario') }}?" + params.toString(), {
+                            const res = await fetchConCsrf("{{ route('explore.inventario') }}?" + params.toString(), {
                                 headers: {'Accept':'application/json'},
                                 cache: 'no-store'
                             });
@@ -2518,7 +2522,7 @@
                             const params = new URLSearchParams();
                             if (this.oc.q) params.set('q', this.oc.q);
 
-                            const res = await fetch("{{ route('explore.ordenes_compra') }}?" + params.toString(), {
+                            const res = await fetchConCsrf("{{ route('explore.ordenes_compra') }}?" + params.toString(), {
                                 headers: {'Accept':'application/json'},
                                 cache: 'no-store'
                             });
@@ -2540,7 +2544,7 @@
         if (this.graf.hasta) params.set('hasta', this.graf.hasta);
         params.set('solo_obra_actual', this.graf.soloObraActual ? '1' : '0');
 
-        const res = await fetch("{{ route('explore.graficas') }}?" + params.toString(), {
+        const res = await fetchConCsrf("{{ route('explore.graficas') }}?" + params.toString(), {
             headers: {'Accept':'application/json'},
             cache: 'no-store'
         });
@@ -2570,7 +2574,7 @@
         if (this.ent.tipo)         params.set('tipo',  this.ent.tipo);
         if (this.modoHerramientas) params.set('solo_h', '1');
 
-        const res = await fetch("{{ route('explore.entradas') }}?" + params.toString(), {
+        const res = await fetchConCsrf("{{ route('explore.entradas') }}?" + params.toString(), {
             headers: {'Accept':'application/json'},
             cache: 'no-store'
         });
@@ -2595,7 +2599,7 @@
     this.entradaDetalle = null;
 
     try {
-        const res = await fetch("{{ url('/explore/entradas') }}/" + id + "/detalles", {
+        const res = await fetchConCsrf("{{ url('/explore/entradas') }}/" + id + "/detalles", {
             headers: {'Accept':'application/json'},
             cache: 'no-store'
         });
@@ -2638,7 +2642,7 @@
                             if (this.trans.desde) params.set('desde', this.trans.desde);
                             if (this.trans.hasta) params.set('hasta', this.trans.hasta);
 
-                            const res = await fetch("{{ route('explore.transferencias') }}?" + params.toString(), {
+                            const res = await fetchConCsrf("{{ route('explore.transferencias') }}?" + params.toString(), {
                                 headers: { 'Accept': 'application/json' },
                                 cache: 'no-store'
                             });
@@ -2684,7 +2688,7 @@
                             const params = new URLSearchParams();
                             if (this.escom.desde) params.set('desde', this.escom.desde);
                             if (this.escom.hasta) params.set('hasta', this.escom.hasta);
-                            const res = await fetch('/control-camiones/explore?' + params.toString(), {
+                            const res = await fetchConCsrf('/control-camiones/explore?' + params.toString(), {
                                 headers: { 'Accept': 'application/json' },
                                 cache: 'no-store'
                             });
@@ -2706,7 +2710,7 @@
                         this.loading = true;
                         this.transDetalle = null;
                         try {
-                            const res = await fetch("/explore/transferencias/" + id + "/detalles", {
+                            const res = await fetchConCsrf("/explore/transferencias/" + id + "/detalles", {
                                 headers: { 'Accept': 'application/json' },
                                 cache: 'no-store'
                             });
@@ -2822,7 +2826,7 @@
                             const params = new URLSearchParams();
                             if (this.mov.desde) params.set('desde', this.mov.desde);
                             if (this.mov.hasta) params.set('hasta', this.mov.hasta);
-                            const res = await fetch('/explore/ajustes?' + params.toString(), {
+                            const res = await fetchConCsrf('/explore/ajustes?' + params.toString(), {
                                 headers: {'Accept':'application/json'},
                                 cache: 'no-store'
                             });
@@ -2846,7 +2850,7 @@
                         this.ajuste.guardando   = false;
 
                         try {
-                            const res = await fetch('/explore/movimientos/' + movimiento.id + '/ajuste-detalles', {
+                            const res = await fetchConCsrf('/explore/movimientos/' + movimiento.id + '/ajuste-detalles', {
                                 headers: {'Accept':'application/json'},
                                 cache: 'no-store'
                             });
@@ -2882,7 +2886,7 @@
 
                         try {
                             const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
-                            const res = await fetch('/explore/movimientos/' + this.ajuste.movimiento.id + '/ajustar', {
+                            const res = await fetchConCsrf('/explore/movimientos/' + this.ajuste.movimiento.id + '/ajustar', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
