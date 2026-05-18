@@ -536,83 +536,72 @@
                                         <tr :style="row._fila==='obra'
                                                     ? 'border-top:2px solid #f97316;background:#ffedd5;cursor:pointer;user-select:none'
                                                     : row._fila==='folio'
-                                                        ? 'border-top:1px solid #fed7aa;background:#fffbf5;cursor:pointer;user-select:none'
+                                                        ? 'border-top:1px solid #fed7aa;background:#fff7ed'
                                                         : 'border-top:1px solid #fef3c7'"
-                                            @click="row._fila==='obra' ? toggleTransSalidaGrupo(row.obra) : (row._fila==='folio' ? toggleTransSalidaFolio(row._folioKey) : null)">
-                                            {{-- Col 1: obra = large orange arrow | folio = indented small arrow with accent border --}}
-                                            <td class="px-2 py-2 text-center w-8"
-                                                :style="row._fila==='folio' ? 'padding-left:1.25rem;border-left:3px solid #fed7aa' : (row._fila==='detalle' ? 'border-left:3px solid #fef3c7' : '')">
+                                            @click="row._fila==='obra' ? toggleTransSalidaGrupo(row.obra) : null">
+                                            {{-- Col 1: flecha solo en obra --}}
+                                            <td class="px-2 py-2 text-center w-8">
                                                 <svg x-show="row._fila==='obra'"
                                                      :style="transSalidasExpandidos[row.obra] ? 'transform:rotate(90deg)' : ''"
                                                      style="display:inline;width:1rem;height:1rem;color:#f97316;transition:transform 0.15s"
                                                      fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                                                 </svg>
-                                                <svg x-show="row._fila==='folio'"
-                                                     :style="transSalidasFoliosExpandidos[row._folioKey] ? 'transform:rotate(90deg)' : ''"
-                                                     style="display:inline;width:0.8rem;height:0.8rem;color:#ea580c;transition:transform 0.15s"
-                                                     fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-                                                </svg>
                                             </td>
-                                            {{-- Col 2: fecha / folio+fecha / fecha producto --}}
+                                            {{-- Col 2 --}}
                                             <td class="px-3 py-2 text-xs tabular-nums whitespace-nowrap"
-                                                :style="row._fila==='obra' ? 'color:#fb923c;font-weight:500'
-                                                      : row._fila==='folio' ? 'color:#b45309;padding-left:0.25rem'
-                                                      : 'color:#6b7280;padding-left:3rem'">
+                                                :style="row._fila==='obra' ? 'color:#fb923c'
+                                                      : row._fila==='folio' ? 'color:#b45309;font-weight:600'
+                                                      : 'color:#6b7280;padding-left:1.5rem'">
                                                 <template x-if="row._fila==='obra'">
-                                                    <span x-text="row.count + ' transfer' + (row.count!==1?'s':'')"></span>
+                                                    <span x-text="row.count+' transfer'+(row.count!==1?'s':'')"></span>
                                                 </template>
                                                 <template x-if="row._fila==='folio'">
                                                     <span>
-                                                        <b x-text="'#'+row.transferencia_id"></b>
-                                                        <span style="color:#9ca3af;margin-left:0.4rem" x-text="formatFechaCorta(row.fecha)"></span>
+                                                        <span x-text="'#'+row.transferencia_id"></span>
+                                                        <span style="color:#9ca3af;font-weight:400;margin-left:0.35rem" x-text="formatFechaCorta(row.fecha)"></span>
                                                     </span>
                                                 </template>
                                                 <template x-if="row._fila==='detalle'">
                                                     <span x-text="formatFechaCorta(row.fecha)"></span>
                                                 </template>
                                             </td>
-                                            {{-- Col 3: código / productos count / insumo_id --}}
+                                            {{-- Col 3: código --}}
                                             <td class="px-3 py-2 font-mono text-xs"
-                                                :style="row._fila==='obra' ? 'color:#d1d5db'
-                                                      : row._fila==='folio' ? 'color:#9ca3af'
-                                                      : 'color:#4b5563'"
-                                                x-text="row._fila==='obra' ? '' : (row._fila==='folio' ? (row.count+' prod.') : row.insumo_id)">
+                                                :style="row._fila==='folio' ? 'color:#9ca3af' : 'color:#4b5563'"
+                                                x-text="row._fila==='folio' ? row.count+' prod.' : (row._fila==='detalle' ? row.insumo_id : '')">
                                             </td>
-                                            {{-- Col 4: obra / obra_origen / descripcion --}}
+                                            {{-- Col 4: obra / origen / descripcion --}}
                                             <td class="px-3 py-2"
-                                                :style="row._fila==='obra' ? 'color:#9a3412;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.025em'
-                                                      : row._fila==='folio' ? 'color:#78350f;font-weight:500;font-size:0.75rem'
-                                                      : 'color:#374151;font-size:0.75rem;padding-left:1.5rem'"
+                                                :style="row._fila==='obra' ? 'color:#9a3412;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.04em'
+                                                      : row._fila==='folio' ? 'color:#78350f;font-size:0.75rem'
+                                                      : 'color:#374151;font-size:0.75rem'"
                                                 x-text="row._fila==='obra' ? row.obra
                                                        : row._fila==='folio' ? (row.obra_origen ? 'Desde: '+row.obra_origen : '')
                                                        : row.descripcion">
                                             </td>
-                                            {{-- Col 5: unidad / usuario / unidad --}}
-                                            <td class="px-3 py-2 text-xs"
-                                                :style="row._fila!=='obra' ? 'color:#6b7280' : ''"
-                                                x-text="row._fila==='obra' ? '' : (row._fila==='folio' ? row.usuario : row.unidad)">
+                                            {{-- Col 5 --}}
+                                            <td class="px-3 py-2 text-xs" style="color:#6b7280"
+                                                x-text="row._fila==='folio' ? row.usuario : (row._fila==='detalle' ? row.unidad : '')">
                                             </td>
-                                            {{-- Col 6: cantidad total / cantidad total / cantidad --}}
+                                            {{-- Col 6: cantidad --}}
                                             <td class="px-3 py-2 text-right tabular-nums"
-                                                :style="row._fila==='obra' ? 'color:#c2410c;font-weight:700'
+                                                :style="row._fila==='obra' ? 'color:#c2410c;font-weight:700;font-size:0.875rem'
                                                       : row._fila==='folio' ? 'color:#b45309;font-weight:600;font-size:0.75rem'
                                                       : 'color:#374151;font-size:0.75rem;font-weight:500'"
-                                                x-text="formatNum(row._fila==='detalle' ? row.cantidad : row.cantidad_total)">
+                                                x-text="row._fila==='detalle' ? formatNum(row.cantidad) : formatNum(row.cantidad_total)">
                                             </td>
                                             {{-- Col 7: P.U. --}}
                                             <td class="px-3 py-2 text-right text-xs tabular-nums" style="color:#6b7280"
                                                 x-text="row._fila==='detalle' && row.precio_unitario!=null ? '$'+formatMoney(row.precio_unitario) : '—'">
                                             </td>
-                                            {{-- Col 8: Importe --}}
+                                            {{-- Col 8: importe --}}
                                             <td class="px-3 py-2 text-right tabular-nums"
-                                                :style="row._fila==='obra' ? 'color:#c2410c;font-weight:700'
+                                                :style="row._fila==='obra' ? 'color:#c2410c;font-weight:700;font-size:0.875rem'
                                                       : row._fila==='folio' ? 'color:#b45309;font-weight:600;font-size:0.75rem'
                                                       : 'color:#374151;font-size:0.75rem'"
-                                                x-text="row._fila==='obra' ? (row.importe_total>0 ? '$'+formatMoney(row.importe_total) : '—')
-                                                       : row._fila==='folio' ? (row.importe_total>0 ? '$'+formatMoney(row.importe_total) : '—')
-                                                       : (row.importe!=null ? '$'+formatMoney(row.importe) : '—')">
+                                                x-text="row._fila==='detalle' ? (row.importe!=null ? '$'+formatMoney(row.importe) : '—')
+                                                       : (row.importe_total>0 ? '$'+formatMoney(row.importe_total) : '—')">
                                             </td>
                                         </tr>
                                     </template>
@@ -1051,80 +1040,71 @@
                     <tbody>
                         <template x-for="row in entradasTransGruposFlat()" :key="row._key">
                             <tr :style="row._fila==='obra'
-                                    ? dk('border-top:2px solid #f97316;background:#fff7ed;cursor:pointer;user-select:none','border-top:2px solid #ea580c;background:#2e1400;cursor:pointer;user-select:none')
-                                    : row._fila==='folio'
-                                        ? dk('border-top:1px solid #fed7aa;background:#fffbf5;cursor:pointer;user-select:none','border-top:1px solid #7c2d12;background:#1e0c00;cursor:pointer;user-select:none')
-                                        : dk('border-top:1px solid #fed7aa','border-top:1px solid #3a1800') + (row.revertida ? ';opacity:0.5' : '')"
-                                @click="row._fila==='obra' ? toggleTransObraGrupo(row.obra) : (row._fila==='folio' ? toggleTransGrupo(row._folioKey) : null)">
-                                {{-- Col 1: obra = large orange arrow | folio = indented small arrow with accent border --}}
-                                <td class="px-2 py-2 text-center w-8"
-                                    :style="row._fila==='folio' ? 'padding-left:1.25rem;border-left:3px solid #fed7aa' : (row._fila==='detalle' ? 'border-left:3px solid #fef3c7' : '')">
+                                        ? dk('border-top:2px solid #f97316;background:#fff7ed;cursor:pointer;user-select:none','border-top:2px solid #ea580c;background:#2e1400;cursor:pointer;user-select:none')
+                                        : row._fila==='folio'
+                                            ? dk('border-top:1px solid #fed7aa;background:#fff7ed','border-top:1px solid #7c2d12;background:#1e0c00')
+                                            : dk('border-top:1px solid #fef3c7','border-top:1px solid #3a1800') + (row.revertida ? ';opacity:0.5' : '')"
+                                @click="row._fila==='obra' ? toggleTransObraGrupo(row.obra) : null">
+                                {{-- Col 1: flecha solo en obra --}}
+                                <td class="px-2 py-2 text-center w-8">
                                     <svg x-show="row._fila==='obra'"
                                          :style="(transObraExpandidos[row.obra]?'transform:rotate(90deg);':'') + dk('color:#f97316','color:#fb923c') + ';display:inline;width:1rem;height:1rem;transition:transform 0.15s'"
                                          fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                                     </svg>
-                                    <svg x-show="row._fila==='folio'"
-                                         :style="(transTablaExpandidos[row._folioKey]?'transform:rotate(90deg);':'') + 'display:inline;width:0.8rem;height:0.8rem;color:#ea580c;transition:transform 0.15s'"
-                                         fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-                                    </svg>
                                 </td>
-                                {{-- Col 2: folio count / #folio+fecha / fecha_recibido --}}
-                                <td class="px-3 py-2 text-xs whitespace-nowrap tabular-nums"
-                                    :style="row._fila==='obra' ? dk('color:#c2410c;font-weight:500','color:#fdba74;font-weight:500')
-                                          : row._fila==='folio' ? dk('color:#c2410c;font-weight:500','color:#fdba74;font-weight:600') + ';padding-left:0.25rem'
-                                          : dk('color:#6b7280','color:#7a5030') + ';padding-left:3rem'">
+                                {{-- Col 2 --}}
+                                <td class="px-3 py-2 text-xs tabular-nums whitespace-nowrap"
+                                    :style="row._fila==='obra' ? dk('color:#fb923c','color:#fdba74')
+                                          : row._fila==='folio' ? dk('color:#b45309;font-weight:600','color:#fdba74;font-weight:600')
+                                          : dk('color:#6b7280;padding-left:1.5rem','color:#7a5030;padding-left:1.5rem')">
                                     <template x-if="row._fila==='obra'">
-                                        <span x-text="row.count + ' folio' + (row.count!==1?'s':'')"></span>
+                                        <span x-text="row.count+' folio'+(row.count!==1?'s':'')"></span>
                                     </template>
                                     <template x-if="row._fila==='folio'">
                                         <span>
-                                            <b x-text="'#'+row.folio_id"></b>
-                                            <span style="color:#9ca3af;margin-left:0.4rem;font-weight:400" x-text="formatFechaCorta(row.fecha)"></span>
+                                            <span x-text="'#'+row.folio_id"></span>
+                                            <span style="color:#9ca3af;font-weight:400;margin-left:0.35rem" x-text="formatFechaCorta(row.fecha)"></span>
                                         </span>
                                     </template>
                                     <template x-if="row._fila==='detalle'">
                                         <span x-text="formatFechaCorta(row.fecha_recibido)"></span>
                                     </template>
                                 </td>
-                                {{-- Col 3: — / N prod. / insumo --}}
+                                {{-- Col 3 --}}
                                 <td class="px-3 py-2 font-mono text-xs"
-                                    :style="row._fila==='obra' ? ''
-                                          : row._fila==='folio' ? dk('color:#9ca3af','color:#6b7280')
-                                          : dk('color:#4b5563','color:#7a5030')"
-                                    x-text="row._fila==='obra' ? '' : (row._fila==='folio' ? (row.count+' prod.') : row.insumo)">
+                                    :style="row._fila==='folio' ? dk('color:#9ca3af','color:#6b7280') : dk('color:#4b5563','color:#7a5030')"
+                                    x-text="row._fila==='folio' ? row.count+' prod.' : (row._fila==='detalle' ? row.insumo : '')">
                                 </td>
-                                {{-- Col 4: obra name / — / descripcion --}}
+                                {{-- Col 4: obra / — / descripcion --}}
                                 <td class="px-3 py-2"
-                                    :style="row._fila==='obra' ? dk('color:#9a3412;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.025em','color:#fdba74;font-weight:700;font-size:0.875rem;text-transform:uppercase')
+                                    :style="row._fila==='obra' ? dk('color:#9a3412;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.04em','color:#fdba74;font-weight:700;font-size:0.875rem;text-transform:uppercase')
                                           : row._fila==='folio' ? dk('color:#d1d5db','color:#3a2010')
-                                          : dk('font-size:0.75rem;color:#374151;padding-left:1.5rem','font-size:0.75rem;color:#8a6040;padding-left:1.5rem')"
+                                          : dk('font-size:0.75rem;color:#374151','font-size:0.75rem;color:#8a6040')"
                                     x-text="row._fila==='obra' ? row.obra : (row._fila==='folio' ? '' : row.descripcion)">
                                 </td>
-                                {{-- Col 5: — / usuario / unidad --}}
+                                {{-- Col 5 --}}
                                 <td class="px-3 py-2 text-xs" :style="dk('color:#6b7280','color:#5a3a20')"
                                     x-text="row._fila==='obra' ? '' : (row._fila==='folio' ? (row.usuario||'—') : row.unidad)">
                                 </td>
-                                {{-- Col 6: cantidad total / cantidad total / cantidad_llego --}}
+                                {{-- Col 6 --}}
                                 <td class="px-3 py-2 text-right tabular-nums"
-                                    :style="row._fila==='obra' ? dk('color:#7c2d12;font-weight:700','color:#fbbf24;font-weight:700')
+                                    :style="row._fila==='obra' ? dk('color:#7c2d12;font-weight:700;font-size:0.875rem','color:#fbbf24;font-weight:700;font-size:0.875rem')
                                           : row._fila==='folio' ? dk('color:#7c2d12;font-weight:600;font-size:0.75rem','color:#fbbf24;font-weight:600;font-size:0.75rem')
-                                          : dk('font-size:0.75rem;font-weight:500;color:#374151','font-size:0.75rem;font-weight:500;color:#8a6040')"
-                                    x-text="formatNum(row._fila==='detalle' ? row.cantidad_llego : row.cantidad_total)">
+                                          : dk('font-weight:500;font-size:0.75rem;color:#374151','font-weight:500;font-size:0.75rem;color:#8a6040')"
+                                    x-text="row._fila==='detalle' ? formatNum(row.cantidad_llego) : formatNum(row.cantidad_total)">
                                 </td>
-                                {{-- Col 7: — / — / precio_unitario --}}
+                                {{-- Col 7 --}}
                                 <td class="px-3 py-2 text-right text-xs tabular-nums" :style="dk('color:#6b7280','color:#5a3a20')"
                                     x-text="row._fila==='detalle' && row.precio_unitario!=null ? '$'+formatMoney(row.precio_unitario) : '—'">
                                 </td>
-                                {{-- Col 8: importe total / importe total / importe --}}
+                                {{-- Col 8 --}}
                                 <td class="px-3 py-2 text-right tabular-nums"
-                                    :style="row._fila==='obra' ? dk('color:#7c2d12;font-weight:700','color:#fbbf24;font-weight:700')
+                                    :style="row._fila==='obra' ? dk('color:#7c2d12;font-weight:700;font-size:0.875rem','color:#fbbf24;font-weight:700;font-size:0.875rem')
                                           : row._fila==='folio' ? dk('color:#7c2d12;font-weight:600;font-size:0.75rem','color:#fbbf24;font-weight:600;font-size:0.75rem')
                                           : dk('font-size:0.75rem;color:#374151','font-size:0.75rem;color:#8a6040')"
-                                    x-text="row._fila==='obra' ? (row.importe_total>0 ? '$'+formatMoney(row.importe_total) : '—')
-                                          : row._fila==='folio' ? (row.importe_total>0 ? '$'+formatMoney(row.importe_total) : '—')
-                                          : (row.importe!=null ? '$'+formatMoney(row.importe) : '—')">
+                                    x-text="row._fila==='detalle' ? (row.importe!=null ? '$'+formatMoney(row.importe) : '—')
+                                          : (row.importe_total>0 ? '$'+formatMoney(row.importe_total) : '—')">
                                 </td>
                             </tr>
                         </template>
@@ -2788,27 +2768,18 @@
                         const result = [];
                         for (const obraGrupo of sortedObras) {
                             result.push({ _fila: 'obra', _key: 'ts_o_' + obraGrupo.obra,
-                                obra: obraGrupo.obra, cantidad_total: obraGrupo.cantidad_total, importe_total: obraGrupo.importe_total, count: obraGrupo.foliosCount });
+                                obra: obraGrupo.obra, cantidad_total: obraGrupo.cantidad_total,
+                                importe_total: obraGrupo.importe_total, count: obraGrupo.foliosCount });
                             if (this.transSalidasExpandidos[obraGrupo.obra]) {
                                 const folios = Object.values(obraGrupo.foliosMap).sort((a, b) => b.transferencia_id - a.transferencia_id);
                                 for (const folio of folios) {
-                                    const folioKey = obraGrupo.obra + '_' + folio.transferencia_id;
-                                    result.push({ _fila: 'folio', _key: 'ts_f_' + folioKey,
-                                        transferencia_id: folio.transferencia_id,
-                                        fecha:         folio.fecha,
-                                        obra_origen:   folio.obra_origen,
-                                        obra_destino:  folio.obra_destino,
-                                        usuario:       folio.usuario,
-                                        observaciones: folio.observaciones,
-                                        cantidad_total: folio.cantidad_total,
-                                        importe_total:  folio.importe_total,
-                                        count: folio.filas.length,
-                                        _folioKey: folioKey,
-                                    });
-                                    if (this.transSalidasFoliosExpandidos[folioKey]) {
-                                        for (const fila of folio.filas) {
-                                            result.push({ _fila: 'detalle', _key: 'ts_d_' + fila.id, ...fila });
-                                        }
+                                    result.push({ _fila: 'folio', _key: 'ts_f_' + obraGrupo.obra + '_' + folio.transferencia_id,
+                                        transferencia_id: folio.transferencia_id, fecha: folio.fecha,
+                                        obra_origen: folio.obra_origen, usuario: folio.usuario,
+                                        cantidad_total: folio.cantidad_total, importe_total: folio.importe_total,
+                                        count: folio.filas.length });
+                                    for (const fila of folio.filas) {
+                                        result.push({ _fila: 'detalle', _key: 'ts_d_' + fila.id, ...fila });
                                     }
                                 }
                             }
@@ -3082,18 +3053,21 @@
                         const sortedObras = Object.values(obrasMap).sort((a, b) => a.obra.localeCompare(b.obra, 'es-MX'));
                         const result = [];
                         for (const obraGrupo of sortedObras) {
-                            result.push({ _fila: 'obra', _key: 'tr_o_' + obraGrupo.obra, obra: obraGrupo.obra, cantidad_total: obraGrupo.cantidad_total, importe_total: obraGrupo.importe_total, count: obraGrupo.foliosCount });
+                            result.push({ _fila: 'obra', _key: 'tr_o_' + obraGrupo.obra,
+                                obra: obraGrupo.obra, cantidad_total: obraGrupo.cantidad_total,
+                                importe_total: obraGrupo.importe_total, count: obraGrupo.foliosCount });
                             if (this.transObraExpandidos[obraGrupo.obra]) {
                                 const folios = Object.values(obraGrupo.foliosMap).sort((a, b) => {
                                     const fd = (b.fecha || '').localeCompare(a.fecha || '');
                                     return fd !== 0 ? fd : String(b.folio_id).localeCompare(String(a.folio_id));
                                 });
                                 for (const folio of folios) {
-                                    const folioKey = obraGrupo.obra + '_' + folio.folio_id;
-                                    result.push({ _fila: 'folio', _key: 'tr_f_' + folioKey, _folioKey: folioKey, folio_id: folio.folio_id, fecha: folio.fecha, obra_origen: obraGrupo.obra, usuario: folio.usuario, cantidad_total: folio.cantidad_total, importe_total: folio.importe_total, count: folio.count });
-                                    if (this.transTablaExpandidos[folioKey]) {
-                                        for (const fila of folio.filas) result.push({ _fila: 'detalle', _key: 'tr_d_' + fila.id, ...fila });
-                                    }
+                                    result.push({ _fila: 'folio', _key: 'tr_f_' + obraGrupo.obra + '_' + folio.folio_id,
+                                        folio_id: folio.folio_id, fecha: folio.fecha,
+                                        obra_origen: obraGrupo.obra, usuario: folio.usuario,
+                                        cantidad_total: folio.cantidad_total, importe_total: folio.importe_total,
+                                        count: folio.count });
+                                    for (const fila of folio.filas) result.push({ _fila: 'detalle', _key: 'tr_d_' + fila.id, ...fila });
                                 }
                             }
                         }
