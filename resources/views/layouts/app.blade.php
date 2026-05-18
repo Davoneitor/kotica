@@ -100,6 +100,23 @@
 
         return res;
     };
+
+    /**
+     * submitConTokenFresco(form)
+     * Para forms HTML normales: renueva el _token antes de enviar para evitar 419.
+     */
+    window.submitConTokenFresco = async function(form) {
+        try {
+            const r = await fetch('/csrf-token', { headers: { 'Accept': 'application/json' } });
+            if (r.ok) {
+                const data = await r.json();
+                document.querySelector('meta[name="csrf-token"]').setAttribute('content', data.token);
+                const tokenInput = form.querySelector('input[name="_token"]');
+                if (tokenInput) tokenInput.value = data.token;
+            }
+        } catch (_) { /* si falla la red, intenta enviar igual */ }
+        form.submit();
+    };
     </script>
     </body>
 </html>

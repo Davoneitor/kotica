@@ -308,7 +308,7 @@
 
                                                             <form method="POST"
                                                                   action="{{ route('ordenes-compra.finiquitar') }}"
-                                                                  @submit="sendingFin=true">
+                                                                  @submit.prevent="sendingFin=true; submitConTokenFresco($event.target)">
                                                                 @csrf
                                                                 <input type="hidden" name="pedido_det_id"     value="{{ $it['pedido_det_id'] }}">
                                                                 <input type="hidden" name="id_pedido"         value="{{ $o['idPedido'] }}">
@@ -382,7 +382,7 @@
                                                                 enctype="multipart/form-data"
                                                                 class="space-y-4"
                                                                 x-data="{ preview:null, sending:false }"
-                                                                @submit="sending=true">
+                                                                @submit.prevent="sending=true; submitConTokenFresco($event.target)">
 
                                                             @csrf
 
@@ -497,7 +497,7 @@
                           method="POST"
                           action="{{ route('entradas-manuales.store') }}"
                           class="space-y-4 pb-24"
-                          @submit="sending = true">
+                          @submit.prevent="sending = true; submitConTokenFresco($event.target)">
                         @csrf
 
                         {{-- DESCRIPCIÓN (autocomplete por descripción) --}}
