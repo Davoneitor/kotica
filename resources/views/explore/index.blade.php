@@ -1212,106 +1212,114 @@
                 </div>
 
                 {{-- ═══════════════════════════ VISTA TABLA ═══════════════════════════ --}}
+                {{-- ═══════════ VISTA TABLA 3 NIVELES: Obra → Orden → Insumos ═══════════ --}}
                 <div x-show="trans.vista === 'tabla' && transferenciasFiltered().length > 0"
                      class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
                     <div class="overflow-x-auto">
                         <table class="min-w-full text-sm">
                             <thead class="bg-gray-50 border-b border-gray-200">
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">#</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fecha</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Dirección</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Obra Origen</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Obra Destino</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Usuario</th>
-                                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Insumos</th>
-                                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Piezas</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Observaciones</th>
-                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Acciones</th>
+                                    <th class="w-10"></th>
+                                    <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Obra / # / Código</th>
+                                    <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Descripción</th>
+                                    <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Fecha</th>
+                                    <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Cant.</th>
+                                    <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Unidad</th>
+                                    <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase">P.U.</th>
+                                    <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Importe</th>
+                                    <th class="px-3 py-2 text-center text-xs font-semibold text-gray-500 uppercase">PDF</th>
                                 </tr>
                             </thead>
-                            <template x-for="tr in transferenciasFiltered()" :key="tr.id">
-                                <tbody class="border-b border-gray-100">
-                                        <tr class="hover:bg-gray-50">
-                                            <td class="px-4 py-3 font-mono text-gray-500 text-xs" x-text="'#' + tr.id"></td>
-                                            <td class="px-4 py-3 whitespace-nowrap" x-text="tr.fecha"></td>
-                                            <td class="px-4 py-3">
-                                                <span :class="tr.direccion === 'enviada'
-                                                              ? 'bg-blue-100 text-blue-800'
-                                                              : 'bg-amber-100 text-amber-800'"
-                                                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold">
-                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                                        <path x-show="tr.direccion === 'enviada'" stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"/>
-                                                        <path x-show="tr.direccion !== 'enviada'" stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3"/>
-                                                    </svg>
-                                                    <span x-text="tr.direccion === 'enviada' ? 'Enviada' : 'Recibida'"></span>
-                                                </span>
-                                            </td>
-                                            <td class="px-4 py-3 text-sm font-medium text-gray-800" x-text="tr.obra_origen"></td>
-                                            <td class="px-4 py-3 text-sm font-medium text-gray-800" x-text="tr.obra_destino"></td>
-                                            <td class="px-4 py-3 text-sm text-gray-600" x-text="tr.usuario"></td>
-                                            <td class="px-4 py-3 text-right font-semibold tabular-nums" x-text="tr.total_insumos"></td>
-                                            <td class="px-4 py-3 text-right tabular-nums" x-text="parseFloat(tr.total_piezas || 0).toFixed(2)"></td>
-                                            <td class="px-4 py-3 text-xs text-gray-500 italic max-w-xs truncate" x-text="tr.observaciones || '—'"></td>
-                                            <td class="px-4 py-3 text-center">
-                                                <div class="flex items-center justify-center gap-2">
-                                                    <button @click="verTransDetalles(tr.id)"
-                                                            :class="detallesTransId === tr.id ? 'bg-gray-900 text-white' : 'bg-gray-50 hover:bg-gray-100'"
-                                                            class="px-3 py-2 text-sm rounded border transition-colors">
-                                                        <span x-text="detallesTransId === tr.id ? 'Ocultar' : 'Detalles'"></span>
-                                                    </button>
-                                                    <a :href="'/transferencias/'+tr.id+'/pdf'"
-                                                       target="_blank"
-                                                       class="px-3 py-2 text-sm rounded border bg-gray-50 hover:bg-gray-100">
-                                                        PDF
-                                                    </a>
-                                                </div>
-                                            </td>
-                                        </tr>
+                            <tbody>
+                                <template x-for="row in transGruposFlat()" :key="row._key">
+                                    <tr :class="{
+                                            'border-t-2 border-orange-200 bg-orange-50 cursor-pointer hover:bg-orange-100 select-none': row._tipo === 'obra',
+                                            'border-t border-gray-200 bg-gray-50 cursor-pointer hover:bg-gray-100 select-none': row._tipo === 'orden',
+                                            'border-t border-gray-100 hover:bg-gray-50': row._tipo === 'insumo',
+                                            'bg-white': row._tipo === 'cargando'
+                                        }"
+                                        @click="row._tipo === 'obra' ? toggleTransObraGrupo(row.obra) : (row._tipo === 'orden' ? toggleTransOrden(row.id) : null)">
 
-                                        {{-- Fila de detalles expandibles --}}
-                                        <tr x-show="detallesTransId === tr.id" class="bg-gray-50">
-                                            <td colspan="10" class="px-6 py-3">
-                                                <template x-if="!transDetalle || !transDetalle.detalles || transDetalle.detalles.length === 0">
-                                                    <div class="text-sm text-gray-500 py-2">Sin detalles registrados.</div>
-                                                </template>
-                                                <template x-if="transDetalle && transDetalle.detalles && transDetalle.detalles.length > 0">
-                                                    <div class="overflow-x-auto">
-                                                        <table class="min-w-full text-xs border rounded">
-                                                            <thead class="bg-white border-b">
-                                                                <tr>
-                                                                    <th class="px-3 py-2 text-left font-semibold text-gray-500">Cód.</th>
-                                                                    <th class="px-3 py-2 text-left font-semibold text-gray-500">Descripción</th>
-                                                                    <th class="px-3 py-2 text-right font-semibold text-gray-500">Cant.</th>
-                                                                    <th class="px-3 py-2 text-right font-semibold text-indigo-400">Orig. antes</th>
-                                                                    <th class="px-3 py-2 text-right font-semibold text-indigo-600">Orig. desp.</th>
-                                                                    <th class="px-3 py-2 text-right font-semibold text-emerald-400">Dest. antes</th>
-                                                                    <th class="px-3 py-2 text-right font-semibold text-emerald-600">Dest. desp.</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody class="divide-y divide-gray-100 bg-white">
-                                                                <template x-for="d in transDetalle.detalles" :key="d.id">
-                                                                    <tr class="hover:bg-gray-50">
-                                                                        <td class="px-3 py-2 font-mono text-gray-400" x-text="d.insumo_id ?? '—'"></td>
-                                                                        <td class="px-3 py-2 font-medium text-gray-800" x-text="d.descripcion"></td>
-                                                                        <td class="px-3 py-2 text-right font-semibold tabular-nums">
-                                                                            <span x-text="parseFloat(d.cantidad).toFixed(2)"></span>
-                                                                            <span class="text-gray-400 ml-0.5" x-text="d.unidad ?? ''"></span>
-                                                                        </td>
-                                                                        <td class="px-3 py-2 text-right text-indigo-500 tabular-nums" x-text="parseFloat(d.origen_stock_antes).toFixed(2)"></td>
-                                                                        <td class="px-3 py-2 text-right text-red-500 font-semibold tabular-nums" x-text="parseFloat(d.origen_stock_despues).toFixed(2)"></td>
-                                                                        <td class="px-3 py-2 text-right text-emerald-500 tabular-nums" x-text="parseFloat(d.destino_stock_antes).toFixed(2)"></td>
-                                                                        <td class="px-3 py-2 text-right text-emerald-700 font-semibold tabular-nums" x-text="parseFloat(d.destino_stock_despues).toFixed(2)"></td>
-                                                                    </tr>
-                                                                </template>
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                </template>
-                                            </td>
-                                        </tr>
-                                </tbody>
-                            </template>
+                                        {{-- Flecha toggle --}}
+                                        <td class="text-center" style="width:40px">
+                                            <svg x-show="row._tipo === 'obra' || row._tipo === 'orden'"
+                                                 :class="{
+                                                     'rotate-90': (row._tipo==='obra' && transObraExpandidos[row.obra]) || (row._tipo==='orden' && transOrdenExpandidos[row.id]),
+                                                     'text-orange-500': row._tipo === 'obra',
+                                                     'text-gray-500 ml-4': row._tipo === 'orden'
+                                                 }"
+                                                 class="inline w-4 h-4 transition-transform duration-150"
+                                                 fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                            </svg>
+                                        </td>
+
+                                        {{-- Col 1: identificador --}}
+                                        <td :class="{
+                                                'px-3 py-2 font-bold text-orange-800 text-sm uppercase tracking-wide': row._tipo === 'obra',
+                                                'px-3 py-2 font-mono text-xs text-gray-500': row._tipo === 'orden',
+                                                'px-3 py-2 text-xs text-gray-400 italic': row._tipo === 'cargando',
+                                                'px-3 py-1.5 font-mono text-xs text-gray-400 pl-10': row._tipo === 'insumo'
+                                            }"
+                                            x-text="row._tipo==='obra' ? row.obra : row._tipo==='orden' ? '#'+row.id : row._tipo==='cargando' ? 'Cargando...' : (row.insumo_id ?? '—')">
+                                        </td>
+
+                                        {{-- Col 2: descripción / nota --}}
+                                        <td :class="{
+                                                'px-3 py-2 text-xs text-orange-400': row._tipo === 'obra',
+                                                'px-3 py-2 text-xs text-gray-600': row._tipo === 'orden',
+                                                'px-3 py-1.5 text-xs text-gray-700': row._tipo === 'insumo'
+                                            }"
+                                            x-text="row._tipo==='obra'    ? (row.count + ' orden' + (row.count!==1?'es':'')) :
+                                                     row._tipo==='orden'  ? ((row.total_insumos||0) + ' insumos' + (row.observaciones ? ' · '+row.observaciones : '')) :
+                                                     row._tipo==='insumo' ? row.descripcion : ''">
+                                        </td>
+
+                                        {{-- Col 3: fecha --}}
+                                        <td class="px-3 py-2 text-xs text-gray-500 whitespace-nowrap tabular-nums"
+                                            x-text="row._tipo==='orden' ? row.fecha : ''">
+                                        </td>
+
+                                        {{-- Col 4: cantidad --}}
+                                        <td class="px-3 py-2 text-right tabular-nums"
+                                            :class="{
+                                                'font-bold text-orange-700': row._tipo === 'obra',
+                                                'text-xs font-medium text-gray-700': row._tipo === 'orden' || row._tipo === 'insumo'
+                                            }"
+                                            x-text="row._tipo==='obra'   ? formatNum(row.total_piezas) :
+                                                     row._tipo==='orden' ? formatNum(row.total_piezas) :
+                                                     row._tipo==='insumo'? parseFloat(row.cantidad||0).toFixed(2) : ''">
+                                        </td>
+
+                                        {{-- Col 5: unidad --}}
+                                        <td class="px-3 py-1.5 text-xs text-gray-400"
+                                            x-text="row._tipo==='insumo' ? (row.unidad ?? '') : ''">
+                                        </td>
+
+                                        {{-- Col 6: P.U. --}}
+                                        <td class="px-3 py-1.5 text-right text-xs tabular-nums text-gray-500"
+                                            x-text="row._tipo==='insumo' ? (row.precio_unitario ? '$'+formatMoney(row.precio_unitario) : '—') : ''">
+                                        </td>
+
+                                        {{-- Col 7: importe --}}
+                                        <td class="px-3 py-1.5 text-right text-xs tabular-nums text-gray-700"
+                                            x-text="row._tipo==='insumo' ? (row.precio_unitario && row.cantidad ? '$'+formatMoney(parseFloat(row.precio_unitario)*parseFloat(row.cantidad)) : '—') : ''">
+                                        </td>
+
+                                        {{-- Col 8: PDF --}}
+                                        <td class="px-3 py-2 text-center">
+                                            <template x-if="row._tipo === 'orden'">
+                                                <a :href="'/transferencias/'+row.id+'/pdf'"
+                                                   target="_blank"
+                                                   @click.stop
+                                                   class="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 text-gray-600">
+                                                    PDF
+                                                </a>
+                                            </template>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -2016,6 +2024,10 @@
                     transferencias: [],
                     detallesTransId: null,
                     transDetalle: null,
+                    transObraExpandidos: {},
+                    transOrdenExpandidos: {},
+                    transDetallesCache: {},
+                    transOrdenCargando: {},
 
 
                     tab: 'mov',
@@ -2425,6 +2437,10 @@
                         this.loading = true;
                         this.detallesTransId = null;
                         this.transDetalle = null;
+                        this.transObraExpandidos = {};
+                        this.transOrdenExpandidos = {};
+                        this.transDetallesCache = {};
+                        this.transOrdenCargando = {};
                         try {
                             const params = new URLSearchParams();
                             if (this.trans.q)     params.set('q',     this.trans.q);
@@ -2487,6 +2503,62 @@
                             this.escombros = [];
                         } finally {
                             this.loadingEscom = false;
+                        }
+                    },
+
+                    transGruposFlat() {
+                        const filtered = this.transferenciasFiltered();
+                        const grupos = {};
+                        for (const tr of filtered) {
+                            const obra = this.trans.dir === 'recibida' ? tr.obra_origen
+                                       : this.trans.dir === 'enviada'  ? tr.obra_destino
+                                       : (tr.direccion === 'enviada'   ? tr.obra_destino : tr.obra_origen);
+                            if (!grupos[obra]) grupos[obra] = { obra, count: 0, total_piezas: 0, ords: [] };
+                            grupos[obra].count++;
+                            grupos[obra].total_piezas += parseFloat(tr.total_piezas || 0);
+                            grupos[obra].ords.push(tr);
+                        }
+                        const result = [];
+                        for (const g of Object.values(grupos).sort((a, b) => a.obra.localeCompare(b.obra))) {
+                            result.push({ _tipo: 'obra', _key: 'obra_' + g.obra, obra: g.obra, count: g.count, total_piezas: g.total_piezas });
+                            if (this.transObraExpandidos[g.obra]) {
+                                for (const tr of g.ords) {
+                                    result.push({ _tipo: 'orden', _key: 'ord_' + tr.id, ...tr });
+                                    if (this.transOrdenExpandidos[tr.id]) {
+                                        if (this.transOrdenCargando[tr.id]) {
+                                            result.push({ _tipo: 'cargando', _key: 'carg_' + tr.id });
+                                        } else {
+                                            for (const d of (this.transDetallesCache[tr.id] || [])) {
+                                                result.push({ _tipo: 'insumo', _key: 'ins_' + d.id, ...d });
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        return result;
+                    },
+
+                    toggleTransObraGrupo(obra) {
+                        this.transObraExpandidos = { ...this.transObraExpandidos, [obra]: !this.transObraExpandidos[obra] };
+                    },
+
+                    async toggleTransOrden(transId) {
+                        const abierto = this.transOrdenExpandidos[transId];
+                        this.transOrdenExpandidos = { ...this.transOrdenExpandidos, [transId]: !abierto };
+                        if (!abierto && !this.transDetallesCache[transId]) {
+                            this.transOrdenCargando = { ...this.transOrdenCargando, [transId]: true };
+                            try {
+                                const res = await fetchConCsrf('/explore/transferencias/' + transId + '/detalles', {
+                                    headers: { 'Accept': 'application/json' }, cache: 'no-store'
+                                });
+                                const data = await res.json();
+                                this.transDetallesCache = { ...this.transDetallesCache, [transId]: data.detalles || [] };
+                            } catch (e) {
+                                this.transDetallesCache = { ...this.transDetallesCache, [transId]: [] };
+                            } finally {
+                                this.transOrdenCargando = { ...this.transOrdenCargando, [transId]: false };
+                            }
                         }
                     },
 
