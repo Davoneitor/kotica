@@ -211,6 +211,7 @@ public function movimientoDetalles(Movimiento $movimiento)
             ->join('movimientos', 'movimientos.id', '=', 'movimiento_detalles.movimiento_id')
             ->leftJoin('inventarios', 'inventarios.id', '=', 'movimiento_detalles.inventario_id')
             ->leftJoin('users', 'users.id', '=', 'movimientos.user_id')
+            ->leftJoin('obras as obs_s', 'obs_s.id', '=', 'movimientos.obra_id')
             ->when($obraId, fn($qq) => $qq->where('movimientos.obra_id', $obraId))
             ->when($desde, fn($qq) => $qq->whereDate('movimientos.fecha', '>=', $desde))
             ->when($hasta, fn($qq) => $qq->whereDate('movimientos.fecha', '<=', $hasta))
@@ -246,12 +247,14 @@ public function movimientoDetalles(Movimiento $movimiento)
                 'movimientos.nombre_cabo',
                 DB::raw('inventarios.insumo_id as codigo_insumo'),
                 DB::raw('users.name as usuario'),
+                DB::raw('obs_s.nombre as obra_nombre'),
             ]);
 
         return response()->json($rows->map(fn($r) => [
             'id'              => $r->id,
             'movimiento_id'   => (int) $r->movimiento_id,
             'fecha'           => (string) $r->fecha,
+            'obra'            => (string) ($r->obra_nombre  ?? 'SIN OBRA'),
             'destino'         => (string) ($r->destino      ?? ''),
             'nombre_cabo'     => (string) ($r->nombre_cabo  ?? ''),
             'usuario'         => (string) ($r->usuario      ?? ''),
@@ -799,7 +802,9 @@ $user = Auth::user();
     }
 
     $rows = OcRecepcion::query()
-        ->where('obra_id', $obraId)
+        ->leftJoin('obras as obs_e', 'obs_e.id', '=', 'oc_recepciones.obra_id')
+        ->select(['oc_recepciones.*', DB::raw('obs_e.nombre as obra_nombre')])
+        ->where('oc_recepciones.obra_id', $obraId)
         ->when($soloH, function ($qq) use ($obraId) {
             $qq->whereExists(function ($sub) use ($obraId) {
                 $sub->from('inventarios')
@@ -810,24 +815,24 @@ $user = Auth::user();
         })
         ->when($q !== '', function ($qq) use ($q, $transIdsByOrigen) {
             $qq->where(function ($w) use ($q, $transIdsByOrigen) {
-                $w->where('insumo', 'like', "%{$q}%")
-                  ->orWhere('descripcion', 'like', "%{$q}%")
-                  ->orWhere('id_pedido', 'like', "%{$q}%");
+                $w->where('oc_recepciones.insumo', 'like', "%{$q}%")
+                  ->orWhere('oc_recepciones.descripcion', 'like', "%{$q}%")
+                  ->orWhere('oc_recepciones.id_pedido', 'like', "%{$q}%");
                 if (!empty($transIdsByOrigen)) {
                     $w->orWhereIn('id_pedido', $transIdsByOrigen);
                 }
             });
         })
-        ->when($desde, fn($qq) => $qq->whereDate('fecha_recibido', '>=', $desde))
-        ->when($hasta, fn($qq) => $qq->whereDate('fecha_recibido', '<=', $hasta))
+        ->when($desde, fn($qq) => $qq->whereDate('oc_recepciones.fecha_recibido', '>=', $desde))
+        ->when($hasta, fn($qq) => $qq->whereDate('oc_recepciones.fecha_recibido', '<=', $hasta))
         ->when($tipo, function ($qq) use ($tipo) {
             if ($tipo === 'oc') {
-                $qq->where(fn($w) => $w->where('tipo', 'oc')->orWhereNull('tipo'));
+                $qq->where(fn($w) => $w->where('oc_recepciones.tipo', 'oc')->orWhereNull('oc_recepciones.tipo'));
             } else {
-                $qq->where('tipo', $tipo);
+                $qq->where('oc_recepciones.tipo', $tipo);
             }
         })
-        ->orderByDesc('fecha_recibido')
+        ->orderByDesc('oc_recepciones.fecha_recibido')
         ->limit(2000)
         ->get();
 
@@ -932,6 +937,7 @@ $user = Auth::user();
             'revertida_at'     => $r->revertida_at ? (string) $r->revertida_at : null,
             'motivo_reversion' => (string) ($r->motivo_reversion ?? ''),
             'revertida_por'    => (string) ($usersMap[$r->revertida_por] ?? ''),
+            'obra'             => (string) ($r->obra_nombre ?? 'SIN OBRA'),
             'obra_origen'      => ($r->tipo ?? 'oc') === 'transferencia'
                                      ? (string) ($transMatchMap[(int)$r->id]['obra_origen'] ?? '')
                                      : '',
