@@ -13,15 +13,22 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 /**
  * ExcelExporter — Servicio reutilizable para generar descargas Excel (.xlsx).
  *
- * Uso:
+ * Uso básico (una hoja):
  *   return ExcelExporter::download(
  *       filename:    'entradas',
  *       moduleName:  'Entradas',
- *       headers:     ['Fecha', 'Código', 'Descripción', ...],
- *       rows:        $rows,          // array de arrays
+ *       headers:     ['Fecha', 'Código', ...],
+ *       rows:        $rows,
  *       columnTypes: [0 => 'date', 6 => 'number', 7 => 'currency'],
  *       filters:     ['Obra: Oblatos', 'Desde: 2024-01-01'],
+ *       color:       '4F46E5',   // hex RGB del tab + encabezado
  *   );
+ *
+ * Uso multi-hoja (extraSheets):
+ *   extraSheets: [
+ *       ['title'=>'Manuales', 'headers'=>[...], 'rows'=>[...],
+ *        'columnTypes'=>[...], 'color'=>'16A34A'],
+ *   ]
  *
  * Tipos de columna soportados:
  *   'text'     → General (sin formato especial)
@@ -41,137 +48,50 @@ class ExcelExporter
      * @param  array   $rows         Datos: array de arrays indexados por posición
      * @param  array   $columnTypes  Mapa [índice_columna => tipo] para formato numérico
      * @param  array   $filters      Descripción de filtros activos (para la fila informativa)
+     * @param  array   $extraSheets  Hojas adicionales: [['title','headers','rows','columnTypes','color']]
+     * @param  string  $color        Color hex (sin #) del tab + fila de encabezados de la hoja principal
      */
     public static function download(
         string $filename,
         string $moduleName,
         array  $headers,
         array  $rows,
-        array  $columnTypes = [],
-        array  $filters     = []
+        array  $columnTypes  = [],
+        array  $filters      = [],
+        array  $extraSheets  = [],
+        string $color        = '1F2937',
+        array  $columnWidths = []   // [col_index => width_chars]  — overrides autoSize
     ): StreamedResponse {
         $spreadsheet = new Spreadsheet();
-        $sheet       = $spreadsheet->getActiveSheet();
-        $sheet->setTitle(mb_substr($moduleName, 0, 31)); // Excel: máx 31 chars
 
-        $user     = Auth::user();
-        $userName = $user?->name ?? 'Sistema';
-        $now      = now()->format('d/m/Y H:i');
+        $user = Auth::user();
+        $now  = now()->format('d/m/Y H:i');
 
-        $colCount    = count($headers);
-        $lastColLtr  = self::colLetter($colCount);
+        // ── Hoja principal ───────────────────────────────────────────────
+        $mainSheet = $spreadsheet->getActiveSheet();
+        self::fillSheet($mainSheet, $moduleName, $headers, $rows, $columnTypes, $filters, $user, $now, $color, $columnWidths);
+        $mainSheet->getTabColor()->setRGB($color);
 
-        // ── Fila 1: Encabezado informativo ──────────────────────────────
-        $filtersText = empty($filters)
-            ? 'Sin filtros'
-            : implode('  ·  ', array_filter($filters));
-
-        $infoText = "Sistema Almacén  |  {$moduleName}  |  Generado: {$now}  |  Usuario: {$userName}  |  {$filtersText}";
-
-        $sheet->setCellValue('A1', $infoText);
-        $sheet->mergeCells("A1:{$lastColLtr}1");
-        $sheet->getStyle('A1')->applyFromArray([
-            'font'      => [
-                'bold'  => true,
-                'size'  => 9,
-                'color' => ['rgb' => 'FFFFFF'],
-            ],
-            'fill'      => [
-                'fillType'   => Fill::FILL_SOLID,
-                'startColor' => ['rgb' => '111827'],
-            ],
-            'alignment' => [
-                'horizontal' => Alignment::HORIZONTAL_LEFT,
-                'vertical'   => Alignment::VERTICAL_CENTER,
-                'wrapText'   => false,
-            ],
-        ]);
-        $sheet->getRowDimension(1)->setRowHeight(20);
-
-        // ── Fila 2: Nombres de columna ───────────────────────────────────
-        foreach ($headers as $i => $label) {
-            $col = self::colLetter($i + 1);
-            $sheet->setCellValue("{$col}2", $label);
+        // ── Hojas adicionales ────────────────────────────────────────────
+        foreach ($extraSheets as $extra) {
+            $sheet       = $spreadsheet->createSheet();
+            $sheetColor  = $extra['color'] ?? '374151';
+            self::fillSheet(
+                $sheet,
+                $extra['title'],
+                $extra['headers'],
+                $extra['rows'],
+                $extra['columnTypes'] ?? [],
+                $filters,
+                $user,
+                $now,
+                $sheetColor,
+                $extra['columnWidths'] ?? $columnWidths
+            );
+            $sheet->getTabColor()->setRGB($sheetColor);
         }
 
-        $sheet->getStyle("A2:{$lastColLtr}2")->applyFromArray([
-            'font'      => [
-                'bold'  => true,
-                'color' => ['rgb' => 'FFFFFF'],
-            ],
-            'fill'      => [
-                'fillType'   => Fill::FILL_SOLID,
-                'startColor' => ['rgb' => '1F2937'],
-            ],
-            'alignment' => [
-                'horizontal' => Alignment::HORIZONTAL_CENTER,
-                'vertical'   => Alignment::VERTICAL_CENTER,
-            ],
-        ]);
-        $sheet->getRowDimension(2)->setRowHeight(18);
-
-        // Auto-filter en la fila de encabezados
-        $sheet->setAutoFilter("A2:{$lastColLtr}2");
-
-        // Congelar encabezados (filas 1 y 2)
-        $sheet->freezePane('A3');
-
-        // ── Filas 3+: Datos ──────────────────────────────────────────────
-        foreach ($rows as $rowIdx => $rowData) {
-            $excelRow = $rowIdx + 3;
-            foreach ($rowData as $colIdx => $value) {
-                $col = self::colLetter($colIdx + 1);
-                $sheet->setCellValue("{$col}{$excelRow}", $value);
-            }
-
-            // Zebra striping (filas pares con fondo muy suave)
-            if ($rowIdx % 2 === 1) {
-                $sheet->getStyle("A{$excelRow}:{$lastColLtr}{$excelRow}")
-                    ->getFill()
-                    ->setFillType(Fill::FILL_SOLID)
-                    ->getStartColor()->setRGB('F9FAFB');
-            }
-        }
-
-        // ── Formatos numéricos por columna ───────────────────────────────
-        if (!empty($rows)) {
-            $lastDataRow = count($rows) + 2;
-            foreach ($columnTypes as $colIdx => $type) {
-                $col   = self::colLetter($colIdx + 1);
-                $range = "{$col}3:{$col}{$lastDataRow}";
-
-                match ($type) {
-                    'number'   => $sheet->getStyle($range)->getNumberFormat()
-                                        ->setFormatCode('#,##0.00'),
-                    'integer'  => $sheet->getStyle($range)->getNumberFormat()
-                                        ->setFormatCode('#,##0'),
-                    'currency' => $sheet->getStyle($range)->getNumberFormat()
-                                        ->setFormatCode('"$"#,##0.00'),
-                    'date'     => $sheet->getStyle($range)->getNumberFormat()
-                                        ->setFormatCode('DD/MM/YYYY'),
-                    default    => null,
-                };
-            }
-
-            // Bordes del área de datos
-            $sheet->getStyle("A2:{$lastColLtr}{$lastDataRow}")->applyFromArray([
-                'borders' => [
-                    'allBorders' => [
-                        'borderStyle' => Border::BORDER_THIN,
-                        'color'       => ['rgb' => 'E5E7EB'],
-                    ],
-                    'outline' => [
-                        'borderStyle' => Border::BORDER_MEDIUM,
-                        'color'       => ['rgb' => '374151'],
-                    ],
-                ],
-            ]);
-        }
-
-        // ── Auto-ancho de columnas ───────────────────────────────────────
-        for ($i = 1; $i <= $colCount; $i++) {
-            $sheet->getColumnDimension(self::colLetter($i))->setAutoSize(true);
-        }
+        $spreadsheet->setActiveSheetIndex(0);
 
         // ── Respuesta streamed ───────────────────────────────────────────
         $xlsxFilename = $filename . '_' . now()->format('Ymd_Hi') . '.xlsx';
@@ -188,6 +108,144 @@ class ExcelExporter
                 'Expires'             => '0',
             ]
         );
+    }
+
+    private static function fillSheet(
+        \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet,
+        string $moduleName,
+        array  $headers,
+        array  $rows,
+        array  $columnTypes,
+        array  $filters,
+        $user,
+        string $now,
+        string $color        = '1F2937',
+        array  $columnWidths = []
+    ): void {
+        $userName = $user?->name ?? 'Sistema';
+
+        $sheet->setTitle(mb_substr($moduleName, 0, 31));
+
+        $colCount   = count($headers);
+        $lastColLtr = self::colLetter($colCount);
+
+        // ── Fila 1: Barra informativa (siempre oscura) ───────────────────
+        $filtersText = empty($filters)
+            ? 'Sin filtros'
+            : implode('  ·  ', array_filter($filters));
+
+        $infoText = "Sistema Almacén  |  {$moduleName}  |  Generado: {$now}  |  Usuario: {$userName}  |  {$filtersText}";
+
+        $sheet->setCellValue('A1', $infoText);
+        $sheet->mergeCells("A1:{$lastColLtr}1");
+        $sheet->getStyle('A1')->applyFromArray([
+            'font'      => ['bold' => true, 'size' => 9, 'color' => ['rgb' => 'FFFFFF']],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '111827']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_LEFT,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+                'wrapText'   => false,
+            ],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(20);
+
+        // ── Fila 2: Encabezados de columna (color de la sección) ─────────
+        foreach ($headers as $i => $label) {
+            $sheet->setCellValue(self::colLetter($i + 1) . '2', $label);
+        }
+
+        $sheet->getStyle("A2:{$lastColLtr}2")->applyFromArray([
+            'font'      => ['bold' => true, 'size' => 10, 'color' => ['rgb' => 'FFFFFF']],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $color]],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+            'borders'   => [
+                'bottom' => ['borderStyle' => Border::BORDER_MEDIUM, 'color' => ['rgb' => 'FFFFFF']],
+            ],
+        ]);
+        $sheet->getRowDimension(2)->setRowHeight(20);
+
+        // Auto-filter + freeze
+        $sheet->setAutoFilter("A2:{$lastColLtr}2");
+        $sheet->freezePane('A3');
+
+        // ── Filas 3+: Datos ──────────────────────────────────────────────
+        // Color claro derivado del color de la sección para zebra
+        $zebraRgb = self::lightenHex($color, 0.92);
+
+        foreach ($rows as $rowIdx => $rowData) {
+            $excelRow = $rowIdx + 3;
+            foreach ($rowData as $colIdx => $value) {
+                $sheet->setCellValue(self::colLetter($colIdx + 1) . $excelRow, $value);
+            }
+
+            if ($rowIdx % 2 === 1) {
+                $sheet->getStyle("A{$excelRow}:{$lastColLtr}{$excelRow}")
+                    ->getFill()
+                    ->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setRGB($zebraRgb);
+            }
+        }
+
+        // ── Formatos numéricos por columna ───────────────────────────────
+        if (!empty($rows)) {
+            $lastDataRow = count($rows) + 2;
+            foreach ($columnTypes as $colIdx => $type) {
+                $col   = self::colLetter($colIdx + 1);
+                $range = "{$col}3:{$col}{$lastDataRow}";
+                match ($type) {
+                    'number'   => $sheet->getStyle($range)->getNumberFormat()->setFormatCode('#,##0.00'),
+                    'integer'  => $sheet->getStyle($range)->getNumberFormat()->setFormatCode('#,##0'),
+                    'currency' => $sheet->getStyle($range)->getNumberFormat()->setFormatCode('"$"#,##0.00'),
+                    'date'     => $sheet->getStyle($range)->getNumberFormat()->setFormatCode('DD/MM/YYYY'),
+                    default    => null,
+                };
+            }
+
+            // Bordes del área de datos
+            $sheet->getStyle("A2:{$lastColLtr}{$lastDataRow}")->applyFromArray([
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => Border::BORDER_THIN,
+                        'color'       => ['rgb' => 'E5E7EB'],
+                    ],
+                    'outline' => [
+                        'borderStyle' => Border::BORDER_MEDIUM,
+                        'color'       => ['rgb' => $color],
+                    ],
+                ],
+            ]);
+        }
+
+        // ── Auto-ancho de columnas ───────────────────────────────────────
+        for ($i = 1; $i <= $colCount; $i++) {
+            $col = self::colLetter($i);
+            $dim = $sheet->getColumnDimension($col);
+            if (isset($columnWidths[$i - 1])) {
+                $dim->setAutoSize(false)->setWidth($columnWidths[$i - 1]);
+            } else {
+                $dim->setAutoSize(true);
+            }
+        }
+    }
+
+    /**
+     * Mezcla el color hex con blanco al porcentaje dado (0=color puro, 1=blanco puro).
+     * Produce el tono pastel para el zebra striping.
+     */
+    private static function lightenHex(string $hex, float $ratio): string
+    {
+        $r = hexdec(substr($hex, 0, 2));
+        $g = hexdec(substr($hex, 2, 2));
+        $b = hexdec(substr($hex, 4, 2));
+
+        $r = (int) round($r + (255 - $r) * $ratio);
+        $g = (int) round($g + (255 - $g) * $ratio);
+        $b = (int) round($b + (255 - $b) * $ratio);
+
+        return sprintf('%02X%02X%02X', $r, $g, $b);
     }
 
     /**

@@ -6,52 +6,21 @@
 
     <x-slot name="header">
         @php
-    $isAdmin = auth()->check() && auth()->user()->is_admin == 1;
+            $isAdmin = auth()->check() && auth()->user()->is_admin == 1;
+        @endphp
 
-@endphp
-
-        {{-- ✅ x-data="{}" (NO vacío) para que Alpine habilite $store en el header --}}
+        {{-- x-data="{}" para que Alpine habilite $store en el header --}}
         <div x-data="{}" class="flex items-center justify-between">
-            <div>
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                    Inventario
-                </h2>
-
-                <div class="text-sm text-gray-600 mt-1">
-                    Obra actual:
-                    <strong>
-                        {{ $obraActual?->nombre ?? 'Sin obra asignada' }}
-                    </strong>
-                </div>
-
-                @if($isMultiobra)
-                <form method="POST" action="{{ route('inventario.cambiarObra') }}" class="mt-2">
-                    @csrf
-                    <select name="obra_id"
-                            onchange="this.form.submit()"
-                            class="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                        <option value="">— Selecciona una obra —</option>
-                        @foreach($obras as $obra)
-                            <option value="{{ $obra->id }}"
-                                {{ $obraActual?->id == $obra->id ? 'selected' : '' }}>
-                                {{ $obra->nombre }}
-                            </option>
-                        @endforeach
-                    </select>
-                </form>
-                @endif
-            </div>
-            
-
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+                Inventario
+            </h2>
             <div class="flex items-center gap-2">
                 @if($isAdmin)
-    <a href="{{ route('inventario.create') }}"
-       class="px-3 py-2 border rounded bg-white hover:bg-gray-50">
-         Nuevo producto
-    </a>
-@endif
-
-
+                <a href="{{ route('inventario.create') }}"
+                   class="px-3 py-2 text-sm border rounded bg-white hover:bg-gray-50">
+                    Nuevo producto
+                </a>
+                @endif
             </div>
         </div>
     </x-slot>

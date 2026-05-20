@@ -2155,6 +2155,7 @@
                                 <table class="w-full text-sm">
                                     <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
                                         <tr>
+                                            <th class="px-3 py-2 text-left" x-show="esMultiobra">Obra</th>
                                             <th class="px-3 py-2 text-left">H. Entrada</th>
                                             <th class="px-3 py-2 text-left">H. Salida</th>
                                             <th class="px-3 py-2 text-left">Tipo material</th>
@@ -2168,6 +2169,9 @@
                                     <tbody>
                                         <template x-for="r in grupo.filas" :key="r.id">
                                             <tr class="border-t border-gray-50 hover:bg-gray-50">
+                                                <td class="px-3 py-2 text-xs text-gray-500 whitespace-nowrap"
+                                                    x-show="esMultiobra"
+                                                    x-text="r.obra || '—'"></td>
                                                 <td class="px-3 py-2 whitespace-nowrap text-gray-700"
                                                     x-text="formatHoraEscom(r.hora_entrada)"></td>
                                                 <td class="px-3 py-2 whitespace-nowrap text-gray-700"
@@ -2307,7 +2311,8 @@
 
                     pdf: { show:false, loading:false, ok:false, error:'' },
 
-                    escom: { desde: '', hasta: '' },
+                    escom: { desde: '{{ now()->startOfYear()->format('Y-m-d') }}', hasta: '{{ now()->format('Y-m-d') }}' },
+                    esMultiobra: {{ auth()->user()?->is_multiobra ? 'true' : 'false' }},
                     escombros: [],
                     loadingEscom: false,
                     escomImgModal: { show: false, url: '', label: '' },
@@ -2772,6 +2777,9 @@
                                 cache: 'no-store'
                             });
                             this.escombros = await res.json();
+                            // Expandir todos los grupos automáticamente
+                            const fechas = [...new Set(this.escombros.map(r => r.fecha))];
+                            fechas.forEach(f => { this.escomExpandidos[f] = true; });
                         } catch (e) {
                             console.error(e);
                             this.escombros = [];

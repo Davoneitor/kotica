@@ -166,22 +166,27 @@ class CamionEscombroController extends Controller
 
     public function explore(Request $request)
     {
-        $user = Auth::user();
+        $user   = Auth::user();
         $obraId = $user?->obra_actual_id;
+        $multi  = $user?->is_multiobra;
 
-        $desde = $request->get('desde');
-        $hasta = $request->get('hasta');
+        $desde   = $request->get('desde');
+        $hasta   = $request->get('hasta');
+        $obraFiltro = $request->get('obra_id');   // filtro explícito desde el frontend
 
-        $rows = SalidaCamionEscombro::where('salida_camiones_escombro.obra_id', $obraId)
-            ->leftJoin('users', 'users.id', '=', 'salida_camiones_escombro.user_id')
+        $rows = SalidaCamionEscombro::query()
+            ->leftJoin('users',  'users.id',  '=', 'salida_camiones_escombro.user_id')
+            ->leftJoin('obras',  'obras.id',  '=', 'salida_camiones_escombro.obra_id')
+            ->when(!$multi,       fn($q) => $q->where('salida_camiones_escombro.obra_id', $obraId))
+            ->when($multi && $obraFiltro, fn($q) => $q->where('salida_camiones_escombro.obra_id', $obraFiltro))
             ->when($desde, fn($q) => $q->whereDate('salida_camiones_escombro.fecha', '>=', $desde))
             ->when($hasta, fn($q) => $q->whereDate('salida_camiones_escombro.fecha', '<=', $hasta))
             ->orderByDesc('salida_camiones_escombro.fecha')
             ->orderByDesc('salida_camiones_escombro.id')
-            ->limit(300)
             ->get([
                 'salida_camiones_escombro.*',
                 'users.name as usuario_nombre',
+                'obras.nombre as obra_nombre',
             ]);
 
         // Calcular total por fecha en PHP para evitar diferencias de dialecto SQL
@@ -210,6 +215,7 @@ class CamionEscombroController extends Controller
             'metros_cubicos' => $r->metros_cubicos,
             'total_dia'      => $totalesPorFecha[$r->fecha?->format('Y-m-d') ?? ''] ?? 0,
             'folio_recibo'   => $r->folio_recibo ?? '',
+            'obra'           => $r->obra_nombre ?? '—',
             'usuario'        => $r->usuario_nombre ?? '—',
             'foto_vale_url'   => $r->foto_vale   ? url("/control-camiones/{$r->id}/foto/vale")   : null,
             'foto_camion_url' => $r->foto_camion ? url("/control-camiones/{$r->id}/foto/camion") : null,

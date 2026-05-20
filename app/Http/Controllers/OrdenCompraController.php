@@ -354,6 +354,8 @@ if ($obraLocalId <= 0) abort(403);
         'cantidad_llego'  => (float) $it['llego'],
         'precio_unitario' => $pu > 0 ? $pu : null,
         'foto_path'       => $fotoPath,
+        'familia'         => ($familia !== 'SIN FAMILIA')    ? $familia    : '',
+        'subfamilia'      => ($subfamilia !== 'SIN SUBFAMILIA') ? $subfamilia : '',
     ]);
 
     // 3) ERP update
@@ -413,6 +415,14 @@ public function finiquitar(Request $request)
 
     // Registrar en bitácora de entradas para que aparezca en Explore
     try {
+        // Obtener familia/subfamilia desde inventarios (primero la obra actual, luego cualquier obra)
+        $invRow = DB::table('inventarios')
+            ->where('insumo_id', $data['insumo'])
+            ->orderByRaw("CASE WHEN obra_id = ? THEN 0 ELSE 1 END", [$obraLocalId])
+            ->whereNotNull('familia')
+            ->where('familia', '!=', '')
+            ->first(['familia', 'subfamilia']);
+
         OcRecepcion::create([
             'obra_id'        => $obraLocalId,
             'user_id'        => Auth::id(),
@@ -427,6 +437,8 @@ public function finiquitar(Request $request)
             'precio_unitario'=> null,
             'foto_path'      => '',
             'tipo'           => 'finiquito',
+            'familia'        => $invRow?->familia    ?? '',
+            'subfamilia'     => $invRow?->subfamilia ?? '',
             'observaciones'  => trim('Finiquito — diferencia: ' . number_format($diferencia, 4) . ' ' . ($data['unidad'] ?? '') . '. ' . ($data['observaciones'] ?? '')),
         ]);
     } catch (\Throwable $e) {

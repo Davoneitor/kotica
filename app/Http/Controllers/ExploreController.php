@@ -1173,7 +1173,6 @@ public function entradaFoto($id)
             ->join('transferencias_entre_obras as t', 't.id', '=', 'd.transferencia_id')
             ->join('obras as oo', 'oo.id', '=', 't.obra_origen_id')
             ->join('obras as od', 'od.id', '=', 't.obra_destino_id')
-            ->join('users as u',  'u.id',  '=', 't.user_id')
             ->when($obraId, function ($qq) use ($obraId) {
                 $qq->where(function ($w) use ($obraId) {
                     $w->where('t.obra_origen_id', $obraId)
@@ -1204,14 +1203,12 @@ public function entradaFoto($id)
                 't.id as transferencia_id',
                 DB::raw('oo.nombre as obra_origen'),
                 DB::raw('od.nombre as obra_destino'),
-                DB::raw('u.name as usuario'),
                 DB::raw("ISNULL(d.insumo_id, '') as codigo"),
                 DB::raw("ISNULL(d.descripcion, '') as descripcion"),
                 DB::raw("ISNULL(d.unidad, '') as unidad"),
                 'd.cantidad',
                 DB::raw("ISNULL(d.cantidad_recibida, 0) as cantidad_recibida"),
                 'd.precio_unitario',
-                DB::raw("ISNULL(t.observaciones, '') as observaciones"),
             ]);
 
         $fmtDate = fn($d) => $d ? date('d/m/Y', strtotime((string) $d)) : '';
@@ -1221,17 +1218,15 @@ public function entradaFoto($id)
             (int) $r->transferencia_id,                                                // 1 integer
             (string) $r->obra_origen,                                                  // 2
             (string) $r->obra_destino,                                                 // 3
-            (string) $r->usuario,                                                      // 4
-            (string) $r->codigo,                                                       // 5
-            (string) $r->descripcion,                                                  // 6
-            (string) $r->unidad,                                                       // 7
-            (float) $r->cantidad,                                                      // 8 number
-            (float) $r->cantidad_recibida,                                             // 9 number
-            $r->precio_unitario !== null ? (float) $r->precio_unitario : null,         // 10 currency
+            (string) $r->codigo,                                                       // 4
+            (string) $r->descripcion,                                                  // 5
+            (string) $r->unidad,                                                       // 6
+            (float) $r->cantidad,                                                      // 7 number
+            (float) $r->cantidad_recibida,                                             // 8 number
+            $r->precio_unitario !== null ? (float) $r->precio_unitario : null,         // 9 currency
             $r->precio_unitario !== null
                 ? round((float) $r->cantidad * (float) $r->precio_unitario, 2)
-                : null,                                                                // 11 currency
-            (string) ($r->observaciones ?? ''),                                        // 12
+                : null,                                                                // 10 currency
         ])->values()->toArray();
 
         $filters = array_filter([
@@ -1253,13 +1248,15 @@ public function entradaFoto($id)
             filename:    'transferencias',
             moduleName:  'Transferencias',
             headers:     [
-                'Fecha', '# Trans.', 'Obra Origen', 'Obra Destino', 'Usuario',
+                'Fecha', '# Trans.', 'Obra Origen', 'Obra Destino',
                 'Código', 'Descripción', 'Unidad',
-                'Cantidad', 'Cant. Recibida', 'P.U.', 'Importe', 'Observaciones',
+                'Cantidad', 'Cant. Recibida', 'P.U.', 'Importe',
             ],
             rows:        $data,
-            columnTypes: [1 => 'integer', 8 => 'number', 9 => 'number', 10 => 'currency', 11 => 'currency'],
+            columnTypes: [1 => 'integer', 7 => 'number', 8 => 'number', 9 => 'currency', 10 => 'currency'],
             filters:     $filters,
+            color:       'EA580C',  // naranja — igual que Trans. Recibidas en el sistema
+            columnWidths: [5 => 42],  // Descripción
         );
     }
 
@@ -1323,20 +1320,17 @@ public function entradaFoto($id)
         $hasta = $request->get('hasta');
         $tipo  = $request->get('tipo');
 
-        $tipoLabels = [
-            'oc'           => 'Compra',
-            'manual'       => 'Manual',
-            'transferencia'=> 'Transferencia',
-            'finiquito'    => 'Finiquitada',
-        ];
+        // Subquery: familia/subfamilia consolidada de inventarios (sin restricción de obra)
+        // Necesario porque registros tipo=finiquito no guardan familia en oc_recepciones
+        $invFamilias = DB::table('inventarios')
+            ->select('insumo_id',
+                DB::raw("MAX(CASE WHEN familia    IS NOT NULL AND familia    <> '' THEN familia    END) as familia"),
+                DB::raw("MAX(CASE WHEN subfamilia IS NOT NULL AND subfamilia <> '' THEN subfamilia END) as subfamilia")
+            )
+            ->groupBy('insumo_id');
 
-        // Query única con JOIN — sin N+1
         $rows = DB::table('oc_recepciones as r')
-            ->leftJoin('users as u', 'u.id', '=', 'r.user_id')
-            ->leftJoin('inventarios as inv', function ($j) use ($obraId) {
-                $j->on('inv.insumo_id', '=', 'r.insumo')
-                  ->where('inv.obra_id', $obraId);
-            })
+            ->leftJoinSub($invFamilias, 'inv', 'inv.insumo_id', '=', 'r.insumo')
             ->where('r.obra_id', $obraId)
             ->when($q !== '', function ($qq) use ($q) {
                 $qq->where(function ($w) use ($q) {
@@ -1356,74 +1350,105 @@ public function entradaFoto($id)
             })
             ->orderByDesc('r.fecha_recibido')
             ->get([
-                'r.fecha_recibido',
-                'r.fecha_oc',
-                'r.tipo',
-                'r.id_pedido',
-                'r.pedido_det_id',
+                'r.fecha_recibido', 'r.fecha_oc', 'r.tipo',
+                'r.id_pedido', 'r.pedido_det_id',
                 DB::raw("COALESCE(r.familia,    inv.familia,    '') as familia"),
                 DB::raw("COALESCE(r.subfamilia, inv.subfamilia, '') as subfamilia"),
-                'r.insumo as codigo',
-                'r.descripcion',
-                DB::raw("COALESCE(inv.descripcionauxiliar, '') as descripcionauxiliar"),
-                'r.unidad',
-                'r.cantidad_llego',
-                'r.precio_unitario',
-                DB::raw("COALESCE(r.observaciones, '') as observaciones"),
-                DB::raw("u.name as usuario"),
-                'r.foto_path',
+                'r.insumo as codigo', 'r.descripcion',
+                'r.unidad', 'r.cantidad_llego', 'r.precio_unitario',
             ]);
 
         $fmtDate = fn($d) => $d ? date('d/m/Y', strtotime((string) $d)) : '';
 
-        $data = $rows->map(fn($r) => [
-            $fmtDate($r->fecha_recibido),                                              // 0
-            $fmtDate($r->fecha_oc),                                                    // 1
-            $tipoLabels[$r->tipo ?? 'oc'] ?? 'Compra',                                // 2
-            (string) $r->id_pedido,                                                    // 3
-            (int)    $r->pedido_det_id,                                                // 4
-            (string) ($r->familia    ?? ''),                                           // 5
-            (string) ($r->subfamilia ?? ''),                                           // 6
-            (string) $r->codigo,                                                       // 7
-            (string) $r->descripcion,                                                  // 8
-            (string) ($r->descripcionauxiliar ?? ''),                                  // 9
-            (string) $r->unidad,                                                       // 10
-            (float)  $r->cantidad_llego,                                               // 11 number
-            $r->precio_unitario !== null ? (float) $r->precio_unitario : null,        // 12 currency
-            $r->precio_unitario !== null
-                ? round((float) $r->cantidad_llego * (float) $r->precio_unitario, 2)
-                : null,                                                                // 13 currency
-            (string) ($r->observaciones ?? ''),                                        // 14
-            (string) ($r->usuario ?? ''),                                              // 15
-            $r->foto_path ? 'Sí' : 'No',                                              // 16
-        ])->values()->toArray();
+        // Agrupar por tipo — cada tipo va en su propia hoja coloreada
+        $byTipo = ['oc' => [], 'manual' => [], 'transferencia' => [], 'finiquito' => []];
+
+        foreach ($rows as $r) {
+            $t = $r->tipo ?? 'oc';
+            if (!array_key_exists($t, $byTipo)) $t = 'oc';
+            $byTipo[$t][] = [
+                $fmtDate($r->fecha_recibido),                                            // 0
+                $fmtDate($r->fecha_oc),                                                  // 1
+                (string) $r->id_pedido,                                                  // 2
+                (int)    $r->pedido_det_id,                                              // 3 integer
+                (string) ($r->familia    ?? ''),                                         // 4
+                (string) ($r->subfamilia ?? ''),                                         // 5
+                (string) $r->codigo,                                                     // 6
+                (string) $r->descripcion,                                                // 7
+                (string) $r->unidad,                                                     // 8
+                (float)  $r->cantidad_llego,                                             // 9 number
+                $r->precio_unitario !== null ? (float) $r->precio_unitario : null,      // 10 currency
+                $r->precio_unitario !== null
+                    ? round((float) $r->cantidad_llego * (float) $r->precio_unitario, 2)
+                    : null,                                                              // 11 currency
+            ];
+        }
+
+        $entradaHeaders  = [
+            'Fecha Recibido', 'Fecha OC', 'OC #', 'Det #',
+            'Familia', 'Subfamilia', 'Código', 'Descripción',
+            'Unidad', 'Cantidad', 'P.U.', 'Importe',
+        ];
+        $entradaColTypes = [3 => 'integer', 9 => 'number', 10 => 'currency', 11 => 'currency'];
+
+        $tipoLabels = [
+            'oc'           => 'Compra',
+            'manual'       => 'Manual',
+            'transferencia'=> 'Transferencia',
+            'finiquito'    => 'Finiquitada',
+        ];
 
         $filters = array_filter([
-            $obra  ? 'Obra: '     . $obra->nombre                  : null,
-            $tipo  ? 'Tipo: '     . ($tipoLabels[$tipo] ?? $tipo)  : null,
-            $q     ? 'Búsqueda: ' . $q                             : null,
-            $desde ? 'Desde: '    . $desde                         : null,
-            $hasta ? 'Hasta: '    . $hasta                         : null,
+            $obra  ? 'Obra: '     . $obra->nombre                 : null,
+            $tipo  ? 'Tipo: '     . ($tipoLabels[$tipo] ?? $tipo) : null,
+            $q     ? 'Búsqueda: ' . $q                            : null,
+            $desde ? 'Desde: '    . $desde                        : null,
+            $hasta ? 'Hasta: '    . $hasta                        : null,
         ]);
+
+        // Configuración por tipo: [título, color hex]
+        $sheetConfig = [
+            'oc'           => ['Compras OC',      '4F46E5'],   // indigo
+            'manual'       => ['Entradas Manual',  '16A34A'],   // green
+            'transferencia'=> ['Transferencias',   'D97706'],   // amber
+            'finiquito'    => ['Finiquitadas',      '475569'],   // slate
+        ];
+
+        // La hoja principal es la que tenga datos; si hay filtro por tipo, usar ese
+        $mainTipo  = $tipo ?? 'oc';
+        $mainCfg   = $sheetConfig[$mainTipo];
+
+        $extraSheets = [];
+        foreach ($sheetConfig as $t => $cfg) {
+            if ($t === $mainTipo) continue;
+            if (empty($byTipo[$t])) continue;     // omitir hojas vacías
+            $extraSheets[] = [
+                'title'       => $cfg[0],
+                'headers'     => $entradaHeaders,
+                'rows'        => $byTipo[$t],
+                'columnTypes' => $entradaColTypes,
+                'color'       => $cfg[1],
+                'columnWidths'=> [7 => 42],   // Descripción
+            ];
+        }
 
         Log::info('Excel export: Entradas', [
             'user_id'   => Auth::id(),
             'obra_id'   => $obraId,
-            'registros' => count($data),
+            'por_tipo'  => array_map('count', $byTipo),
             'filtros'   => $filters,
         ]);
 
         return ExcelExporter::download(
             filename:    'entradas',
-            moduleName:  'Entradas',
-            headers:     [
-                'Fecha Recibido', 'Fecha OC', 'Tipo', 'OC #', 'Det #',
-                'Familia', 'Subfamilia', 'Código', 'Descripción', 'Desc. Auxiliar',
-                'Unidad', 'Cantidad', 'P.U.', 'Importe', 'Observaciones', 'Usuario', 'Tiene Foto',
-            ],
-            rows:        $data,
-            columnTypes: [4 => 'integer', 11 => 'number', 12 => 'currency', 13 => 'currency'],
+            moduleName:  $mainCfg[0],
+            headers:     $entradaHeaders,
+            rows:        $byTipo[$mainTipo],
+            columnTypes: $entradaColTypes,
             filters:     $filters,
+            extraSheets: $extraSheets,
+            color:       $mainCfg[1],
+            columnWidths: [7 => 42],   // Descripción
         );
     }
 
@@ -1511,11 +1536,66 @@ public function entradaFoto($id)
             $hasta ? 'Hasta: ' . $hasta         : null,
         ]);
 
+        // ── Hoja 2: Transferencias Enviadas ──────────────────────────────
+        $transRows = DB::table('transferencias_entre_obras_detalle as d')
+            ->join('transferencias_entre_obras as t', 't.id', '=', 'd.transferencia_id')
+            ->join('obras as od', 'od.id', '=', 't.obra_destino_id')
+            ->join('obras as oo', 'oo.id', '=', 't.obra_origen_id')
+            ->leftJoin('users as u', 'u.id', '=', 't.user_id')
+            ->leftJoin('inventarios as inv', function ($j) use ($obraId) {
+                $j->on('inv.insumo_id', '=', 'd.insumo_id')
+                  ->where('inv.obra_id', $obraId);
+            })
+            ->where('t.obra_origen_id', $obraId)
+            ->when($desde, fn($qq) => $qq->whereDate('t.fecha', '>=', $desde))
+            ->when($hasta, fn($qq) => $qq->whereDate('t.fecha', '<=', $hasta))
+            ->when($q !== '', function ($qq) use ($q) {
+                $qq->where(function ($w) use ($q) {
+                    $w->where('d.descripcion', 'like', "%{$q}%")
+                      ->orWhere('d.insumo_id',  'like', "%{$q}%")
+                      ->orWhere('od.nombre',    'like', "%{$q}%");
+                });
+            })
+            ->orderByDesc('t.fecha')
+            ->orderByDesc('t.id')
+            ->orderBy('d.id')
+            ->get([
+                't.fecha',
+                't.id as transferencia_id',
+                DB::raw('od.nombre as obra_destino'),
+                DB::raw('u.name as usuario'),
+                DB::raw("ISNULL(inv.familia, '') as familia"),
+                'd.insumo_id as codigo',
+                DB::raw("ISNULL(d.descripcion, '') as descripcion"),
+                DB::raw("ISNULL(d.unidad, '') as unidad"),
+                'd.cantidad',
+                'd.precio_unitario',
+                DB::raw("ISNULL(t.observaciones, '') as observaciones"),
+            ]);
+
+        $transData = $transRows->map(fn($r) => [
+            $fmtDate($r->fecha),                                                        // 0
+            (int) $r->transferencia_id,                                                 // 1 integer
+            (string) ($r->obra_destino ?? ''),                                          // 2
+            (string) ($r->usuario ?? ''),                                               // 3
+            (string) ($r->familia ?? ''),                                               // 4
+            (string) ($r->codigo ?? ''),                                                // 5
+            (string) $r->descripcion,                                                   // 6
+            (string) $r->unidad,                                                        // 7
+            (float) $r->cantidad,                                                       // 8 number
+            $r->precio_unitario !== null ? (float) $r->precio_unitario : null,          // 9 currency
+            $r->precio_unitario !== null
+                ? round((float) $r->cantidad * (float) $r->precio_unitario, 2)
+                : null,                                                                 // 10 currency
+            (string) ($r->observaciones ?? ''),                                         // 11
+        ])->values()->toArray();
+
         Log::info('Excel export: Salidas', [
-            'user_id'  => Auth::id(),
-            'obra_id'  => $obraId,
-            'registros'=> count($data),
-            'filtros'  => $filters,
+            'user_id'     => Auth::id(),
+            'obra_id'     => $obraId,
+            'salidas'     => count($data),
+            'transferidas'=> count($transData),
+            'filtros'     => $filters,
         ]);
 
         return ExcelExporter::download(
@@ -1530,6 +1610,20 @@ public function entradaFoto($id)
             rows:        $data,
             columnTypes: [1 => 'integer', 11 => 'number', 12 => 'currency', 13 => 'currency'],
             filters:     $filters,
+            extraSheets: [[
+                'title'       => 'Trans. Enviadas',
+                'headers'     => [
+                    'Fecha', '# Trans.', 'Obra Destino', 'Usuario',
+                    'Familia', 'Código', 'Descripción', 'Unidad',
+                    'Cantidad', 'P.U.', 'Importe', 'Observaciones',
+                ],
+                'rows'        => $transData,
+                'columnTypes' => [1 => 'integer', 8 => 'number', 9 => 'currency', 10 => 'currency'],
+                'color'       => 'EA580C',   // naranja
+                'columnWidths'=> [6 => 42, 11 => 35],  // Descripción, Observaciones
+            ]],
+            color:        '4338CA',   // índigo
+            columnWidths: [8 => 42, 9 => 35, 17 => 35],  // Descripción, Desc. Auxiliar, Observaciones
         );
     }
 
@@ -1611,6 +1705,7 @@ public function entradaFoto($id)
             rows:        $data,
             columnTypes: [6 => 'number', 7 => 'number', 8 => 'number', 9 => 'currency', 10 => 'currency'],
             filters:     $filters,
+            columnWidths: [3 => 42, 4 => 35],   // Descripción, Desc. Auxiliar
         );
     }
 
@@ -1627,7 +1722,6 @@ public function entradaFoto($id)
         $hasta = $request->get('hasta');
 
         $rows = DB::table('oc_finiquitos as f')
-            ->join('users as u', 'u.id', '=', 'f.user_id')
             ->when($obraId, fn($qq) => $qq->where('f.obra_id', $obraId))
             ->when($q !== '', function ($qq) use ($q) {
                 $qq->where(function ($w) use ($q) {
@@ -1641,7 +1735,6 @@ public function entradaFoto($id)
             ->orderByDesc('f.created_at')
             ->get([
                 'f.created_at',
-                DB::raw('u.name as usuario'),
                 'f.id_pedido',
                 'f.pedido_det_id',
                 DB::raw("ISNULL(f.insumo, '') as codigo"),
@@ -1650,23 +1743,20 @@ public function entradaFoto($id)
                 'f.cantidad_pedida',
                 'f.cantidad_recibida',
                 'f.diferencia',
-                DB::raw("ISNULL(f.observaciones, '') as observaciones"),
             ]);
 
         $fmtDate = fn($d) => $d ? date('d/m/Y', strtotime((string) $d)) : '';
 
         $data = $rows->map(fn($r) => [
             $fmtDate($r->created_at),              // 0
-            (string) $r->usuario,                  // 1
-            (int) $r->id_pedido,                   // 2 integer
-            (int) $r->pedido_det_id,               // 3 integer
-            (string) $r->codigo,                   // 4
-            (string) $r->descripcion,              // 5
-            (string) $r->unidad,                   // 6
-            (float) $r->cantidad_pedida,            // 7 number
-            (float) $r->cantidad_recibida,          // 8 number
-            (float) $r->diferencia,                 // 9 number
-            (string) ($r->observaciones ?? ''),    // 10
+            (int) $r->id_pedido,                   // 1 integer
+            (int) $r->pedido_det_id,               // 2 integer
+            (string) $r->codigo,                   // 3
+            (string) $r->descripcion,              // 4
+            (string) $r->unidad,                   // 5
+            (float) $r->cantidad_pedida,            // 6 number
+            (float) $r->cantidad_recibida,          // 7 number
+            (float) $r->diferencia,                 // 8 number
         ])->values()->toArray();
 
         $filters = array_filter([
@@ -1687,13 +1777,15 @@ public function entradaFoto($id)
             filename:    'finiquitadas',
             moduleName:  'Finiquitadas',
             headers:     [
-                'Fecha', 'Usuario', 'OC #', 'Det #',
+                'Fecha', 'OC #', 'Det #',
                 'Código', 'Descripción', 'Unidad',
-                'Cant. Pedida', 'Cant. Recibida', 'Diferencia', 'Observaciones',
+                'Cant. Pedida', 'Cant. Recibida', 'Diferencia',
             ],
             rows:        $data,
-            columnTypes: [2 => 'integer', 3 => 'integer', 7 => 'number', 8 => 'number', 9 => 'number'],
-            filters:     $filters,
+            columnTypes:  [1 => 'integer', 2 => 'integer', 6 => 'number', 7 => 'number', 8 => 'number'],
+            filters:      $filters,
+            color:        '475569',  // slate — igual que Finiquitadas en el sistema
+            columnWidths: [4 => 42],   // Descripción
         );
     }
 
