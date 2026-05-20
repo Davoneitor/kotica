@@ -549,4 +549,401 @@ class AdminPuController extends Controller
             'registros'   => $registros,
         ];
     }
+
+    // ─── Comparison Audit Table ───────────────────────────────────────────────
+
+    public function preview(Request $request)
+    {
+        $this->authorize();
+        set_time_limit(180);
+
+        $seccion = $request->input('seccion', 'entradas');
+        $allowed = ['entradas', 'salidas', 'enviadas', 'recibidas'];
+        if (!in_array($seccion, $allowed, true)) {
+            return response()->json(['error' => 'Sección inválida.'], 422);
+        }
+
+        $camposMap = [
+            'entradas'  => ['descripcion', 'unidad', 'familia', 'subfamilia', 'pu'],
+            'salidas'   => ['descripcion', 'unidad', 'familia', 'subfamilia', 'pu'],
+            'enviadas'  => ['descripcion', 'unidad', 'pu'],
+            'recibidas' => ['descripcion', 'unidad', 'familia', 'subfamilia', 'pu'],
+        ];
+
+        $campos = $camposMap[$seccion];
+
+        $rows = match ($seccion) {
+            'entradas'  => $this->previewEntradas(),
+            'salidas'   => $this->previewSalidas(),
+            'enviadas'  => $this->previewEnviadas(),
+            'recibidas' => $this->previewRecibidas(),
+        };
+
+        if (empty($rows)) {
+            return response()->json([]);
+        }
+
+        $insumoIds = array_unique(array_filter(array_column($rows, 'insumo_id'), fn($v) => $v !== null && $v !== ''));
+        $erpData   = $this->erpInsumosFull(array_values($insumoIds));
+
+        $result = $this->buildPreviewRows($rows, $erpData, $campos);
+
+        // Sort: rows with diffs first, then by insumo_id
+        usort($result, function ($a, $b) {
+            $aDiffs = count($a['diffs']);
+            $bDiffs = count($b['diffs']);
+            if ($aDiffs !== $bDiffs) {
+                return $bDiffs <=> $aDiffs; // more diffs first
+            }
+            return strcmp((string)($a['insumo_id'] ?? ''), (string)($b['insumo_id'] ?? ''));
+        });
+
+        return response()->json($result);
+    }
+
+    public function aplicarSeleccionados(Request $request)
+    {
+        $this->authorize();
+        set_time_limit(180);
+
+        $seccion = $request->input('seccion');
+        $ids     = $request->input('ids', []);
+        $campos  = $request->input('campos', []);
+
+        $tableConfig = [
+            'entradas'  => ['tabla' => 'oc_recepciones',                   'insumo_col' => 'insumo',    'campos' => ['pu','descripcion','unidad','familia','subfamilia']],
+            'salidas'   => ['tabla' => 'movimiento_detalles',               'insumo_col' => 'insumo_id', 'campos' => ['pu','descripcion','unidad','familia','subfamilia']],
+            'enviadas'  => ['tabla' => 'transferencias_entre_obras_detalle','insumo_col' => 'insumo_id', 'campos' => ['pu','descripcion','unidad']],
+            'recibidas' => ['tabla' => 'oc_recepciones',                    'insumo_col' => 'insumo',    'campos' => ['pu','descripcion','unidad','familia','subfamilia']],
+        ];
+
+        if (!isset($tableConfig[$seccion])) {
+            return response()->json(['error' => 'Sección inválida.'], 422);
+        }
+        if (empty($ids) || !is_array($ids)) {
+            return response()->json(['error' => 'No se recibieron IDs.'], 422);
+        }
+        if (empty($campos) || !is_array($campos)) {
+            return response()->json(['error' => 'No se recibieron campos.'], 422);
+        }
+
+        $cfg            = $tableConfig[$seccion];
+        $tabla          = $cfg['tabla'];
+        $insumoCol      = $cfg['insumo_col'];
+        $camposValidos  = array_intersect($campos, $cfg['campos']);
+
+        if (empty($camposValidos)) {
+            return response()->json(['error' => 'Ningún campo válido para esta sección.'], 422);
+        }
+
+        $ids = array_map('intval', $ids);
+
+        // Get insumo_id for each row id
+        $queryBuilder = DB::table($tabla)->whereIn('id', $ids)->select('id', $insumoCol . ' as insumo_id');
+        if ($seccion === 'entradas') {
+            $queryBuilder->where(fn($q) => $q->whereNull('tipo')->orWhereIn('tipo', ['oc', 'manual']));
+        } elseif ($seccion === 'recibidas') {
+            $queryBuilder->where('tipo', 'transferencia');
+        }
+
+        $dbRows   = $queryBuilder->get()->keyBy('id');
+        $insumoIds = $dbRows->pluck('insumo_id')->filter(fn($v) => $v !== null && (string)$v !== '')->unique()->values()->toArray();
+
+        if (empty($insumoIds)) {
+            return response()->json(['error' => 'No se encontraron insumos para los IDs dados.'], 422);
+        }
+
+        $erpData = $this->erpInsumosFull($insumoIds);
+
+        if (empty($erpData)) {
+            return response()->json(['error' => 'No se encontraron datos en el ERP para estos insumos.'], 422);
+        }
+
+        // DB column mapping
+        $colMap = ['pu' => 'precio_unitario', 'descripcion' => 'descripcion', 'unidad' => 'unidad', 'familia' => 'familia', 'subfamilia' => 'subfamilia'];
+
+        $t0             = microtime(true);
+        $totalUpdated   = 0;
+        $camposCount    = array_fill_keys($camposValidos, 0);
+
+        // Build id => erp_data map for rows that have ERP data
+        $idErpMap = [];
+        foreach ($dbRows as $id => $row) {
+            $insumoId = (string)$row->insumo_id;
+            if (isset($erpData[$insumoId])) {
+                $idErpMap[$id] = $erpData[$insumoId];
+            }
+        }
+
+        if (empty($idErpMap)) {
+            return response()->json(['ok' => false, 'error' => 'Ningún registro tiene datos ERP.']);
+        }
+
+        // Update each campo separately using CASE WHEN by id
+        foreach ($camposValidos as $campo) {
+            $dbCol    = $colMap[$campo];
+            $erpField = $campo; // erpData keys match campo names
+
+            $idValues = [];
+            foreach ($idErpMap as $id => $erp) {
+                $idValues[$id] = $erp[$erpField] ?? null;
+            }
+            $idValues = array_filter($idValues, fn($v) => $v !== null);
+
+            if (empty($idValues)) continue;
+
+            $affected = 0;
+            foreach (array_chunk($idValues, 100, true) as $chunk) {
+                $cases  = '';
+                $binds  = [];
+                foreach ($chunk as $id => $val) {
+                    $cases   .= ' WHEN ? THEN ?';
+                    $binds[]  = $id;
+                    $binds[]  = $val;
+                }
+                $inList  = implode(',', array_fill(0, count($chunk), '?'));
+                $inBinds = array_keys($chunk);
+
+                $extraWhere = '';
+                if ($seccion === 'entradas') {
+                    $extraWhere = "AND (tipo IS NULL OR tipo IN ('oc', 'manual'))";
+                } elseif ($seccion === 'recibidas') {
+                    $extraWhere = "AND tipo = 'transferencia'";
+                }
+
+                $sql = "UPDATE [{$tabla}]
+                        SET [{$dbCol}] = CASE [id]{$cases} END,
+                            [updated_at] = GETDATE()
+                        WHERE [id] IN ({$inList})
+                        {$extraWhere}";
+
+                $affected += DB::affectingStatement($sql, array_merge($binds, $inBinds));
+            }
+
+            $camposCount[$campo] = $affected;
+            $totalUpdated        = max($totalUpdated, $affected);
+        }
+
+        return response()->json([
+            'ok'         => true,
+            'registros'  => count($idErpMap),
+            'campos'     => $camposCount,
+            'tiempo_ms'  => round((microtime(true) - $t0) * 1000),
+        ]);
+    }
+
+    /** Normalize a local insumo_id to ERP format: pad 4-digit suffix to 5-digit. e.g. 06ON-MAD-0003 → 06ON-MAD-00003 */
+    private function normalizeToErp(string $id): string
+    {
+        return preg_replace('/-(\d{4})$/', '-0$1', $id);
+    }
+
+    /** Fetch full ERP data for given insumo IDs in chunks of 500. Returns [local_insumo_id => [descripcion, unidad, familia, subfamilia, pu]] */
+    private function erpInsumosFull(array $ids): array
+    {
+        if (empty($ids)) return [];
+
+        // Build erpId → localId reverse mapping (handles 4-digit suffix locals)
+        $erpToLocal = [];
+        $erpIds     = [];
+        foreach ($ids as $localId) {
+            $erpId              = $this->normalizeToErp((string)$localId);
+            $erpToLocal[$erpId] = (string)$localId;
+            $erpIds[]           = $erpId;
+        }
+        $erpIds = array_values(array_unique($erpIds));
+
+        $result = [];
+        foreach (array_chunk($erpIds, 500) as $chunk) {
+            try {
+                $rows = DB::connection('erp')
+                    ->table('AcCatInsumos as I')
+                    ->leftJoin('AcFamilias as FI', 'I.idFamilia', '=', 'FI.idFamilia')
+                    ->leftJoin('AcCatUnidades as U', 'I.idUnidad', '=', 'U.IdUnidad')
+                    ->whereIn('I.INSUMO', $chunk)
+                    ->select(
+                        'I.INSUMO as insumo',
+                        'I.DescripcionLarga as descripcion',
+                        'I.Costo as pu',
+                        'FI.FamiliaPrincipal as familia',
+                        'FI.Familia as subfamilia',
+                        'U.Unidad as unidad'
+                    )
+                    ->get();
+
+                foreach ($rows as $row) {
+                    $erpKey  = (string)$row->insumo;
+                    $localId = $erpToLocal[$erpKey] ?? $erpKey;
+                    $data    = [
+                        'descripcion' => (string)($row->descripcion ?? ''),
+                        'unidad'      => (string)($row->unidad ?? ''),
+                        'familia'     => (string)($row->familia ?? ''),
+                        'subfamilia'  => (string)($row->subfamilia ?? ''),
+                        'pu'          => $row->pu !== null ? (float)$row->pu : null,
+                    ];
+                    // Index by local ID so callers can look up by their own key
+                    $result[$localId] = $data;
+                    // Also index by ERP key in case caller uses the 5-digit form
+                    if ($localId !== $erpKey) {
+                        $result[$erpKey] = $data;
+                    }
+                }
+            } catch (\Throwable) {}
+        }
+        return $result;
+    }
+
+    private function strMatch(?string $a, ?string $b): bool
+    {
+        return mb_strtolower(trim((string)$a)) === mb_strtolower(trim((string)$b));
+    }
+
+    private function numMatch($a, $b, float $tol = 0.01): bool
+    {
+        if ($a === null && $b === null) return true;
+        if ($a === null || $b === null) return false;
+        return abs((float)$a - (float)$b) <= $tol;
+    }
+
+    private function previewEntradas(): array
+    {
+        return DB::table('oc_recepciones as r')
+            ->join('obras as o', 'o.id', '=', 'r.obra_id')
+            ->where(fn($q) => $q->whereNull('r.tipo')->orWhereIn('r.tipo', ['oc', 'manual']))
+            ->whereNotNull('r.insumo')->where('r.insumo', '!=', '')
+            ->orderBy('r.insumo')
+            ->select(
+                'r.id',
+                'r.insumo as insumo_id',
+                'o.nombre as obra',
+                'r.fecha_recibido as fecha',
+                'r.descripcion',
+                'r.unidad',
+                'r.familia',
+                'r.subfamilia',
+                'r.precio_unitario as pu'
+            )
+            ->get()
+            ->map(fn($row) => (array)$row)
+            ->toArray();
+    }
+
+    private function previewSalidas(): array
+    {
+        return DB::table('movimiento_detalles as md')
+            ->join('movimientos as m', 'm.id', '=', 'md.movimiento_id')
+            ->join('obras as o', 'o.id', '=', 'm.obra_id')
+            ->whereNotNull('md.insumo_id')->where('md.insumo_id', '!=', '')
+            ->orderBy('md.insumo_id')
+            ->select(
+                'md.id',
+                'md.insumo_id',
+                'o.nombre as obra',
+                DB::raw('NULL as fecha'),
+                'md.descripcion',
+                'md.unidad',
+                'md.familia',
+                'md.subfamilia',
+                'md.precio_unitario as pu'
+            )
+            ->get()
+            ->map(fn($row) => (array)$row)
+            ->toArray();
+    }
+
+    private function previewEnviadas(): array
+    {
+        return DB::table('transferencias_entre_obras_detalle as ted')
+            ->join('transferencias_entre_obras as te', 'te.id', '=', 'ted.transferencia_id')
+            ->join('obras as o', 'o.id', '=', 'te.obra_origen_id')
+            ->whereNotNull('ted.insumo_id')->where('ted.insumo_id', '!=', '')
+            ->orderBy('ted.insumo_id')
+            ->select(
+                'ted.id',
+                'ted.insumo_id',
+                'o.nombre as obra',
+                DB::raw('NULL as fecha'),
+                'ted.descripcion',
+                'ted.unidad',
+                DB::raw('NULL as familia'),
+                DB::raw('NULL as subfamilia'),
+                'ted.precio_unitario as pu'
+            )
+            ->get()
+            ->map(fn($row) => (array)$row)
+            ->toArray();
+    }
+
+    private function previewRecibidas(): array
+    {
+        return DB::table('oc_recepciones as r')
+            ->join('obras as o', 'o.id', '=', 'r.obra_id')
+            ->where('r.tipo', 'transferencia')
+            ->whereNotNull('r.insumo')->where('r.insumo', '!=', '')
+            ->orderBy('r.insumo')
+            ->select(
+                'r.id',
+                'r.insumo as insumo_id',
+                'o.nombre as obra',
+                'r.fecha_recibido as fecha',
+                'r.descripcion',
+                'r.unidad',
+                'r.familia',
+                'r.subfamilia',
+                'r.precio_unitario as pu'
+            )
+            ->get()
+            ->map(fn($row) => (array)$row)
+            ->toArray();
+    }
+
+    private function buildPreviewRows(array $rows, array $erpData, array $campos): array
+    {
+        $result = [];
+        foreach ($rows as $row) {
+            $insumoId = (string)($row['insumo_id'] ?? '');
+            $erp      = $erpData[$insumoId] ?? null;
+            $enErp    = $erp !== null;
+            $diffs    = [];
+
+            $sData = [];
+            $eData = null;
+
+            foreach ($campos as $campo) {
+                $sVal = $campo === 'pu' ? ($row['pu'] !== null ? (float)$row['pu'] : null) : ($row[$campo] ?? null);
+                $sData[$campo] = $campo === 'pu' ? ($sVal !== null ? (float)$sVal : null) : (string)($sVal ?? '');
+            }
+
+            if ($enErp) {
+                $eData = [];
+                foreach ($campos as $campo) {
+                    $eVal = $erp[$campo] ?? null;
+                    $eData[$campo] = $campo === 'pu' ? ($eVal !== null ? (float)$eVal : null) : (string)($eVal ?? '');
+                }
+
+                foreach ($campos as $campo) {
+                    $sVal = $sData[$campo];
+                    $eVal = $eData[$campo];
+                    $same = $campo === 'pu'
+                        ? $this->numMatch($sVal, $eVal)
+                        : $this->strMatch((string)$sVal, (string)$eVal);
+                    if (!$same) {
+                        $diffs[] = $campo;
+                    }
+                }
+            }
+
+            $result[] = [
+                'id'       => (int)$row['id'],
+                'insumo_id'=> $insumoId,
+                'obra'     => (string)($row['obra'] ?? ''),
+                'fecha'    => $row['fecha'] ? (string)$row['fecha'] : null,
+                'en_erp'   => $enErp,
+                'diffs'    => $diffs,
+                's'        => $sData,
+                'e'        => $eData,
+            ];
+        }
+        return $result;
+    }
 }

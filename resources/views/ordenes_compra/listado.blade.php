@@ -892,7 +892,7 @@
                     if (this.descripcion.length < 2) { this.resultsDesc = []; return; }
                     this.loadingDesc = true;
                     try {
-                        const r = await fetchConCsrf(`/salidas/buscar-productos?q=${encodeURIComponent(this.descripcion)}&mode=desc`);
+                        const r = await fetchConCsrf(`/salidas/buscar-productos?q=${encodeURIComponent(this.descripcion)}&mode=desc&src=erp`);
                         const data = await r.json();
                         this.resultsDesc = Array.isArray(data) ? data : [];
                     } catch (e) {
@@ -905,7 +905,7 @@
                     if (this.selectedInsumoId.length < 2) { this.resultsCode = []; return; }
                     this.loadingCode = true;
                     try {
-                        const r = await fetchConCsrf(`/salidas/buscar-productos?q=${encodeURIComponent(this.selectedInsumoId)}&mode=code`);
+                        const r = await fetchConCsrf(`/salidas/buscar-productos?q=${encodeURIComponent(this.selectedInsumoId)}&mode=code&src=erp`);
                         const data = await r.json();
                         this.resultsCode = Array.isArray(data) ? data : [];
                     } catch (e) {

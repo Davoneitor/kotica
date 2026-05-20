@@ -149,7 +149,57 @@ class SalidaController extends Controller
             $q = trim(substr($q, 1));
         }
 
-        $mode = $request->input('mode', 'both'); // 'desc' | 'code' | 'both'
+        $mode   = $request->input('mode', 'both'); // 'desc' | 'code' | 'both'
+        $srcErp = $request->input('src') === 'erp'; // entrada manual: buscar siempre en ERP
+
+        // ── Búsqueda directa en ERP (entrada manual) ─────────────────────────
+        if ($srcErp && in_array($mode, ['code', 'desc']) && $q !== '') {
+            try {
+                $erpQuery = DB::connection('erp')
+                    ->table('AcCatInsumos as I')
+                    ->join('AcFamilias as FI',    'I.idFamilia',    '=', 'FI.idFamilia')
+                    ->join('AcCatUnidades as U',  'I.idUnidad',     '=', 'U.IdUnidad')
+                    ->join('ACtiposInsumos as TI','I.idTipoInsumo', '=', 'TI.idTipoInsumo')
+                    ->select(
+                        'I.INSUMO as insumo_id',
+                        'I.DescripcionLarga as descripcion',
+                        'I.Costo as costo_promedio',
+                        'U.Unidad as unidad',
+                        'FI.FamiliaPrincipal as familia',
+                        'FI.Familia as subfamilia'
+                    )
+                    ->whereIn('TI.tipo', [1, 3]);
+
+                if ($mode === 'code') {
+                    $erpQuery->where('I.INSUMO', 'like', "%{$q}%");
+                } else {
+                    $erpQuery->where('I.DescripcionLarga', 'like', "%{$q}%");
+                }
+
+                $erpRows = $erpQuery->orderBy('I.INSUMO')->limit(15)->get();
+
+                $erpRows->each(fn($r) => Familia::registrarSiNuevo(
+                    trim((string) $r->familia),
+                    trim((string) $r->subfamilia)
+                ));
+
+                return response()->json($erpRows->map(fn($r) => [
+                    'id'             => null,
+                    'insumo_id'      => (string) $r->insumo_id,
+                    'descripcion'    => (string) $r->descripcion,
+                    'unidad'         => (string) $r->unidad,
+                    'cantidad'       => null,
+                    'devolvible'     => 0,
+                    'familia'        => (string) ($r->familia    ?? ''),
+                    'subfamilia'     => (string) ($r->subfamilia ?? ''),
+                    'proveedor'      => null,
+                    'costo_promedio' => (float)  ($r->costo_promedio ?? 0),
+                    'from_erp'       => true,
+                ]));
+            } catch (\Throwable) {
+                return response()->json([]);
+            }
+        }
 
         $query = Inventario::query()
             ->where('obra_id', $obraId)

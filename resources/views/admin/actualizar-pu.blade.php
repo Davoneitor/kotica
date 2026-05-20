@@ -274,67 +274,545 @@
                 </div>
             </template>
 
-            {{-- ── TABLA DE CAMBIOS ──────────────────────────────────── --}}
-            <template x-if="cambios.length > 0">
-                <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-                    <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                        <span class="font-semibold text-gray-700 text-sm">
-                            Insumos actualizados
-                            <span class="ml-2 text-xs font-normal text-gray-400" x-text="'(' + cambios.length + ' insumos)'"></span>
-                        </span>
-                        <button @click="cambios = []" class="text-xs text-gray-400 hover:text-gray-600">Limpiar</button>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-xs">
-                            <thead class="bg-gray-50 border-b border-gray-200">
-                                <tr>
-                                    <th class="px-4 py-2 text-left text-gray-500 font-medium">Tabla</th>
-                                    <th class="px-4 py-2 text-left text-gray-500 font-medium">Código</th>
-                                    <th class="px-4 py-2 text-left text-gray-500 font-medium">Descripción</th>
-                                    <th class="px-4 py-2 text-right text-gray-500 font-medium">PU anterior</th>
-                                    <th class="px-4 py-2 text-right text-gray-500 font-medium">PU nuevo (ERP)</th>
-                                    <th class="px-4 py-2 text-right text-gray-500 font-medium">Registros</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100">
-                                <template x-for="(c, i) in cambios" :key="i">
-                                    <tr class="hover:bg-gray-50">
-                                        <td class="px-4 py-2">
-                                            <span class="px-1.5 py-0.5 rounded text-white text-xs font-medium"
-                                                  :class="{
-                                                      'bg-green-600':  c.tabla === 'Entradas',
-                                                      'bg-indigo-600': c.tabla === 'Salidas',
-                                                      'bg-orange-500': c.tabla === 'Enviadas',
-                                                      'bg-teal-600':   c.tabla === 'Recibidas',
-                                                  }"
-                                                  x-text="c.tabla"></span>
-                                        </td>
-                                        <td class="px-4 py-2 font-mono text-gray-700" x-text="c.insumo_id"></td>
-                                        <td class="px-4 py-2 text-gray-600 max-w-xs truncate" x-text="c.descripcion"></td>
-                                        <td class="px-4 py-2 text-right">
-                                            <template x-if="c.pu_anterior.length === 0">
-                                                <span class="text-gray-400">—</span>
-                                            </template>
-                                            <template x-if="c.pu_anterior.length > 0">
-                                                <span>
-                                                    <template x-for="(p, j) in c.pu_anterior" :key="j">
-                                                        <span :class="p != null && p !== c.pu_nuevo ? 'text-red-600 line-through' : 'text-gray-500'"
-                                                              x-text="p != null ? '$'+Number(p).toLocaleString('es-MX',{minimumFractionDigits:2}) : '—'"></span>
-                                                        <span x-show="j < c.pu_anterior.length - 1" class="text-gray-300 mx-0.5">/</span>
-                                                    </template>
-                                                </span>
-                                            </template>
-                                        </td>
-                                        <td class="px-4 py-2 text-right font-semibold text-green-700"
-                                            x-text="fmtPeso(c.pu_nuevo)"></td>
-                                        <td class="px-4 py-2 text-right text-gray-500" x-text="c.registros"></td>
-                                    </tr>
-                                </template>
-                            </tbody>
-                        </table>
-                    </div>
+        </div>
+    </div>
+
+    {{-- ══════════════════════════════════════════════════════════════════════
+         SECCIÓN: AUDITORÍA COMPARATIVA DE PU
+    ══════════════════════════════════════════════════════════════════════════ --}}
+    <style>
+        .cmp-cell-ok   { background:#d1fae5; color:#065f46; }
+        .cmp-cell-diff { background:#fef9c3; color:#713f12; }
+        .cmp-cell-new  { background:#dbeafe; color:#1e3a8a; font-weight:600; }
+        .cmp-cell-null { background:#f3f4f6; color:#9ca3af; font-style:italic; }
+    </style>
+
+    <div class="py-8" x-data="comparacionPU()">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
+
+            <div class="flex items-center gap-3">
+                <div class="h-px flex-1 bg-gray-200"></div>
+                <h3 class="text-base font-bold text-gray-700 whitespace-nowrap">Auditoría Comparativa de PU vs ERP</h3>
+                <div class="h-px flex-1 bg-gray-200"></div>
+            </div>
+
+            <div class="bg-blue-50 border border-blue-200 rounded-lg px-5 py-3 text-sm text-blue-800">
+                Compara los campos de cada registro contra el catálogo ERP. Selecciona filas y campos a actualizar, luego aplica solo los cambios deseados.
+            </div>
+
+            {{-- ── ENTRADAS ─────────────────────────────────────────────── --}}
+            <div class="bg-white rounded-lg border border-green-200 shadow-sm overflow-hidden">
+                <div class="px-5 py-3 bg-green-50 border-b border-green-200 flex items-center gap-3 flex-wrap">
+                    <span class="font-semibold text-green-800 text-sm">Entradas (OC + Manual)</span>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-300"
+                          x-text="secciones.entradas.cargado ? secciones.entradas.items.length + ' registros' : ''"></span>
+                    <button @click="cargar('entradas')"
+                            :disabled="secciones.entradas.cargando"
+                            class="ml-auto px-3 py-1 text-xs font-semibold rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition">
+                        <span x-show="!secciones.entradas.cargando">Cargar</span>
+                        <span x-show="secciones.entradas.cargando">Cargando…</span>
+                    </button>
                 </div>
-            </template>
+                <template x-if="secciones.entradas.cargado">
+                    <div class="px-5 py-4 space-y-3">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <div class="flex gap-1">
+                                <button @click="secciones = {...secciones, entradas: {...secciones.entradas, filtro: 'todos'}}"
+                                        :class="secciones.entradas.filtro==='todos' ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 border border-gray-300'"
+                                        class="px-3 py-1 text-xs rounded-full font-medium">
+                                    Todos (<span x-text="secciones.entradas.items.length"></span>)
+                                </button>
+                                <button @click="secciones = {...secciones, entradas: {...secciones.entradas, filtro: 'diffs'}}"
+                                        :class="secciones.entradas.filtro==='diffs' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600 border border-gray-300'"
+                                        class="px-3 py-1 text-xs rounded-full font-medium">
+                                    Con diferencias (<span x-text="secciones.entradas.items.filter(r=>r.diffs.length>0).length"></span>)
+                                </button>
+                            </div>
+                            <div class="flex flex-wrap gap-2 text-xs">
+                                <template x-for="col in colsConfig.entradas" :key="col[0]">
+                                    <label class="flex items-center gap-1 cursor-pointer">
+                                        <input type="checkbox" :checked="secciones.entradas.act[col[0]]"
+                                               @change="secciones = {...secciones, entradas: {...secciones.entradas, act: {...secciones.entradas.act, [col[0]]: $event.target.checked}}}"
+                                               class="rounded border-gray-300 text-green-600" style="appearance:auto;width:13px;height:13px;">
+                                        <span x-text="col[1]" class="text-gray-600"></span>
+                                    </label>
+                                </template>
+                            </div>
+                            <button @click="aplicar('entradas')"
+                                    :disabled="selCount('entradas') === 0"
+                                    class="ml-auto px-4 py-1.5 text-xs font-semibold rounded bg-green-700 text-white hover:bg-green-800 disabled:opacity-40 transition">
+                                Aplicar seleccionados (<span x-text="selCount('entradas')"></span>)
+                            </button>
+                        </div>
+                        <template x-if="secciones.entradas.resultado !== null">
+                            <div :class="secciones.entradas.resultado.ok ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'"
+                                 class="border rounded px-4 py-2 text-xs font-medium"
+                                 x-text="secciones.entradas.resultado.ok ? 'OK — ' + secciones.entradas.resultado.registros + ' registros procesados en ' + secciones.entradas.resultado.tiempo_ms + 'ms' : (secciones.entradas.resultado.error ?? 'Error')">
+                            </div>
+                        </template>
+                        <div class="overflow-x-auto rounded border border-gray-200">
+                            <table class="text-xs w-full" style="table-layout:fixed;min-width:900px;">
+                                <colgroup>
+                                    <col style="width:30px">
+                                    <col style="width:110px">
+                                    <col style="width:130px">
+                                    <col style="width:80px">
+                                    <col style="width:140px"><col style="width:140px">
+                                    <col style="width:70px"><col style="width:70px">
+                                    <col style="width:110px"><col style="width:110px">
+                                    <col style="width:110px"><col style="width:110px">
+                                    <col style="width:80px"><col style="width:80px">
+                                </colgroup>
+                                <thead class="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+                                    <tr>
+                                        <th class="px-1 py-1" rowspan="2"></th>
+                                        <th class="px-2 py-1 text-left text-gray-500 font-medium" rowspan="2">Insumo</th>
+                                        <th class="px-2 py-1 text-left text-gray-500 font-medium" rowspan="2">Obra</th>
+                                        <th class="px-2 py-1 text-left text-gray-500 font-medium" rowspan="2">Fecha</th>
+                                        <th class="px-2 py-1 text-center text-gray-500 font-medium border-l border-gray-200" colspan="2">Descripción</th>
+                                        <th class="px-2 py-1 text-center text-gray-500 font-medium border-l border-gray-200" colspan="2">Unidad</th>
+                                        <th class="px-2 py-1 text-center text-gray-500 font-medium border-l border-gray-200" colspan="2">Familia</th>
+                                        <th class="px-2 py-1 text-center text-gray-500 font-medium border-l border-gray-200" colspan="2">Subfamilia</th>
+                                        <th class="px-2 py-1 text-center text-gray-500 font-medium border-l border-gray-200" colspan="2">PU</th>
+                                    </tr>
+                                    <tr>
+                                        <th class="px-2 py-1 text-center text-gray-400 font-normal border-l border-gray-200">Sistema</th><th class="px-2 py-1 text-center text-gray-400 font-normal">ERP</th>
+                                        <th class="px-2 py-1 text-center text-gray-400 font-normal border-l border-gray-200">Sistema</th><th class="px-2 py-1 text-center text-gray-400 font-normal">ERP</th>
+                                        <th class="px-2 py-1 text-center text-gray-400 font-normal border-l border-gray-200">Sistema</th><th class="px-2 py-1 text-center text-gray-400 font-normal">ERP</th>
+                                        <th class="px-2 py-1 text-center text-gray-400 font-normal border-l border-gray-200">Sistema</th><th class="px-2 py-1 text-center text-gray-400 font-normal">ERP</th>
+                                        <th class="px-2 py-1 text-center text-gray-400 font-normal border-l border-gray-200">Sistema</th><th class="px-2 py-1 text-center text-gray-400 font-normal">ERP</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    <template x-for="row in filteredItems('entradas')" :key="row.id">
+                                        <tr :class="row.diffs.length > 0 ? 'border-l-2 border-yellow-400' : ''">
+                                            <td class="px-1 py-1 text-center">
+                                                <input type="checkbox" :checked="!!secciones.entradas.sel[row.id]"
+                                                       @change="secciones = {...secciones, entradas: {...secciones.entradas, sel: {...secciones.entradas.sel, [row.id]: $event.target.checked}}}"
+                                                       class="rounded border-gray-300" style="appearance:auto;width:13px;height:13px;">
+                                            </td>
+                                            <td class="px-2 py-1 font-mono truncate" :title="row.insumo_id" x-text="row.insumo_id"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.obra" x-text="row.obra"></td>
+                                            <td class="px-2 py-1 text-gray-500 truncate" x-text="fmtFecha(row.fecha)"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.s?.descripcion"
+                                                :class="row.en_erp ? (row.diffs.includes('descripcion') ? 'cmp-cell-diff' : 'cmp-cell-ok') : 'cmp-cell-null'"
+                                                x-text="row.s?.descripcion || '—'"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.e?.descripcion"
+                                                :class="!row.en_erp ? 'cmp-cell-null' : (row.diffs.includes('descripcion') ? 'cmp-cell-new' : 'cmp-cell-ok')"
+                                                x-text="row.en_erp ? (row.e?.descripcion || '—') : 'N/A'"></td>
+                                            <td class="px-2 py-1 truncate border-l border-gray-100" :title="row.s?.unidad"
+                                                :class="row.en_erp ? (row.diffs.includes('unidad') ? 'cmp-cell-diff' : 'cmp-cell-ok') : 'cmp-cell-null'"
+                                                x-text="row.s?.unidad || '—'"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.e?.unidad"
+                                                :class="!row.en_erp ? 'cmp-cell-null' : (row.diffs.includes('unidad') ? 'cmp-cell-new' : 'cmp-cell-ok')"
+                                                x-text="row.en_erp ? (row.e?.unidad || '—') : 'N/A'"></td>
+                                            <td class="px-2 py-1 truncate border-l border-gray-100" :title="row.s?.familia"
+                                                :class="row.en_erp ? (row.diffs.includes('familia') ? 'cmp-cell-diff' : 'cmp-cell-ok') : 'cmp-cell-null'"
+                                                x-text="row.s?.familia || '—'"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.e?.familia"
+                                                :class="!row.en_erp ? 'cmp-cell-null' : (row.diffs.includes('familia') ? 'cmp-cell-new' : 'cmp-cell-ok')"
+                                                x-text="row.en_erp ? (row.e?.familia || '—') : 'N/A'"></td>
+                                            <td class="px-2 py-1 truncate border-l border-gray-100" :title="row.s?.subfamilia"
+                                                :class="row.en_erp ? (row.diffs.includes('subfamilia') ? 'cmp-cell-diff' : 'cmp-cell-ok') : 'cmp-cell-null'"
+                                                x-text="row.s?.subfamilia || '—'"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.e?.subfamilia"
+                                                :class="!row.en_erp ? 'cmp-cell-null' : (row.diffs.includes('subfamilia') ? 'cmp-cell-new' : 'cmp-cell-ok')"
+                                                x-text="row.en_erp ? (row.e?.subfamilia || '—') : 'N/A'"></td>
+                                            <td class="px-2 py-1 text-right border-l border-gray-100"
+                                                :class="row.en_erp ? (row.diffs.includes('pu') ? 'cmp-cell-diff' : 'cmp-cell-ok') : 'cmp-cell-null'"
+                                                x-text="fmtN(row.s?.pu)"></td>
+                                            <td class="px-2 py-1 text-right"
+                                                :class="!row.en_erp ? 'cmp-cell-null' : (row.diffs.includes('pu') ? 'cmp-cell-new' : 'cmp-cell-ok')"
+                                                x-text="row.en_erp ? fmtN(row.e?.pu) : 'N/A'"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            {{-- ── SALIDAS ──────────────────────────────────────────────── --}}
+            <div class="bg-white rounded-lg border border-indigo-200 shadow-sm overflow-hidden">
+                <div class="px-5 py-3 bg-indigo-50 border-b border-indigo-200 flex items-center gap-3 flex-wrap">
+                    <span class="font-semibold text-indigo-800 text-sm">Salidas</span>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 border border-indigo-300"
+                          x-text="secciones.salidas.cargado ? secciones.salidas.items.length + ' registros' : ''"></span>
+                    <button @click="cargar('salidas')"
+                            :disabled="secciones.salidas.cargando"
+                            class="ml-auto px-3 py-1 text-xs font-semibold rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition">
+                        <span x-show="!secciones.salidas.cargando">Cargar</span>
+                        <span x-show="secciones.salidas.cargando">Cargando…</span>
+                    </button>
+                </div>
+                <template x-if="secciones.salidas.cargado">
+                    <div class="px-5 py-4 space-y-3">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <div class="flex gap-1">
+                                <button @click="secciones = {...secciones, salidas: {...secciones.salidas, filtro: 'todos'}}"
+                                        :class="secciones.salidas.filtro==='todos' ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 border border-gray-300'"
+                                        class="px-3 py-1 text-xs rounded-full font-medium">
+                                    Todos (<span x-text="secciones.salidas.items.length"></span>)
+                                </button>
+                                <button @click="secciones = {...secciones, salidas: {...secciones.salidas, filtro: 'diffs'}}"
+                                        :class="secciones.salidas.filtro==='diffs' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600 border border-gray-300'"
+                                        class="px-3 py-1 text-xs rounded-full font-medium">
+                                    Con diferencias (<span x-text="secciones.salidas.items.filter(r=>r.diffs.length>0).length"></span>)
+                                </button>
+                            </div>
+                            <div class="flex flex-wrap gap-2 text-xs">
+                                <template x-for="col in colsConfig.salidas" :key="col[0]">
+                                    <label class="flex items-center gap-1 cursor-pointer">
+                                        <input type="checkbox" :checked="secciones.salidas.act[col[0]]"
+                                               @change="secciones = {...secciones, salidas: {...secciones.salidas, act: {...secciones.salidas.act, [col[0]]: $event.target.checked}}}"
+                                               class="rounded border-gray-300 text-indigo-600" style="appearance:auto;width:13px;height:13px;">
+                                        <span x-text="col[1]" class="text-gray-600"></span>
+                                    </label>
+                                </template>
+                            </div>
+                            <button @click="aplicar('salidas')"
+                                    :disabled="selCount('salidas') === 0"
+                                    class="ml-auto px-4 py-1.5 text-xs font-semibold rounded bg-indigo-700 text-white hover:bg-indigo-800 disabled:opacity-40 transition">
+                                Aplicar seleccionados (<span x-text="selCount('salidas')"></span>)
+                            </button>
+                        </div>
+                        <template x-if="secciones.salidas.resultado !== null">
+                            <div :class="secciones.salidas.resultado.ok ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'"
+                                 class="border rounded px-4 py-2 text-xs font-medium"
+                                 x-text="secciones.salidas.resultado.ok ? 'OK — ' + secciones.salidas.resultado.registros + ' registros procesados en ' + secciones.salidas.resultado.tiempo_ms + 'ms' : (secciones.salidas.resultado.error ?? 'Error')">
+                            </div>
+                        </template>
+                        <div class="overflow-x-auto rounded border border-gray-200">
+                            <table class="text-xs w-full" style="table-layout:fixed;min-width:900px;">
+                                <colgroup>
+                                    <col style="width:30px">
+                                    <col style="width:110px">
+                                    <col style="width:130px">
+                                    <col style="width:80px">
+                                    <col style="width:140px"><col style="width:140px">
+                                    <col style="width:70px"><col style="width:70px">
+                                    <col style="width:110px"><col style="width:110px">
+                                    <col style="width:110px"><col style="width:110px">
+                                    <col style="width:80px"><col style="width:80px">
+                                </colgroup>
+                                <thead class="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+                                    <tr>
+                                        <th class="px-1 py-1" rowspan="2"></th>
+                                        <th class="px-2 py-1 text-left text-gray-500 font-medium" rowspan="2">Insumo</th>
+                                        <th class="px-2 py-1 text-left text-gray-500 font-medium" rowspan="2">Obra</th>
+                                        <th class="px-2 py-1 text-left text-gray-500 font-medium" rowspan="2">Fecha</th>
+                                        <th class="px-2 py-1 text-center text-gray-500 font-medium border-l border-gray-200" colspan="2">Descripción</th>
+                                        <th class="px-2 py-1 text-center text-gray-500 font-medium border-l border-gray-200" colspan="2">Unidad</th>
+                                        <th class="px-2 py-1 text-center text-gray-500 font-medium border-l border-gray-200" colspan="2">Familia</th>
+                                        <th class="px-2 py-1 text-center text-gray-500 font-medium border-l border-gray-200" colspan="2">Subfamilia</th>
+                                        <th class="px-2 py-1 text-center text-gray-500 font-medium border-l border-gray-200" colspan="2">PU</th>
+                                    </tr>
+                                    <tr>
+                                        <th class="px-2 py-1 text-center text-gray-400 font-normal border-l border-gray-200">Sistema</th><th class="px-2 py-1 text-center text-gray-400 font-normal">ERP</th>
+                                        <th class="px-2 py-1 text-center text-gray-400 font-normal border-l border-gray-200">Sistema</th><th class="px-2 py-1 text-center text-gray-400 font-normal">ERP</th>
+                                        <th class="px-2 py-1 text-center text-gray-400 font-normal border-l border-gray-200">Sistema</th><th class="px-2 py-1 text-center text-gray-400 font-normal">ERP</th>
+                                        <th class="px-2 py-1 text-center text-gray-400 font-normal border-l border-gray-200">Sistema</th><th class="px-2 py-1 text-center text-gray-400 font-normal">ERP</th>
+                                        <th class="px-2 py-1 text-center text-gray-400 font-normal border-l border-gray-200">Sistema</th><th class="px-2 py-1 text-center text-gray-400 font-normal">ERP</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    <template x-for="row in filteredItems('salidas')" :key="row.id">
+                                        <tr :class="row.diffs.length > 0 ? 'border-l-2 border-yellow-400' : ''">
+                                            <td class="px-1 py-1 text-center">
+                                                <input type="checkbox" :checked="!!secciones.salidas.sel[row.id]"
+                                                       @change="secciones = {...secciones, salidas: {...secciones.salidas, sel: {...secciones.salidas.sel, [row.id]: $event.target.checked}}}"
+                                                       class="rounded border-gray-300" style="appearance:auto;width:13px;height:13px;">
+                                            </td>
+                                            <td class="px-2 py-1 font-mono truncate" :title="row.insumo_id" x-text="row.insumo_id"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.obra" x-text="row.obra"></td>
+                                            <td class="px-2 py-1 text-gray-500 truncate" x-text="fmtFecha(row.fecha)"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.s?.descripcion"
+                                                :class="row.en_erp ? (row.diffs.includes('descripcion') ? 'cmp-cell-diff' : 'cmp-cell-ok') : 'cmp-cell-null'"
+                                                x-text="row.s?.descripcion || '—'"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.e?.descripcion"
+                                                :class="!row.en_erp ? 'cmp-cell-null' : (row.diffs.includes('descripcion') ? 'cmp-cell-new' : 'cmp-cell-ok')"
+                                                x-text="row.en_erp ? (row.e?.descripcion || '—') : 'N/A'"></td>
+                                            <td class="px-2 py-1 truncate border-l border-gray-100" :title="row.s?.unidad"
+                                                :class="row.en_erp ? (row.diffs.includes('unidad') ? 'cmp-cell-diff' : 'cmp-cell-ok') : 'cmp-cell-null'"
+                                                x-text="row.s?.unidad || '—'"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.e?.unidad"
+                                                :class="!row.en_erp ? 'cmp-cell-null' : (row.diffs.includes('unidad') ? 'cmp-cell-new' : 'cmp-cell-ok')"
+                                                x-text="row.en_erp ? (row.e?.unidad || '—') : 'N/A'"></td>
+                                            <td class="px-2 py-1 truncate border-l border-gray-100" :title="row.s?.familia"
+                                                :class="row.en_erp ? (row.diffs.includes('familia') ? 'cmp-cell-diff' : 'cmp-cell-ok') : 'cmp-cell-null'"
+                                                x-text="row.s?.familia || '—'"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.e?.familia"
+                                                :class="!row.en_erp ? 'cmp-cell-null' : (row.diffs.includes('familia') ? 'cmp-cell-new' : 'cmp-cell-ok')"
+                                                x-text="row.en_erp ? (row.e?.familia || '—') : 'N/A'"></td>
+                                            <td class="px-2 py-1 truncate border-l border-gray-100" :title="row.s?.subfamilia"
+                                                :class="row.en_erp ? (row.diffs.includes('subfamilia') ? 'cmp-cell-diff' : 'cmp-cell-ok') : 'cmp-cell-null'"
+                                                x-text="row.s?.subfamilia || '—'"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.e?.subfamilia"
+                                                :class="!row.en_erp ? 'cmp-cell-null' : (row.diffs.includes('subfamilia') ? 'cmp-cell-new' : 'cmp-cell-ok')"
+                                                x-text="row.en_erp ? (row.e?.subfamilia || '—') : 'N/A'"></td>
+                                            <td class="px-2 py-1 text-right border-l border-gray-100"
+                                                :class="row.en_erp ? (row.diffs.includes('pu') ? 'cmp-cell-diff' : 'cmp-cell-ok') : 'cmp-cell-null'"
+                                                x-text="fmtN(row.s?.pu)"></td>
+                                            <td class="px-2 py-1 text-right"
+                                                :class="!row.en_erp ? 'cmp-cell-null' : (row.diffs.includes('pu') ? 'cmp-cell-new' : 'cmp-cell-ok')"
+                                                x-text="row.en_erp ? fmtN(row.e?.pu) : 'N/A'"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            {{-- ── TRANSFERENCIAS ENVIADAS ──────────────────────────────── --}}
+            <div class="bg-white rounded-lg border border-orange-200 shadow-sm overflow-hidden">
+                <div class="px-5 py-3 bg-orange-50 border-b border-orange-200 flex items-center gap-3 flex-wrap">
+                    <span class="font-semibold text-orange-800 text-sm">Transferencias Enviadas</span>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 border border-orange-300"
+                          x-text="secciones.enviadas.cargado ? secciones.enviadas.items.length + ' registros' : ''"></span>
+                    <button @click="cargar('enviadas')"
+                            :disabled="secciones.enviadas.cargando"
+                            class="ml-auto px-3 py-1 text-xs font-semibold rounded bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-50 transition">
+                        <span x-show="!secciones.enviadas.cargando">Cargar</span>
+                        <span x-show="secciones.enviadas.cargando">Cargando…</span>
+                    </button>
+                </div>
+                <template x-if="secciones.enviadas.cargado">
+                    <div class="px-5 py-4 space-y-3">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <div class="flex gap-1">
+                                <button @click="secciones = {...secciones, enviadas: {...secciones.enviadas, filtro: 'todos'}}"
+                                        :class="secciones.enviadas.filtro==='todos' ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 border border-gray-300'"
+                                        class="px-3 py-1 text-xs rounded-full font-medium">
+                                    Todos (<span x-text="secciones.enviadas.items.length"></span>)
+                                </button>
+                                <button @click="secciones = {...secciones, enviadas: {...secciones.enviadas, filtro: 'diffs'}}"
+                                        :class="secciones.enviadas.filtro==='diffs' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600 border border-gray-300'"
+                                        class="px-3 py-1 text-xs rounded-full font-medium">
+                                    Con diferencias (<span x-text="secciones.enviadas.items.filter(r=>r.diffs.length>0).length"></span>)
+                                </button>
+                            </div>
+                            <div class="flex flex-wrap gap-2 text-xs">
+                                <template x-for="col in colsConfig.enviadas" :key="col[0]">
+                                    <label class="flex items-center gap-1 cursor-pointer">
+                                        <input type="checkbox" :checked="secciones.enviadas.act[col[0]]"
+                                               @change="secciones = {...secciones, enviadas: {...secciones.enviadas, act: {...secciones.enviadas.act, [col[0]]: $event.target.checked}}}"
+                                               class="rounded border-gray-300 text-orange-600" style="appearance:auto;width:13px;height:13px;">
+                                        <span x-text="col[1]" class="text-gray-600"></span>
+                                    </label>
+                                </template>
+                            </div>
+                            <button @click="aplicar('enviadas')"
+                                    :disabled="selCount('enviadas') === 0"
+                                    class="ml-auto px-4 py-1.5 text-xs font-semibold rounded bg-orange-700 text-white hover:bg-orange-800 disabled:opacity-40 transition">
+                                Aplicar seleccionados (<span x-text="selCount('enviadas')"></span>)
+                            </button>
+                        </div>
+                        <template x-if="secciones.enviadas.resultado !== null">
+                            <div :class="secciones.enviadas.resultado.ok ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'"
+                                 class="border rounded px-4 py-2 text-xs font-medium"
+                                 x-text="secciones.enviadas.resultado.ok ? 'OK — ' + secciones.enviadas.resultado.registros + ' registros procesados en ' + secciones.enviadas.resultado.tiempo_ms + 'ms' : (secciones.enviadas.resultado.error ?? 'Error')">
+                            </div>
+                        </template>
+                        <div class="overflow-x-auto rounded border border-gray-200">
+                            <table class="text-xs w-full" style="table-layout:fixed;min-width:600px;">
+                                <colgroup>
+                                    <col style="width:30px">
+                                    <col style="width:110px">
+                                    <col style="width:130px">
+                                    <col style="width:80px">
+                                    <col style="width:160px"><col style="width:160px">
+                                    <col style="width:70px"><col style="width:70px">
+                                    <col style="width:90px"><col style="width:90px">
+                                </colgroup>
+                                <thead class="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+                                    <tr>
+                                        <th class="px-1 py-1" rowspan="2"></th>
+                                        <th class="px-2 py-1 text-left text-gray-500 font-medium" rowspan="2">Insumo</th>
+                                        <th class="px-2 py-1 text-left text-gray-500 font-medium" rowspan="2">Obra</th>
+                                        <th class="px-2 py-1 text-left text-gray-500 font-medium" rowspan="2">Fecha</th>
+                                        <th class="px-2 py-1 text-center text-gray-500 font-medium border-l border-gray-200" colspan="2">Descripción</th>
+                                        <th class="px-2 py-1 text-center text-gray-500 font-medium border-l border-gray-200" colspan="2">Unidad</th>
+                                        <th class="px-2 py-1 text-center text-gray-500 font-medium border-l border-gray-200" colspan="2">PU</th>
+                                    </tr>
+                                    <tr>
+                                        <th class="px-2 py-1 text-center text-gray-400 font-normal border-l border-gray-200">Sistema</th><th class="px-2 py-1 text-center text-gray-400 font-normal">ERP</th>
+                                        <th class="px-2 py-1 text-center text-gray-400 font-normal border-l border-gray-200">Sistema</th><th class="px-2 py-1 text-center text-gray-400 font-normal">ERP</th>
+                                        <th class="px-2 py-1 text-center text-gray-400 font-normal border-l border-gray-200">Sistema</th><th class="px-2 py-1 text-center text-gray-400 font-normal">ERP</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    <template x-for="row in filteredItems('enviadas')" :key="row.id">
+                                        <tr :class="row.diffs.length > 0 ? 'border-l-2 border-yellow-400' : ''">
+                                            <td class="px-1 py-1 text-center">
+                                                <input type="checkbox" :checked="!!secciones.enviadas.sel[row.id]"
+                                                       @change="secciones = {...secciones, enviadas: {...secciones.enviadas, sel: {...secciones.enviadas.sel, [row.id]: $event.target.checked}}}"
+                                                       class="rounded border-gray-300" style="appearance:auto;width:13px;height:13px;">
+                                            </td>
+                                            <td class="px-2 py-1 font-mono truncate" :title="row.insumo_id" x-text="row.insumo_id"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.obra" x-text="row.obra"></td>
+                                            <td class="px-2 py-1 text-gray-500 truncate" x-text="fmtFecha(row.fecha)"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.s?.descripcion"
+                                                :class="row.en_erp ? (row.diffs.includes('descripcion') ? 'cmp-cell-diff' : 'cmp-cell-ok') : 'cmp-cell-null'"
+                                                x-text="row.s?.descripcion || '—'"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.e?.descripcion"
+                                                :class="!row.en_erp ? 'cmp-cell-null' : (row.diffs.includes('descripcion') ? 'cmp-cell-new' : 'cmp-cell-ok')"
+                                                x-text="row.en_erp ? (row.e?.descripcion || '—') : 'N/A'"></td>
+                                            <td class="px-2 py-1 truncate border-l border-gray-100" :title="row.s?.unidad"
+                                                :class="row.en_erp ? (row.diffs.includes('unidad') ? 'cmp-cell-diff' : 'cmp-cell-ok') : 'cmp-cell-null'"
+                                                x-text="row.s?.unidad || '—'"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.e?.unidad"
+                                                :class="!row.en_erp ? 'cmp-cell-null' : (row.diffs.includes('unidad') ? 'cmp-cell-new' : 'cmp-cell-ok')"
+                                                x-text="row.en_erp ? (row.e?.unidad || '—') : 'N/A'"></td>
+                                            <td class="px-2 py-1 text-right border-l border-gray-100"
+                                                :class="row.en_erp ? (row.diffs.includes('pu') ? 'cmp-cell-diff' : 'cmp-cell-ok') : 'cmp-cell-null'"
+                                                x-text="fmtN(row.s?.pu)"></td>
+                                            <td class="px-2 py-1 text-right"
+                                                :class="!row.en_erp ? 'cmp-cell-null' : (row.diffs.includes('pu') ? 'cmp-cell-new' : 'cmp-cell-ok')"
+                                                x-text="row.en_erp ? fmtN(row.e?.pu) : 'N/A'"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            {{-- ── TRANSFERENCIAS RECIBIDAS ─────────────────────────────── --}}
+            <div class="bg-white rounded-lg border border-teal-200 shadow-sm overflow-hidden">
+                <div class="px-5 py-3 bg-teal-50 border-b border-teal-200 flex items-center gap-3 flex-wrap">
+                    <span class="font-semibold text-teal-800 text-sm">Transferencias Recibidas</span>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-700 border border-teal-300"
+                          x-text="secciones.recibidas.cargado ? secciones.recibidas.items.length + ' registros' : ''"></span>
+                    <button @click="cargar('recibidas')"
+                            :disabled="secciones.recibidas.cargando"
+                            class="ml-auto px-3 py-1 text-xs font-semibold rounded bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50 transition">
+                        <span x-show="!secciones.recibidas.cargando">Cargar</span>
+                        <span x-show="secciones.recibidas.cargando">Cargando…</span>
+                    </button>
+                </div>
+                <template x-if="secciones.recibidas.cargado">
+                    <div class="px-5 py-4 space-y-3">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <div class="flex gap-1">
+                                <button @click="secciones = {...secciones, recibidas: {...secciones.recibidas, filtro: 'todos'}}"
+                                        :class="secciones.recibidas.filtro==='todos' ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 border border-gray-300'"
+                                        class="px-3 py-1 text-xs rounded-full font-medium">
+                                    Todos (<span x-text="secciones.recibidas.items.length"></span>)
+                                </button>
+                                <button @click="secciones = {...secciones, recibidas: {...secciones.recibidas, filtro: 'diffs'}}"
+                                        :class="secciones.recibidas.filtro==='diffs' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600 border border-gray-300'"
+                                        class="px-3 py-1 text-xs rounded-full font-medium">
+                                    Con diferencias (<span x-text="secciones.recibidas.items.filter(r=>r.diffs.length>0).length"></span>)
+                                </button>
+                            </div>
+                            <div class="flex flex-wrap gap-2 text-xs">
+                                <template x-for="col in colsConfig.recibidas" :key="col[0]">
+                                    <label class="flex items-center gap-1 cursor-pointer">
+                                        <input type="checkbox" :checked="secciones.recibidas.act[col[0]]"
+                                               @change="secciones = {...secciones, recibidas: {...secciones.recibidas, act: {...secciones.recibidas.act, [col[0]]: $event.target.checked}}}"
+                                               class="rounded border-gray-300 text-teal-600" style="appearance:auto;width:13px;height:13px;">
+                                        <span x-text="col[1]" class="text-gray-600"></span>
+                                    </label>
+                                </template>
+                            </div>
+                            <button @click="aplicar('recibidas')"
+                                    :disabled="selCount('recibidas') === 0"
+                                    class="ml-auto px-4 py-1.5 text-xs font-semibold rounded bg-teal-700 text-white hover:bg-teal-800 disabled:opacity-40 transition">
+                                Aplicar seleccionados (<span x-text="selCount('recibidas')"></span>)
+                            </button>
+                        </div>
+                        <template x-if="secciones.recibidas.resultado !== null">
+                            <div :class="secciones.recibidas.resultado.ok ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'"
+                                 class="border rounded px-4 py-2 text-xs font-medium"
+                                 x-text="secciones.recibidas.resultado.ok ? 'OK — ' + secciones.recibidas.resultado.registros + ' registros procesados en ' + secciones.recibidas.resultado.tiempo_ms + 'ms' : (secciones.recibidas.resultado.error ?? 'Error')">
+                            </div>
+                        </template>
+                        <div class="overflow-x-auto rounded border border-gray-200">
+                            <table class="text-xs w-full" style="table-layout:fixed;min-width:900px;">
+                                <colgroup>
+                                    <col style="width:30px">
+                                    <col style="width:110px">
+                                    <col style="width:130px">
+                                    <col style="width:80px">
+                                    <col style="width:140px"><col style="width:140px">
+                                    <col style="width:70px"><col style="width:70px">
+                                    <col style="width:110px"><col style="width:110px">
+                                    <col style="width:110px"><col style="width:110px">
+                                    <col style="width:80px"><col style="width:80px">
+                                </colgroup>
+                                <thead class="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+                                    <tr>
+                                        <th class="px-1 py-1" rowspan="2"></th>
+                                        <th class="px-2 py-1 text-left text-gray-500 font-medium" rowspan="2">Insumo</th>
+                                        <th class="px-2 py-1 text-left text-gray-500 font-medium" rowspan="2">Obra</th>
+                                        <th class="px-2 py-1 text-left text-gray-500 font-medium" rowspan="2">Fecha</th>
+                                        <th class="px-2 py-1 text-center text-gray-500 font-medium border-l border-gray-200" colspan="2">Descripción</th>
+                                        <th class="px-2 py-1 text-center text-gray-500 font-medium border-l border-gray-200" colspan="2">Unidad</th>
+                                        <th class="px-2 py-1 text-center text-gray-500 font-medium border-l border-gray-200" colspan="2">Familia</th>
+                                        <th class="px-2 py-1 text-center text-gray-500 font-medium border-l border-gray-200" colspan="2">Subfamilia</th>
+                                        <th class="px-2 py-1 text-center text-gray-500 font-medium border-l border-gray-200" colspan="2">PU</th>
+                                    </tr>
+                                    <tr>
+                                        <th class="px-2 py-1 text-center text-gray-400 font-normal border-l border-gray-200">Sistema</th><th class="px-2 py-1 text-center text-gray-400 font-normal">ERP</th>
+                                        <th class="px-2 py-1 text-center text-gray-400 font-normal border-l border-gray-200">Sistema</th><th class="px-2 py-1 text-center text-gray-400 font-normal">ERP</th>
+                                        <th class="px-2 py-1 text-center text-gray-400 font-normal border-l border-gray-200">Sistema</th><th class="px-2 py-1 text-center text-gray-400 font-normal">ERP</th>
+                                        <th class="px-2 py-1 text-center text-gray-400 font-normal border-l border-gray-200">Sistema</th><th class="px-2 py-1 text-center text-gray-400 font-normal">ERP</th>
+                                        <th class="px-2 py-1 text-center text-gray-400 font-normal border-l border-gray-200">Sistema</th><th class="px-2 py-1 text-center text-gray-400 font-normal">ERP</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    <template x-for="row in filteredItems('recibidas')" :key="row.id">
+                                        <tr :class="row.diffs.length > 0 ? 'border-l-2 border-yellow-400' : ''">
+                                            <td class="px-1 py-1 text-center">
+                                                <input type="checkbox" :checked="!!secciones.recibidas.sel[row.id]"
+                                                       @change="secciones = {...secciones, recibidas: {...secciones.recibidas, sel: {...secciones.recibidas.sel, [row.id]: $event.target.checked}}}"
+                                                       class="rounded border-gray-300" style="appearance:auto;width:13px;height:13px;">
+                                            </td>
+                                            <td class="px-2 py-1 font-mono truncate" :title="row.insumo_id" x-text="row.insumo_id"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.obra" x-text="row.obra"></td>
+                                            <td class="px-2 py-1 text-gray-500 truncate" x-text="fmtFecha(row.fecha)"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.s?.descripcion"
+                                                :class="row.en_erp ? (row.diffs.includes('descripcion') ? 'cmp-cell-diff' : 'cmp-cell-ok') : 'cmp-cell-null'"
+                                                x-text="row.s?.descripcion || '—'"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.e?.descripcion"
+                                                :class="!row.en_erp ? 'cmp-cell-null' : (row.diffs.includes('descripcion') ? 'cmp-cell-new' : 'cmp-cell-ok')"
+                                                x-text="row.en_erp ? (row.e?.descripcion || '—') : 'N/A'"></td>
+                                            <td class="px-2 py-1 truncate border-l border-gray-100" :title="row.s?.unidad"
+                                                :class="row.en_erp ? (row.diffs.includes('unidad') ? 'cmp-cell-diff' : 'cmp-cell-ok') : 'cmp-cell-null'"
+                                                x-text="row.s?.unidad || '—'"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.e?.unidad"
+                                                :class="!row.en_erp ? 'cmp-cell-null' : (row.diffs.includes('unidad') ? 'cmp-cell-new' : 'cmp-cell-ok')"
+                                                x-text="row.en_erp ? (row.e?.unidad || '—') : 'N/A'"></td>
+                                            <td class="px-2 py-1 truncate border-l border-gray-100" :title="row.s?.familia"
+                                                :class="row.en_erp ? (row.diffs.includes('familia') ? 'cmp-cell-diff' : 'cmp-cell-ok') : 'cmp-cell-null'"
+                                                x-text="row.s?.familia || '—'"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.e?.familia"
+                                                :class="!row.en_erp ? 'cmp-cell-null' : (row.diffs.includes('familia') ? 'cmp-cell-new' : 'cmp-cell-ok')"
+                                                x-text="row.en_erp ? (row.e?.familia || '—') : 'N/A'"></td>
+                                            <td class="px-2 py-1 truncate border-l border-gray-100" :title="row.s?.subfamilia"
+                                                :class="row.en_erp ? (row.diffs.includes('subfamilia') ? 'cmp-cell-diff' : 'cmp-cell-ok') : 'cmp-cell-null'"
+                                                x-text="row.s?.subfamilia || '—'"></td>
+                                            <td class="px-2 py-1 truncate" :title="row.e?.subfamilia"
+                                                :class="!row.en_erp ? 'cmp-cell-null' : (row.diffs.includes('subfamilia') ? 'cmp-cell-new' : 'cmp-cell-ok')"
+                                                x-text="row.en_erp ? (row.e?.subfamilia || '—') : 'N/A'"></td>
+                                            <td class="px-2 py-1 text-right border-l border-gray-100"
+                                                :class="row.en_erp ? (row.diffs.includes('pu') ? 'cmp-cell-diff' : 'cmp-cell-ok') : 'cmp-cell-null'"
+                                                x-text="fmtN(row.s?.pu)"></td>
+                                            <td class="px-2 py-1 text-right"
+                                                :class="!row.en_erp ? 'cmp-cell-null' : (row.diffs.includes('pu') ? 'cmp-cell-new' : 'cmp-cell-ok')"
+                                                x-text="row.en_erp ? fmtN(row.e?.pu) : 'N/A'"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </template>
+            </div>
 
         </div>
     </div>
@@ -838,6 +1316,87 @@
                 } finally {
                     this.ejecutando = false;
                 }
+            },
+        };
+    }
+
+    function comparacionPU() {
+        const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+
+        return {
+            colsConfig: {
+                entradas:  [['descripcion','Descripción'],['unidad','Unidad'],['familia','Familia'],['subfamilia','Subfamilia'],['pu','PU']],
+                salidas:   [['descripcion','Descripción'],['unidad','Unidad'],['familia','Familia'],['subfamilia','Subfamilia'],['pu','PU']],
+                enviadas:  [['descripcion','Descripción'],['unidad','Unidad'],['pu','PU']],
+                recibidas: [['descripcion','Descripción'],['unidad','Unidad'],['familia','Familia'],['subfamilia','Subfamilia'],['pu','PU']],
+            },
+            secciones: {
+                entradas:  { cargando: false, cargado: false, items: [], sel: {}, filtro: 'todos', resultado: null, act: {pu:true,descripcion:true,unidad:true,familia:true,subfamilia:true} },
+                salidas:   { cargando: false, cargado: false, items: [], sel: {}, filtro: 'todos', resultado: null, act: {pu:true,descripcion:true,unidad:true,familia:true,subfamilia:true} },
+                enviadas:  { cargando: false, cargado: false, items: [], sel: {}, filtro: 'todos', resultado: null, act: {pu:true,descripcion:true,unidad:true} },
+                recibidas: { cargando: false, cargado: false, items: [], sel: {}, filtro: 'todos', resultado: null, act: {pu:true,descripcion:true,unidad:true,familia:true,subfamilia:true} },
+            },
+
+            async cargar(sec) {
+                this.secciones = {...this.secciones, [sec]: {...this.secciones[sec], cargando: true, cargado: false, items: [], sel: {}, resultado: null}};
+                try {
+                    const r = await fetch('{{ route('admin.actualizar-pu.preview') }}?seccion=' + sec, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    const data = await r.json();
+                    if (!Array.isArray(data)) { alert('Error cargando sección.'); return; }
+                    const sel = {};
+                    data.forEach(row => {
+                        if (row.diffs && row.diffs.length > 0 && row.en_erp) sel[row.id] = true;
+                    });
+                    this.secciones = {...this.secciones, [sec]: {...this.secciones[sec], cargando: false, cargado: true, items: data, sel}};
+                } catch(e) {
+                    alert('Error: ' + e.message);
+                    this.secciones = {...this.secciones, [sec]: {...this.secciones[sec], cargando: false}};
+                }
+            },
+
+            filteredItems(sec) {
+                const s = this.secciones[sec];
+                if (!s || !s.items) return [];
+                if (s.filtro === 'diffs') return s.items.filter(r => r.diffs.length > 0);
+                return s.items;
+            },
+
+            selCount(sec) {
+                const sel = this.secciones[sec]?.sel || {};
+                return Object.values(sel).filter(Boolean).length;
+            },
+
+            async aplicar(sec) {
+                const s   = this.secciones[sec];
+                const ids = Object.entries(s.sel).filter(([,v]) => v).map(([k]) => parseInt(k));
+                if (!ids.length) return;
+                const campos = Object.entries(s.act).filter(([,v]) => v).map(([k]) => k);
+                if (!campos.length) { alert('Selecciona al menos un campo.'); return; }
+                this.secciones = {...this.secciones, [sec]: {...s, resultado: null}};
+                try {
+                    const r = await fetch('{{ route('admin.actualizar-pu.aplicar-seleccionados') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': CSRF,
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: JSON.stringify({ seccion: sec, ids, campos }),
+                    });
+                    const data = await r.json();
+                    this.secciones = {...this.secciones, [sec]: {...this.secciones[sec], resultado: data}};
+                } catch(e) {
+                    this.secciones = {...this.secciones, [sec]: {...this.secciones[sec], resultado: {ok: false, error: e.message}}};
+                }
+            },
+
+            fmt(v)  { return v !== undefined && v !== null ? Number(v).toLocaleString('es-MX') : '—'; },
+            fmtN(v) { return v !== null && v !== undefined ? '$' + Number(v).toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—'; },
+            fmtFecha(d) {
+                if (!d) return '—';
+                try { return new Date(d).toLocaleDateString('es-MX'); } catch { return d; }
             },
         };
     }

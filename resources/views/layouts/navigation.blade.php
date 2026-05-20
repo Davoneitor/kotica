@@ -132,6 +132,9 @@
                             <x-dropdown-link :href="route('admin.actualizar-pu')">
                                 Actualizar PU
                             </x-dropdown-link>
+                            <x-dropdown-link :href="route('admin.comparar-insumos')">
+                                Comparar Insumos
+                            </x-dropdown-link>
                         @endif
 
                         <form method="POST" action="{{ route('logout') }}">
@@ -266,6 +269,9 @@
                     </x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('admin.actualizar-pu')">
                         Actualizar PU
+                    </x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('admin.comparar-insumos')">
+                        Comparar Insumos
                     </x-responsive-nav-link>
                 @endif
 

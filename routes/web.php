@@ -14,6 +14,7 @@ use App\Http\Controllers\CamionEscombroController;
 use App\Http\Controllers\EntradaManualController;
 use App\Http\Controllers\AdminPuController;
 use App\Http\Controllers\AdminMasivoController;
+use App\Http\Controllers\AdminCompararInsumosController;
 
 Route::get('/', function () {
     return redirect()->route('inventario.index');
@@ -197,10 +198,16 @@ Route::get('/inventario/{inventario}/historial', [InventarioController::class, '
         Route::get('/admin/actualizar-pu/stats', [AdminPuController::class, 'stats'])->name('admin.actualizar-pu.stats');
         Route::post('/admin/actualizar-pu/run', [AdminPuController::class, 'run'])->name('admin.actualizar-pu.run');
         Route::post('/admin/actualizar-pu/manual', [AdminPuController::class, 'runManual'])->name('admin.actualizar-pu.manual');
+        Route::get('/admin/actualizar-pu/preview', [AdminPuController::class, 'preview'])->name('admin.actualizar-pu.preview');
+        Route::post('/admin/actualizar-pu/aplicar-seleccionados', [AdminPuController::class, 'aplicarSeleccionados'])->name('admin.actualizar-pu.aplicar-seleccionados');
 
         Route::get('/admin/actualizar-masivo/obras',    [AdminMasivoController::class, 'obras'])->name('admin.masivo.obras');
         Route::get('/admin/actualizar-masivo/analizar', [AdminMasivoController::class, 'analizar'])->name('admin.masivo.analizar');
         Route::post('/admin/actualizar-masivo/ejecutar',[AdminMasivoController::class, 'ejecutar'])->name('admin.masivo.ejecutar');
+
+        Route::get('/admin/comparar-insumos',         [AdminCompararInsumosController::class, 'index'])  ->name('admin.comparar-insumos');
+        Route::get('/admin/comparar-insumos/data',    [AdminCompararInsumosController::class, 'data'])   ->name('admin.comparar-insumos.data');
+        Route::post('/admin/comparar-insumos/aplicar',[AdminCompararInsumosController::class, 'aplicar'])->name('admin.comparar-insumos.aplicar');
     });
 
     // =========================
