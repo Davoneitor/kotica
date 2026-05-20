@@ -110,6 +110,9 @@ class ExcelExporter
         ]);
         $sheet->getRowDimension(2)->setRowHeight(18);
 
+        // Auto-filter en la fila de encabezados
+        $sheet->setAutoFilter("A2:{$lastColLtr}2");
+
         // Congelar encabezados (filas 1 y 2)
         $sheet->freezePane('A3');
 

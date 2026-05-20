@@ -276,15 +276,17 @@ class CamionEscombroController extends Controller
         })($t);
 
         $data = $rawRows->map(fn($r) => [
-            $r->fecha?->format('Y-m-d') ?? '',                                    // 0 date
+            $r->fecha?->format('d/m/Y') ?? '',                                     // 0 date
             $h24a12($r->hora_entrada),                                             // 1 text
             $h24a12($r->hora_salida),                                              // 2 text
             (string) ($r->tipo_material ?? ''),                                    // 3 text
             (string) ($r->placas ?? ''),                                           // 4 text
-            (float)  ($r->metros_cubicos ?? 0),                                    // 5 number
-            (float)  ($totalesPorFecha[$r->fecha?->format('Y-m-d') ?? ''] ?? 0),  // 6 number
-            (string) ($r->folio_recibo ?? ''),                                     // 7 text
-            (string) ($r->usuario_nombre ?? ''),                                   // 8 text
+            (string) ($r->chofer ?? ''),                                           // 5 text
+            (string) ($r->camion ?? ''),                                           // 6 text
+            (float)  ($r->metros_cubicos ?? 0),                                    // 7 number
+            (float)  ($totalesPorFecha[$r->fecha?->format('Y-m-d') ?? ''] ?? 0),  // 8 number
+            (string) ($r->folio_recibo ?? ''),                                     // 9 text
+            (string) ($r->usuario_nombre ?? ''),                                   // 10 text
         ])->values()->toArray();
 
         $filters = array_filter([
@@ -303,9 +305,9 @@ class CamionEscombroController extends Controller
         return ExcelExporter::download(
             filename:    'salida_camiones',
             moduleName:  'Control Salida Camiones',
-            headers:     ['Fecha', 'H. Entrada', 'H. Salida', 'Tipo Material', 'Placas', 'm³', 'Total Día (m³)', 'Cód. Recibo', 'Usuario'],
+            headers:     ['Fecha', 'H. Entrada', 'H. Salida', 'Tipo Material', 'Placas', 'Chofer', 'Camión', 'm³', 'Total Día (m³)', 'Cód. Recibo', 'Usuario'],
             rows:        $data,
-            columnTypes: [0 => 'date', 5 => 'number', 6 => 'number'],
+            columnTypes: [7 => 'number', 8 => 'number'],
             filters:     $filters,
         );
     }

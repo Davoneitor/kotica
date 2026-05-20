@@ -1171,7 +1171,19 @@
                     <span class="text-xs font-semibold px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.2)"
                           x-text="entradasPorTipo('finiquito').length + ' registros'"></span>
                 </div>
-                <span class="text-xs opacity-75">Diferencias cerradas operativamente</span>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs opacity-75">Diferencias cerradas operativamente</span>
+                    <button @click.stop="exportarFiniquitadas()"
+                            class="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors"
+                            style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3)"
+                            onmouseover="this.style.background='rgba(255,255,255,0.25)'"
+                            onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                        </svg>
+                        Excel
+                    </button>
+                </div>
             </div>
             <div x-show="ent.seccionAbierta.finiquito" class="overflow-x-auto"
                  :style="dk('background:#f8fafc','background:#0f172a')">
@@ -3443,6 +3455,14 @@
                         const params = new URLSearchParams();
                         if (this.inv.q) params.set('q', this.inv.q);
                         window.open('/explore/exportar/inventario?' + params.toString(), '_blank');
+                    },
+
+                    exportarFiniquitadas() {
+                        const params = new URLSearchParams();
+                        if (this.ent.q)     params.set('q',     this.ent.q);
+                        if (this.ent.desde) params.set('desde', this.ent.desde);
+                        if (this.ent.hasta) params.set('hasta', this.ent.hasta);
+                        window.open('/explore/exportar/finiquitadas?' + params.toString(), '_blank');
                     },
 
                     exportarEscombro() {

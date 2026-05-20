@@ -124,16 +124,13 @@
                             </x-dropdown-link>
                         @endif
 
-                        {{-- ✅ SOLO ADMIN: Usuarios --}}
+                        {{-- ✅ SOLO ADMIN: Usuarios + Actualizar Reportes --}}
                         @if($isAdmin)
                             <x-dropdown-link :href="route('users.index')">
                                 Usuarios
                             </x-dropdown-link>
-                            <x-dropdown-link :href="route('admin.actualizar-pu')">
-                                Actualizar PU
-                            </x-dropdown-link>
-                            <x-dropdown-link :href="route('admin.comparar-insumos')">
-                                Comparar Insumos
+                            <x-dropdown-link :href="route('admin.actualizar-reportes')">
+                                Actualizar Reportes
                             </x-dropdown-link>
                         @endif
 
@@ -262,16 +259,13 @@
                     </x-responsive-nav-link>
                 @endif
 
-                {{-- ✅ SOLO ADMIN (móvil): Usuarios --}}
+                {{-- ✅ SOLO ADMIN (móvil): Usuarios + Actualizar Reportes --}}
                 @if($isAdmin)
                     <x-responsive-nav-link :href="route('users.index')">
                         Usuarios
                     </x-responsive-nav-link>
-                    <x-responsive-nav-link :href="route('admin.actualizar-pu')">
-                        Actualizar PU
-                    </x-responsive-nav-link>
-                    <x-responsive-nav-link :href="route('admin.comparar-insumos')">
-                        Comparar Insumos
+                    <x-responsive-nav-link :href="route('admin.actualizar-reportes')">
+                        Actualizar Reportes
                     </x-responsive-nav-link>
                 @endif
 
