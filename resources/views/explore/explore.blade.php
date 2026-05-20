@@ -534,17 +534,24 @@
                                 <tbody>
                                     <template x-for="row in transSalidasGruposFlat()" :key="row._key">
                                         <tr :style="row._fila==='obra'
-                                                    ? 'border-top:2px solid #f97316;background:#ffedd5'
+                                                    ? 'border-top:2px solid #f97316;background:#ffedd5;cursor:pointer;user-select:none'
                                                     : row._fila==='folio'
                                                         ? 'border-top:1px solid #fed7aa;background:#fff7ed;cursor:pointer;user-select:none'
                                                         : 'border-top:1px solid #fef3c7'"
-                                            @click="row._fila==='folio' && toggleTransSalidaFolio(row._folioKey)">
-                                            {{-- Col 1: flecha SOLO en folio --}}
+                                            @click="row._fila==='obra' ? toggleTransSalidaGrupo(row.obra) : (row._fila==='folio' && toggleTransSalidaFolio(row._folioKey))">
+                                            {{-- Col 1: flecha obra y folio --}}
                                             <td class="px-2 py-2 text-center w-8">
-                                                <svg x-show="row._fila==='folio'"
-                                                     :class="transSalidasFoliosExpandidos[row._folioKey] ? 'rotate-90' : ''"
+                                                <svg x-show="row._fila==='obra'"
+                                                     :class="transSalidasExpandidos[row.obra] ? 'rotate-90' : ''"
                                                      class="inline w-4 h-4 transition-transform duration-150"
                                                      style="color:#f97316"
+                                                     fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                                </svg>
+                                                <svg x-show="row._fila==='folio'"
+                                                     :class="transSalidasFoliosExpandidos[row._folioKey] ? 'rotate-90' : ''"
+                                                     class="inline transition-transform duration-150"
+                                                     style="color:#f97316;width:0.85rem;height:0.85rem;margin-left:0.5rem"
                                                      fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                                                 </svg>
@@ -1071,27 +1078,31 @@
                                         : row._fila==='folio'
                                             ? dk('border-top:1px solid #fed7aa;background:#fff7ed;cursor:pointer;user-select:none','border-top:1px solid #7c2d12;background:#1e0c00;cursor:pointer;user-select:none')
                                             : dk('border-top:1px solid #fef3c7','border-top:1px solid #3a1800') + (row.revertida ? ';opacity:0.5' : '')"
-                                @click="row._fila==='obra' ? toggleTransObraGrupo(row.obra) : (row._fila==='folio' ? toggleTransGrupo(row._folioKey) : null)">
+                                @click="row._fila==='obra' ? toggleTransObraGrupo(row.obra) : (row._fila==='folio' && toggleTransGrupo(row._folioKey))">
                                 {{-- Col 1: flecha obra y folio --}}
                                 <td class="px-2 py-2 text-center w-8">
                                     <svg x-show="row._fila==='obra'"
-                                         :style="(transObraExpandidos[row.obra]?'transform:rotate(90deg);':'') + dk('color:#f97316','color:#fb923c') + ';display:inline;width:1rem;height:1rem;transition:transform 0.15s'"
+                                         :class="transObraExpandidos[row.obra] ? 'rotate-90' : ''"
+                                         class="inline w-4 h-4 transition-transform duration-150"
+                                         :style="dk('color:#f97316','color:#fb923c')"
                                          fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                                     </svg>
                                     <svg x-show="row._fila==='folio'"
-                                         :style="(transTablaExpandidos[row._folioKey]?'transform:rotate(90deg);':'') + dk('color:#fb923c','color:#fdba74') + ';display:inline;width:0.85rem;height:0.85rem;margin-left:0.5rem;transition:transform 0.15s'"
+                                         :class="transTablaExpandidos[row._folioKey] ? 'rotate-90' : ''"
+                                         class="inline transition-transform duration-150"
+                                         :style="dk('color:#fb923c','color:#fdba74') + ';width:0.85rem;height:0.85rem;margin-left:0.5rem'"
                                          fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                                     </svg>
                                 </td>
                                 {{-- Col 2 --}}
                                 <td class="px-3 py-2 text-xs tabular-nums whitespace-nowrap"
-                                    :style="row._fila==='obra' ? dk('color:#fb923c','color:#fdba74')
+                                    :style="row._fila==='obra' ? dk('color:#9a3412;font-weight:700;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em','color:#fdba74;font-weight:700;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em')
                                           : row._fila==='folio' ? dk('color:#b45309;font-weight:600','color:#fdba74;font-weight:600')
                                           : dk('color:#6b7280;padding-left:1.5rem','color:#7a5030;padding-left:1.5rem')">
                                     <template x-if="row._fila==='obra'">
-                                        <span x-text="row.count+' folio'+(row.count!==1?'s':'')"></span>
+                                        <span x-text="row.obra"></span>
                                     </template>
                                     <template x-if="row._fila==='folio'">
                                         <span>
@@ -1108,12 +1119,11 @@
                                     :style="row._fila==='folio' ? dk('color:#9ca3af','color:#6b7280') : dk('color:#4b5563','color:#7a5030')"
                                     x-text="row._fila==='folio' ? row.count+' prod.' : (row._fila==='detalle' ? row.insumo : '')">
                                 </td>
-                                {{-- Col 4: obra / — / descripcion --}}
+                                {{-- Col 4: — / — / descripcion --}}
                                 <td class="px-3 py-2"
-                                    :style="row._fila==='obra' ? dk('color:#9a3412;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.04em','color:#fdba74;font-weight:700;font-size:0.875rem;text-transform:uppercase')
-                                          : row._fila==='folio' ? dk('color:#d1d5db','color:#3a2010')
+                                    :style="row._fila==='folio' ? dk('color:#d1d5db','color:#3a2010')
                                           : dk('font-size:0.75rem;color:#374151','font-size:0.75rem;color:#8a6040')"
-                                    x-text="row._fila==='obra' ? row.obra : (row._fila==='folio' ? '' : row.descripcion)">
+                                    x-text="row._fila==='folio' ? '' : (row._fila==='detalle' ? row.descripcion : '')">
                                 </td>
                                 {{-- Col 5 --}}
                                 <td class="px-3 py-2 text-xs" :style="dk('color:#6b7280','color:#5a3a20')"
@@ -2845,17 +2855,19 @@
                             result.push({ _fila: 'obra', _key: 'ts_o_' + obraGrupo.obra,
                                 obra: obraGrupo.obra, cantidad_total: obraGrupo.cantidad_total,
                                 importe_total: obraGrupo.importe_total, count: obraGrupo.foliosCount });
-                            const folios = Object.values(obraGrupo.foliosMap).sort((a, b) => b.transferencia_id - a.transferencia_id);
-                            for (const folio of folios) {
-                                const folioKey = obraGrupo.obra + '_' + folio.transferencia_id;
-                                result.push({ _fila: 'folio', _key: 'ts_f_' + folioKey, _folioKey: folioKey,
-                                    transferencia_id: folio.transferencia_id, fecha: folio.fecha,
-                                    obra_origen: folio.obra_origen, usuario: folio.usuario,
-                                    cantidad_total: folio.cantidad_total, importe_total: folio.importe_total,
-                                    count: folio.filas.length });
-                                if (this.transSalidasFoliosExpandidos[folioKey]) {
-                                    for (const fila of folio.filas) {
-                                        result.push({ _fila: 'detalle', _key: 'ts_d_' + fila.id, ...fila });
+                            if (this.transSalidasExpandidos[obraGrupo.obra]) {
+                                const folios = Object.values(obraGrupo.foliosMap).sort((a, b) => b.transferencia_id - a.transferencia_id);
+                                for (const folio of folios) {
+                                    const folioKey = obraGrupo.obra + '_' + folio.transferencia_id;
+                                    result.push({ _fila: 'folio', _key: 'ts_f_' + folioKey, _folioKey: folioKey,
+                                        transferencia_id: folio.transferencia_id, fecha: folio.fecha,
+                                        obra_origen: folio.obra_origen, usuario: folio.usuario,
+                                        cantidad_total: folio.cantidad_total, importe_total: folio.importe_total,
+                                        count: folio.filas.length });
+                                    if (this.transSalidasFoliosExpandidos[folioKey]) {
+                                        for (const fila of folio.filas) {
+                                            result.push({ _fila: 'detalle', _key: 'ts_d_' + fila.id, ...fila });
+                                        }
                                     }
                                 }
                             }
@@ -3291,28 +3303,20 @@
                     },
 
                     todosSalidasExpandidos() {
-                        const salObras = [...new Set(this.salidasTablaData.map(r => (r.obra || 'SIN OBRA').trim()))];
-                        const transObras = [...new Set(this.transSalidasData.map(r => (r.obra_destino || 'SIN DESTINO').trim()))];
-                        if (salObras.length + transObras.length === 0) return false;
-                        return salObras.every(o => this.salidasObraExpandidos[o])
+                        const salFamilias = [...new Set(this.salidasTablaData.map(r => r.familia || 'SIN FAMILIA'))];
+                        const transObras  = [...new Set(this.transSalidasData.map(r => (r.obra_destino || 'SIN DESTINO').trim()))];
+                        if (salFamilias.length + transObras.length === 0) return false;
+                        return salFamilias.every(f => this.salidasTablaExpandidos[f])
                             && transObras.every(o => this.transSalidasExpandidos[o]);
                     },
 
                     toggleExpandirTodoSalidas() {
                         const expandir = !this.todosSalidasExpandidos();
-                        const newSalObras = {};
-                        for (const o of [...new Set(this.salidasTablaData.map(r => (r.obra || 'SIN OBRA').trim()))]) newSalObras[o] = expandir;
-                        this.salidasObraExpandidos = newSalObras;
-                        if (expandir) {
-                            const newMovs = {};
-                            for (const r of this.salidasTablaData) {
-                                const obra = (r.obra || 'SIN OBRA').trim();
-                                newMovs[obra + '_' + r.movimiento_id] = true;
-                            }
-                            this.salidasMovimientoExpandidos = newMovs;
-                        } else {
-                            this.salidasMovimientoExpandidos = {};
-                        }
+                        // Salidas — 2 niveles: familia → detalle
+                        const salFam = {};
+                        for (const r of this.salidasTablaData) salFam[r.familia || 'SIN FAMILIA'] = expandir;
+                        this.salidasTablaExpandidos = salFam;
+                        // Transferencias Enviadas — 3 niveles: obra → folio → detalle
                         const newTransObras = {};
                         for (const o of [...new Set(this.transSalidasData.map(r => (r.obra_destino || 'SIN DESTINO').trim()))]) newTransObras[o] = expandir;
                         this.transSalidasExpandidos = newTransObras;
@@ -3328,55 +3332,60 @@
                     },
 
                     todosEntradasExpandidos() {
-                        const ocObras  = [...new Set(this.entradasPorTipo('oc').map(r => (r.obra || 'SIN OBRA').trim()))];
-                        const manObras = [...new Set(this.entradasPorTipo('manual').map(r => (r.obra || 'SIN OBRA').trim()))];
-                        const transObras = [...new Set(this.entradasPorTipo('transferencia').map(r => (r.obra_origen || 'SIN ORIGEN').trim()))];
-                        if (ocObras.length + manObras.length + transObras.length === 0) return false;
-                        return ocObras.every(o => this.ocObraExpandidos[o])
+                        const ocFamilias  = [...new Set(this.entradasPorTipo('oc').map(r => r.familia || 'SIN FAMILIA'))];
+                        const manObras    = [...new Set(this.entradasPorTipo('manual').map(r => (r.obra || 'SIN OBRA').trim()))];
+                        const transObras  = [...new Set(this.entradasPorTipo('transferencia').map(r => (r.obra_origen || 'SIN ORIGEN').trim()))];
+                        const fiqObras    = [...new Set(this.entradasPorTipo('finiquito').map(r => (r.obra || 'SIN OBRA').trim()))];
+                        if (ocFamilias.length + manObras.length + transObras.length + fiqObras.length === 0) return false;
+                        return ocFamilias.every(f => this.ocTablaExpandidos[f])
                             && manObras.every(o => this.manualObraExpandidos[o])
-                            && transObras.every(o => this.transObraExpandidos[o]);
+                            && transObras.every(o => this.transObraExpandidos[o])
+                            && fiqObras.every(o => this.finiquitoObraExpandidos[o]);
                     },
 
                     toggleExpandirTodoEntradas() {
                         const expandir = !this.todosEntradasExpandidos();
-                        const ocOb = {}, manOb = {};
-                        for (const r of this.entradasPorTipo('oc'))    ocOb[(r.obra || 'SIN OBRA').trim()] = expandir;
-                        for (const r of this.entradasPorTipo('manual')) manOb[(r.obra || 'SIN OBRA').trim()] = expandir;
-                        this.ocObraExpandidos   = ocOb;
-                        this.manualObraExpandidos = manOb;
-                        if (expandir) {
-                            const ocFol = {}, manFol = {};
-                            for (const r of this.entradasPorTipo('oc')) {
-                                const obra = (r.obra || 'SIN OBRA').trim();
-                                const fid = r.id_pedido && r.id_pedido !== '0' ? r.id_pedido : ('oc' + r.id);
-                                ocFol[obra + '_' + fid] = true;
-                            }
-                            for (const r of this.entradasPorTipo('manual')) {
-                                const obra = (r.obra || 'SIN OBRA').trim();
+                        // OC — 2 niveles: familia → detalle
+                        const ocFam = {};
+                        for (const r of this.entradasPorTipo('oc')) ocFam[r.familia || 'SIN FAMILIA'] = expandir;
+                        this.ocTablaExpandidos = ocFam;
+                        // Manual — 3 niveles: obra → folio → detalle
+                        const manOb = {}, manFol = {};
+                        for (const r of this.entradasPorTipo('manual')) {
+                            const obra = (r.obra || 'SIN OBRA').trim();
+                            manOb[obra] = expandir;
+                            if (expandir) {
                                 const fid = r.id_pedido && r.id_pedido !== '0' ? r.id_pedido : ((r.fecha_recibido||'').substring(0,10) || ('man' + r.id));
                                 manFol[obra + '_' + fid] = true;
                             }
-                            this.ocFolioExpandidos   = ocFol;
-                            this.manualFolioExpandidos = manFol;
-                        } else {
-                            this.ocFolioExpandidos = {};
-                            this.manualFolioExpandidos = {};
                         }
-                        const newTransObras = {};
-                        for (const r of this.entradasPorTipo('transferencia')) newTransObras[(r.obra_origen || 'SIN ORIGEN').trim()] = expandir;
-                        this.transObraExpandidos = newTransObras;
-                        if (expandir) {
-                            const newFolios = {};
-                            for (const row of this.entradasPorTipo('transferencia')) {
-                                const obra = (row.obra_origen || 'SIN ORIGEN').trim();
-                                const fid = row.transferencia_id > 0 ? row.transferencia_id : ('f_' + row.id);
-                                newFolios[obra + '_' + fid] = true;
+                        this.manualObraExpandidos  = manOb;
+                        this.manualFolioExpandidos = expandir ? manFol : {};
+                        // Transferencias Recibidas — 3 niveles: obra → folio → detalle
+                        const trOb = {}, trFol = {};
+                        for (const r of this.entradasPorTipo('transferencia')) {
+                            const obra = (r.obra_origen || 'SIN ORIGEN').trim();
+                            trOb[obra] = expandir;
+                            if (expandir) {
+                                const fid = r.transferencia_id > 0 ? r.transferencia_id : ('f_' + r.id);
+                                trFol[obra + '_' + fid] = true;
                             }
-                            this.transTablaExpandidos = newFolios;
-                            this.ent.seccionAbierta = { oc: true, manual: true, transferencia: true, finiquito: true };
-                        } else {
-                            this.transTablaExpandidos = {};
                         }
+                        this.transObraExpandidos  = trOb;
+                        this.transTablaExpandidos = expandir ? trFol : {};
+                        // Finiquito — 3 niveles: obra → folio → detalle
+                        const fiqOb = {}, fiqFol = {};
+                        for (const r of this.entradasPorTipo('finiquito')) {
+                            const obra = (r.obra || 'SIN OBRA').trim();
+                            fiqOb[obra] = expandir;
+                            if (expandir) {
+                                const fid = r.id_pedido && r.id_pedido !== '0' ? r.id_pedido : ((r.fecha_recibido||'').substring(0,10) || ('fq' + r.id));
+                                fiqFol[obra + '_' + fid] = true;
+                            }
+                        }
+                        this.finiquitoObraExpandidos  = fiqOb;
+                        this.finiquitoFolioExpandidos = expandir ? fiqFol : {};
+                        if (expandir) this.ent.seccionAbierta = { oc: true, manual: true, transferencia: true, finiquito: true };
                         this._tv++;
                     },
 
