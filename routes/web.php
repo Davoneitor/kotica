@@ -13,6 +13,7 @@ use App\Http\Controllers\TransferenciaController;
 use App\Http\Controllers\CamionEscombroController;
 use App\Http\Controllers\EntradaManualController;
 use App\Http\Controllers\ActualizarReportesController;
+use App\Http\Controllers\ImportarInventarioController;
 
 Route::get('/', function () {
     return redirect()->route('inventario.index');
@@ -202,6 +203,12 @@ Route::get('/inventario/{inventario}/historial', [InventarioController::class, '
         Route::get('/admin/actualizar-reportes/comparar', [ActualizarReportesController::class, 'comparar'])->name('admin.actualizar-reportes.comparar');
         Route::post('/admin/actualizar-reportes/aplicar',        [ActualizarReportesController::class, 'aplicar']) ->name('admin.actualizar-reportes.aplicar');
         Route::get('/admin/actualizar-reportes/estado/{token}',   [ActualizarReportesController::class, 'estado'])  ->name('admin.actualizar-reportes.estado');
+
+        Route::get('/admin/importar-inventario',          [ImportarInventarioController::class, 'index'])    ->name('admin.importar-inventario');
+        Route::get('/admin/importar-inventario/plantilla',[ImportarInventarioController::class, 'plantilla'])->name('admin.importar-inventario.plantilla');
+        Route::post('/admin/importar-inventario/analizar',[ImportarInventarioController::class, 'analizar']) ->name('admin.importar-inventario.analizar');
+        Route::post('/admin/importar-inventario/validar', [ImportarInventarioController::class, 'validar'])  ->name('admin.importar-inventario.validar');
+        Route::post('/admin/importar-inventario/importar',[ImportarInventarioController::class, 'importar']) ->name('admin.importar-inventario.importar');
     });
 
     // =========================

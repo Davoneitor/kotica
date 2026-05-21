@@ -221,6 +221,9 @@
                             <x-dropdown-link :href="route('admin.actualizar-reportes')">
                                 Actualizar Reportes
                             </x-dropdown-link>
+                            <x-dropdown-link :href="route('admin.importar-inventario')">
+                                Importar Inventario
+                            </x-dropdown-link>
                         @endif
 
                         <form method="POST" action="{{ route('logout') }}">
@@ -372,6 +375,9 @@
                     </x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('admin.actualizar-reportes')">
                         Actualizar Reportes
+                    </x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('admin.importar-inventario')">
+                        Importar Inventario
                     </x-responsive-nav-link>
                 @endif
 

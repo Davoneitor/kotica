@@ -1386,35 +1386,86 @@ public function entradaFoto($id)
         // Agrupar por tipo — cada tipo va en su propia hoja coloreada
         $byTipo = ['oc' => [], 'manual' => [], 'transferencia' => [], 'finiquito' => []];
 
+        // Cabeceras y tipos por hoja: OC lleva Fecha OC primero; Manual y Transferencia no manejan OC
+        $cfgPorTipo = [
+            'oc' => [
+                'headers'      => ['Fecha OC', 'Fecha Recibido', 'OC #', 'Det #', 'Familia', 'Subfamilia', 'Código', 'Descripción', 'Unidad', 'Cantidad', 'P.U.', 'Importe', 'Observaciones'],
+                'columnTypes'  => [3 => 'integer', 9 => 'number', 10 => 'currency', 11 => 'currency'],
+                'columnWidths' => [7 => 42, 12 => 35],
+            ],
+            'manual' => [
+                'headers'      => ['Fecha Recibido', 'Familia', 'Subfamilia', 'Código', 'Descripción', 'Unidad', 'Cantidad', 'P.U.', 'Importe', 'Observaciones'],
+                'columnTypes'  => [6 => 'number', 7 => 'currency', 8 => 'currency'],
+                'columnWidths' => [4 => 42, 9 => 35],
+            ],
+            'transferencia' => [
+                'headers'      => ['Fecha Recibido', 'Familia', 'Subfamilia', 'Código', 'Descripción', 'Unidad', 'Cantidad', 'P.U.', 'Importe', 'Observaciones'],
+                'columnTypes'  => [6 => 'number', 7 => 'currency', 8 => 'currency'],
+                'columnWidths' => [4 => 42, 9 => 35],
+            ],
+            'finiquito' => [
+                'headers'      => ['Fecha Recibido', 'Fecha OC', 'OC #', 'Det #', 'Familia', 'Subfamilia', 'Código', 'Descripción', 'Unidad', 'Cantidad', 'P.U.', 'Importe', 'Observaciones'],
+                'columnTypes'  => [3 => 'integer', 9 => 'number', 10 => 'currency', 11 => 'currency'],
+                'columnWidths' => [7 => 42, 12 => 35],
+            ],
+        ];
+
+        $importe = fn($r) => $r->precio_unitario !== null
+            ? round((float) $r->cantidad_llego * (float) $r->precio_unitario, 2)
+            : null;
+
         foreach ($rows as $r) {
             $t = $r->tipo ?? 'oc';
             if (!array_key_exists($t, $byTipo)) $t = 'oc';
-            $byTipo[$t][] = [
-                $fmtDate($r->fecha_recibido),                                            // 0
-                $fmtDate($r->fecha_oc),                                                  // 1
-                (string) $r->id_pedido,                                                  // 2
-                (int)    $r->pedido_det_id,                                              // 3 integer
-                (string) ($r->familia    ?? ''),                                         // 4
-                (string) ($r->subfamilia ?? ''),                                         // 5
-                (string) $r->codigo,                                                     // 6
-                (string) $r->descripcion,                                                // 7
-                (string) ($r->descripcionauxiliar ?? ''),                                // 8
-                (string) $r->unidad,                                                     // 9
-                (float)  $r->cantidad_llego,                                             // 10 number
-                $r->precio_unitario !== null ? (float) $r->precio_unitario : null,      // 11 currency
-                $r->precio_unitario !== null
-                    ? round((float) $r->cantidad_llego * (float) $r->precio_unitario, 2)
-                    : null,                                                              // 12 currency
-                (string) ($r->observaciones ?? ''),                                      // 13
-            ];
-        }
 
-        $entradaHeaders  = [
-            'Fecha Recibido', 'Fecha OC', 'OC #', 'Det #',
-            'Familia', 'Subfamilia', 'Código', 'Descripción', 'Desc. Auxiliar',
-            'Unidad', 'Cantidad', 'P.U.', 'Importe', 'Observaciones',
-        ];
-        $entradaColTypes = [3 => 'integer', 10 => 'number', 11 => 'currency', 12 => 'currency'];
+            if ($t === 'oc') {
+                $byTipo[$t][] = [
+                    $fmtDate($r->fecha_oc),                                                  // 0 Fecha OC
+                    $fmtDate($r->fecha_recibido),                                            // 1 Fecha Recibido
+                    (string) $r->id_pedido,                                                  // 2 OC #
+                    (int)    $r->pedido_det_id,                                              // 3 Det # integer
+                    (string) ($r->familia    ?? ''),                                         // 4
+                    (string) ($r->subfamilia ?? ''),                                         // 5
+                    (string) $r->codigo,                                                     // 6
+                    (string) $r->descripcion,                                                // 7
+                    (string) $r->unidad,                                                     // 8
+                    (float)  $r->cantidad_llego,                                             // 9 number
+                    $r->precio_unitario !== null ? (float) $r->precio_unitario : null,       // 10 currency
+                    $importe($r),                                                             // 11 currency
+                    (string) ($r->observaciones ?? ''),                                      // 12
+                ];
+            } elseif ($t === 'manual' || $t === 'transferencia') {
+                $byTipo[$t][] = [
+                    $fmtDate($r->fecha_recibido),                                            // 0 Fecha Recibido
+                    (string) ($r->familia    ?? ''),                                         // 1
+                    (string) ($r->subfamilia ?? ''),                                         // 2
+                    (string) $r->codigo,                                                     // 3
+                    (string) $r->descripcion,                                                // 4
+                    (string) $r->unidad,                                                     // 5
+                    (float)  $r->cantidad_llego,                                             // 6 number
+                    $r->precio_unitario !== null ? (float) $r->precio_unitario : null,       // 7 currency
+                    $importe($r),                                                             // 8 currency
+                    (string) ($r->observaciones ?? ''),                                      // 9
+                ];
+            } else {
+                // finiquito
+                $byTipo[$t][] = [
+                    $fmtDate($r->fecha_recibido),                                            // 0
+                    $fmtDate($r->fecha_oc),                                                  // 1
+                    (string) $r->id_pedido,                                                  // 2
+                    (int)    $r->pedido_det_id,                                              // 3 integer
+                    (string) ($r->familia    ?? ''),                                         // 4
+                    (string) ($r->subfamilia ?? ''),                                         // 5
+                    (string) $r->codigo,                                                     // 6
+                    (string) $r->descripcion,                                                // 7
+                    (string) $r->unidad,                                                     // 8
+                    (float)  $r->cantidad_llego,                                             // 9 number
+                    $r->precio_unitario !== null ? (float) $r->precio_unitario : null,       // 10 currency
+                    $importe($r),                                                             // 11 currency
+                    (string) ($r->observaciones ?? ''),                                      // 12
+                ];
+            }
+        }
 
         $tipoLabels = [
             'oc'           => 'Compra',
@@ -1433,27 +1484,28 @@ public function entradaFoto($id)
 
         // Configuración por tipo: [título, color hex]
         $sheetConfig = [
-            'oc'           => ['Compras OC',      '4F46E5'],   // indigo
-            'manual'       => ['Entradas Manual',  '16A34A'],   // green
-            'transferencia'=> ['Transferencias',   'D97706'],   // amber
-            'finiquito'    => ['Finiquitadas',      '475569'],   // slate
+            'oc'           => ['Compras OC',      '4F46E5'],
+            'manual'       => ['Entradas Manual',  '16A34A'],
+            'transferencia'=> ['Transferencias',   'D97706'],
+            'finiquito'    => ['Finiquitadas',     '475569'],
         ];
 
-        // La hoja principal es la que tenga datos; si hay filtro por tipo, usar ese
-        $mainTipo  = $tipo ?? 'oc';
-        $mainCfg   = $sheetConfig[$mainTipo];
+        $mainTipo = $tipo ?? 'oc';
+        $mainCfg  = $sheetConfig[$mainTipo];
+        $mainFmt  = $cfgPorTipo[$mainTipo];
 
         $extraSheets = [];
         foreach ($sheetConfig as $t => $cfg) {
             if ($t === $mainTipo) continue;
-            if (empty($byTipo[$t])) continue;     // omitir hojas vacías
+            if (empty($byTipo[$t])) continue;
+            $fmt = $cfgPorTipo[$t];
             $extraSheets[] = [
-                'title'       => $cfg[0],
-                'headers'     => $entradaHeaders,
-                'rows'        => $byTipo[$t],
-                'columnTypes' => $entradaColTypes,
-                'color'       => $cfg[1],
-                'columnWidths'=> [7 => 42, 8 => 35, 13 => 35],
+                'title'        => $cfg[0],
+                'headers'      => $fmt['headers'],
+                'rows'         => $byTipo[$t],
+                'columnTypes'  => $fmt['columnTypes'],
+                'color'        => $cfg[1],
+                'columnWidths' => $fmt['columnWidths'],
             ];
         }
 
@@ -1467,13 +1519,13 @@ public function entradaFoto($id)
         return ExcelExporter::download(
             filename:    'entradas',
             moduleName:  $mainCfg[0],
-            headers:     $entradaHeaders,
+            headers:     $mainFmt['headers'],
             rows:        $byTipo[$mainTipo],
-            columnTypes: $entradaColTypes,
+            columnTypes: $mainFmt['columnTypes'],
             filters:     $filters,
             extraSheets: $extraSheets,
             color:       $mainCfg[1],
-            columnWidths: [7 => 42, 8 => 35, 13 => 35],   // Descripción, Desc.Auxiliar, Observaciones
+            columnWidths: $mainFmt['columnWidths'],
         );
     }
 
