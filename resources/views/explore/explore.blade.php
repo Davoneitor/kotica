@@ -40,12 +40,11 @@
                             @click="tab='escom'; cargarEscombro()">
                         Control Salida Camiones
                     </button>
-                    {{-- <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
+                    <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
                             :class="tab==='trans' ? 'bg-gray-900 text-white' : 'bg-white'"
                             @click="tab='trans'; cargarTransferencias()">
                         Transferencias
-                    </button> --}}
-{{--                     </button> --}}
+                    </button>
 
                     <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
                             :class="tab==='inv' ? 'bg-gray-900 text-white' : 'bg-white'"
@@ -57,6 +56,12 @@
                             :class="tab==='oc' ? 'bg-gray-900 text-white' : 'bg-white'"
                             @click="tab='oc'; cargarOC()">
                         Ordenes compra (ERP)
+                    </button>
+
+                    <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
+                            :class="tab==='movdet' ? 'bg-indigo-700 text-white' : 'bg-white'"
+                            @click="tab='movdet'; if(!movimientosDetallados.length) cargarMovimientosDetallados()">
+                        Movimientos Detallados
                     </button>
 
                 </div>
@@ -413,7 +418,7 @@
                                         <th class="px-3 py-2 text-left">Folio / Fecha</th>
                                         <th class="px-3 py-2 text-left">Código</th>
                                         <th class="px-3 py-2 text-left">Descripción</th>
-                                        <th class="px-3 py-2 text-left">Unidad / Responsable</th>
+                                        <th class="px-3 py-2 text-left">Unidad</th>
                                         <th class="px-3 py-2 text-right">Cantidad</th>
                                         <th class="px-3 py-2 text-right">P.U.</th>
                                         <th class="px-3 py-2 text-right">Importe</th>
@@ -441,10 +446,7 @@
                                                     <span x-text="row.count + ' salida' + (row.count!==1?'s':'')"></span>
                                                 </template>
                                                 <template x-if="row._fila==='detalle'">
-                                                    <span>
-                                                        <span x-text="formatFechaCorta(row.fecha)"></span>
-                                                        <span style="margin-left:0.3rem;opacity:0.55" x-text="'#'+row.movimiento_id"></span>
-                                                    </span>
+                                                    <span x-text="formatFechaCorta(row.fecha)"></span>
                                                 </template>
                                             </td>
                                             {{-- Col 3: — / código --}}
@@ -476,11 +478,11 @@
                                                 :style="row._fila==='familia' ? 'color:#4338ca;font-weight:700' : 'font-size:0.75rem;font-weight:500;color:#374151'"
                                                 x-text="formatNum(row._fila==='familia' ? row.cantidad_total : row.cantidad)">
                                             </td>
-                                            {{-- Col 7: P.U. --}}
+                                            {{-- Col 9: P.U. --}}
                                             <td class="px-3 py-2 text-right text-xs tabular-nums" style="color:#6b7280"
                                                 x-text="row._fila==='detalle' && row.precio_unitario !== null ? '$'+formatMoney(row.precio_unitario) : '—'">
                                             </td>
-                                            {{-- Col 8: importe --}}
+                                            {{-- Col 10: importe --}}
                                             <td class="px-3 py-2 text-right tabular-nums"
                                                 :style="row._fila==='familia' ? 'color:#4338ca;font-weight:700' : 'font-size:0.75rem;color:#374151'"
                                                 x-text="row._fila==='familia'
@@ -868,12 +870,15 @@
                         <tr>
                             <th class="w-8 px-2 py-2"></th>
                             <th class="px-3 py-2 text-left">Fecha</th>
+                            <th class="px-3 py-2 text-left">OC</th>
+                            <th class="px-3 py-2 text-left">DET</th>
                             <th class="px-3 py-2 text-left">Código</th>
                             <th class="px-3 py-2 text-left">Descripción</th>
                             <th class="px-3 py-2 text-left">Unidad</th>
                             <th class="px-3 py-2 text-right">Cantidad</th>
                             <th class="px-3 py-2 text-right">P.U.</th>
                             <th class="px-3 py-2 text-right">Importe</th>
+                            <th class="px-3 py-2 text-left">Observaciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -895,6 +900,10 @@
                                 <td class="px-3 py-2 text-xs whitespace-nowrap tabular-nums"
                                     :style="row._fila==='familia' ? dk('color:#059669;font-weight:500','color:#34d399;font-weight:600') : dk('color:#6b7280;padding-left:1.5rem','color:#5a8a6a;padding-left:1.5rem')"
                                     x-text="row._fila==='familia' ? row.count+' registros' : formatFechaCorta(row.fecha_recibido)"></td>
+                                <td class="px-3 py-2 text-xs tabular-nums" :style="dk('color:#4b5563','color:#7a9a7a')"
+                                    x-text="row._fila!=='familia' ? (row.id_pedido && row.id_pedido!='0' ? row.id_pedido : '—') : ''"></td>
+                                <td class="px-3 py-2 text-xs tabular-nums" :style="dk('color:#4b5563','color:#7a9a7a')"
+                                    x-text="row._fila!=='familia' ? (row.pedido_det_id && row.pedido_det_id!=0 ? row.pedido_det_id : '—') : ''"></td>
                                 <td class="px-3 py-2 font-mono text-xs"
                                     :style="row._fila==='familia' ? dk('color:#d1d5db','color:#4a7a5a') : dk('color:#4b5563;padding-left:1.5rem','color:#7a9a7a;padding-left:1.5rem')"
                                     x-text="row._fila!=='familia' ? row.insumo : ''"></td>
@@ -913,6 +922,8 @@
                                     x-text="row._fila==='familia'
                                         ? (row.importe_total>0 ? '$'+formatMoney(row.importe_total) : '—')
                                         : (row.importe!=null ? '$'+formatMoney(row.importe) : '—')"></td>
+                                <td class="px-3 py-2 text-xs italic max-w-xs truncate" :style="dk('color:#9ca3af','color:#5a7a5a')"
+                                    x-text="row._fila!=='familia' ? (row.observaciones||'') : ''"></td>
                             </tr>
                         </template>
                     </tbody>
@@ -1775,10 +1786,14 @@
                                     <th class="w-8 px-2 py-2"></th>
                                     <th class="px-3 py-2 text-left">Código</th>
                                     <th class="px-3 py-2 text-left">Descripción</th>
+                                    <th class="px-3 py-2 text-left">Desc. Auxiliar</th>
                                     <th class="px-3 py-2 text-left">Unidad</th>
                                     <th class="px-3 py-2 text-right">Cantidad</th>
+                                    <th class="px-3 py-2 text-right">C. Teórica</th>
+                                    <th class="px-3 py-2 text-right">En Espera</th>
                                     <th class="px-3 py-2 text-right">P.U.</th>
                                     <th class="px-3 py-2 text-right">Importe</th>
+                                    <th class="px-3 py-2 text-left">Obsoleto</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1807,6 +1822,10 @@
                                             :class="row._tipo === 'familia' ? 'text-amber-800 font-bold text-sm uppercase tracking-wide' : 'text-sm text-gray-700'"
                                             x-text="row._tipo === 'familia' ? row.familia : row.descripcion">
                                         </td>
+                                        {{-- Desc. Auxiliar --}}
+                                        <td class="px-3 py-2 text-xs text-gray-400 italic max-w-xs truncate"
+                                            x-text="row._tipo !== 'familia' ? (row.descripcionauxiliar||'') : ''">
+                                        </td>
                                         {{-- Unidad --}}
                                         <td class="px-3 py-2 text-xs"
                                             :class="row._tipo === 'familia' ? '' : 'text-gray-600'"
@@ -1816,6 +1835,14 @@
                                         <td class="px-3 py-2 text-right tabular-nums"
                                             :class="row._tipo === 'familia' ? 'text-amber-700 font-bold' : 'font-medium text-gray-800'"
                                             x-text="formatNum(row._tipo === 'familia' ? row.cantidad_total : row.cantidad)">
+                                        </td>
+                                        {{-- Cant. Teórica --}}
+                                        <td class="px-3 py-2 text-right text-xs tabular-nums text-gray-500"
+                                            x-text="row._tipo !== 'familia' ? formatNum(row.cantidad_teorica) : ''">
+                                        </td>
+                                        {{-- En Espera --}}
+                                        <td class="px-3 py-2 text-right text-xs tabular-nums text-gray-500"
+                                            x-text="row._tipo !== 'familia' ? formatNum(row.en_espera) : ''">
                                         </td>
                                         {{-- P.U. --}}
                                         <td class="px-3 py-2 text-right text-xs tabular-nums"
@@ -1828,6 +1855,10 @@
                                             x-text="row._tipo === 'familia'
                                                 ? (row.importe_total > 0 ? '$' + formatMoney(row.importe_total) : '—')
                                                 : (row.importe !== null ? '$' + formatMoney(row.importe) : '—')">
+                                        </td>
+                                        {{-- Obsoleto --}}
+                                        <td class="px-3 py-2 text-xs"
+                                            x-text="row._tipo !== 'familia' && row.obsoleto ? '⚠ Sí' : ''">
                                         </td>
                                     </tr>
                                 </template>
@@ -2245,6 +2276,146 @@
             </div>
         </div>
 
+        {{-- ========================= --}}
+        {{-- MOVIMIENTOS DETALLADOS  --}}
+        {{-- ========================= --}}
+        <div x-show="tab==='movdet'" x-cloak class="mt-4 space-y-3">
+
+            <div class="bg-white shadow-sm sm:rounded-lg p-4">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs text-gray-500 mb-1">Buscar código o descripción</label>
+                        <input class="w-full border rounded px-3 py-2 text-sm"
+                               placeholder="Ej: RP-80-12 / cemento…"
+                               x-model="movDet.q"
+                               @input.debounce.400ms="cargarMovimientosDetallados()">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Desde</label>
+                        <input type="date" class="w-full border rounded px-3 py-2 text-sm"
+                               x-model="movDet.desde"
+                               @change="cargarMovimientosDetallados()">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Hasta</label>
+                        <input type="date" class="w-full border rounded px-3 py-2 text-sm"
+                               x-model="movDet.hasta"
+                               @change="cargarMovimientosDetallados()">
+                    </div>
+                </div>
+                <div class="mt-3 flex flex-wrap items-center gap-2">
+                    <span class="text-xs text-gray-500 font-medium">Tipo:</span>
+                    <button @click="movDet.filtroTipo=''"
+                            :style="movDet.filtroTipo==='' ? 'background:#111827;color:#fff' : 'background:#fff;color:#374151'"
+                            class="px-3 py-1 rounded border text-xs transition-colors">Todos</button>
+                    <button @click="movDet.filtroTipo='entrada'"
+                            :style="movDet.filtroTipo==='entrada' ? 'background:#047857;color:#fff' : 'background:#fff;color:#374151'"
+                            class="px-3 py-1 rounded border text-xs transition-colors">Entradas</button>
+                    <button @click="movDet.filtroTipo='salida'"
+                            :style="movDet.filtroTipo==='salida' ? 'background:#b91c1c;color:#fff' : 'background:#fff;color:#374151'"
+                            class="px-3 py-1 rounded border text-xs transition-colors">Salidas</button>
+                    <span class="text-xs text-gray-400 ml-2" x-show="loadingMovDet">Cargando...</span>
+                </div>
+            </div>
+
+            {{-- Balance bar --}}
+            <div x-show="movimientosDetallados.length > 0 && !loadingMovDet"
+                 class="bg-gray-900 text-white rounded-lg px-4 py-3 grid grid-cols-3 gap-4 text-center">
+                <div>
+                    <div class="text-xs uppercase tracking-wide font-semibold mb-1" style="color:#86efac">Entradas</div>
+                    <div class="text-lg font-bold tabular-nums" style="color:#4ade80"
+                         x-text="'$' + formatMoney(movDetTotalEntradas())"></div>
+                </div>
+                <div>
+                    <div class="text-xs uppercase tracking-wide font-semibold mb-1" style="color:#fca5a5">Salidas</div>
+                    <div class="text-lg font-bold tabular-nums" style="color:#f87171"
+                         x-text="'$' + formatMoney(movDetTotalSalidas())"></div>
+                </div>
+                <div>
+                    <div class="text-xs uppercase tracking-wide font-semibold mb-1 text-gray-400">Balance</div>
+                    <div class="text-lg font-bold tabular-nums"
+                         :style="movDetBalance() >= 0 ? 'color:#4ade80' : 'color:#f87171'"
+                         x-text="'$' + formatMoney(movDetBalance())"></div>
+                </div>
+            </div>
+
+            <div x-show="!loadingMovDet && movimientosDetallados.length === 0"
+                 class="bg-white shadow-sm sm:rounded-lg p-8 text-center text-gray-400 text-sm">
+                Sin movimientos — aplica un rango de fechas y haz clic en el tab para cargar.
+            </div>
+
+            <div x-show="movDetFiltered().length > 0 && !loadingMovDet"
+                 class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase">
+                            <tr>
+                                <th class="px-3 py-2 text-left whitespace-nowrap">Fecha</th>
+                                <th class="px-3 py-2 text-left whitespace-nowrap">Tipo</th>
+                                <th class="px-3 py-2 text-left whitespace-nowrap">Origen / Destino</th>
+                                <th class="px-3 py-2 text-left whitespace-nowrap">Código</th>
+                                <th class="px-3 py-2 text-left">Descripción</th>
+                                <th class="px-3 py-2 text-left whitespace-nowrap">Unidad</th>
+                                <th class="px-3 py-2 text-right whitespace-nowrap">Cantidad</th>
+                                <th class="px-3 py-2 text-right whitespace-nowrap">P.U.</th>
+                                <th class="px-3 py-2 text-right whitespace-nowrap">Importe</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="r in movDetFiltered()" :key="r.id">
+                                <tr class="border-t border-gray-100 hover:bg-gray-50">
+                                    <td class="px-3 py-2 text-xs text-gray-500 whitespace-nowrap tabular-nums"
+                                        x-text="formatFechaCorta(r.fecha)"></td>
+                                    <td class="px-3 py-2 whitespace-nowrap">
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold"
+                                              :style="r.tipo === 'Entrada OC'            ? 'background:#d1fae5;color:#065f46' :
+                                                      r.tipo === 'Entrada Manual'        ? 'background:#dbeafe;color:#1e40af' :
+                                                      r.tipo === 'Entrada Transferencia' ? 'background:#ffedd5;color:#9a3412' :
+                                                      r.tipo === 'Salida Transferencia'  ? 'background:#ede9fe;color:#5b21b6' :
+                                                                                           'background:#fee2e2;color:#991b1b'"
+                                              x-text="r.tipo"></span>
+                                    </td>
+                                    <td class="px-3 py-2 text-xs text-gray-600 max-w-[140px] truncate"
+                                        x-text="r.origen_destino || '—'"></td>
+                                    <td class="px-3 py-2 font-mono text-xs text-gray-700 whitespace-nowrap"
+                                        x-text="r.codigo || '—'"></td>
+                                    <td class="px-3 py-2 text-xs text-gray-800 max-w-xs"
+                                        x-text="r.descripcion"></td>
+                                    <td class="px-3 py-2 text-xs text-gray-500"
+                                        x-text="r.unidad || '—'"></td>
+                                    <td class="px-3 py-2 text-right text-xs font-semibold tabular-nums whitespace-nowrap"
+                                        :class="r.cantidad >= 0 ? 'text-emerald-700' : 'text-red-700'"
+                                        x-text="(r.cantidad >= 0 ? '+' : '') + formatNum(r.cantidad)"></td>
+                                    <td class="px-3 py-2 text-right text-xs text-gray-500 tabular-nums whitespace-nowrap"
+                                        x-text="r.precio_unitario != null ? '$' + formatMoney(r.precio_unitario) : '—'"></td>
+                                    <td class="px-3 py-2 text-right text-xs font-semibold tabular-nums whitespace-nowrap"
+                                        :class="r.importe != null ? (r.importe >= 0 ? 'text-emerald-700' : 'text-red-700') : 'text-gray-400'"
+                                        x-text="r.importe != null ? (r.importe >= 0 ? '+$' : '-$') + formatMoney(Math.abs(r.importe)) : '—'"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                        <tfoot class="bg-gray-100 border-t-2 border-gray-300 text-xs font-bold">
+                            <tr>
+                                <td colspan="6" class="px-3 py-2 text-right text-gray-600 uppercase tracking-wide">
+                                    Total (<span x-text="movDetFiltered().length"></span> registros)
+                                </td>
+                                <td class="px-3 py-2 text-right tabular-nums"
+                                    :class="movDetFiltered().reduce((s,r)=>s+r.cantidad,0) >= 0 ? 'text-emerald-800' : 'text-red-800'"
+                                    x-text="(movDetFiltered().reduce((s,r)=>s+r.cantidad,0) >= 0 ? '+' : '') + formatNum(movDetFiltered().reduce((s,r)=>s+r.cantidad,0))">
+                                </td>
+                                <td></td>
+                                <td class="px-3 py-2 text-right tabular-nums"
+                                    :class="movDetFiltered().reduce((s,r)=>s+(r.importe??0),0) >= 0 ? 'text-emerald-800' : 'text-red-800'"
+                                    x-text="(movDetFiltered().reduce((s,r)=>s+(r.importe??0),0) >= 0 ? '+$' : '-$') + formatMoney(Math.abs(movDetFiltered().reduce((s,r)=>s+(r.importe??0),0)))">
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
         </div>
 
         <style>[x-cloak]{display:none!important}</style>
@@ -2343,6 +2514,10 @@
 
                     familias: [],
                     insumos: [],
+
+                    movDet: { q: '', desde: '', hasta: '', filtroTipo: '' },
+                    movimientosDetallados: [],
+                    loadingMovDet: false,
 
                     init() {
                         this.modoHerramientas = localStorage.getItem('modoHerramientas') === '1';
@@ -2741,10 +2916,11 @@
 
                     exportarTransferenciasExcel() {
                         const params = new URLSearchParams();
-                        if (this.trans.q)          params.set('q',          this.trans.q);
-                        if (this.trans.desde)      params.set('desde',      this.trans.desde);
-                        if (this.trans.hasta)      params.set('hasta',      this.trans.hasta);
+                        if (this.trans.q)           params.set('q',          this.trans.q);
+                        if (this.trans.desde)       params.set('desde',      this.trans.desde);
+                        if (this.trans.hasta)       params.set('hasta',      this.trans.hasta);
                         if (this.trans.obra_nombre) params.set('obra_nombre', this.trans.obra_nombre);
+                        if (this.trans.dir && this.trans.dir !== 'todas') params.set('dir', this.trans.dir);
                         window.location.href = "{{ route('explore.exportar.transferencias') }}?" + params.toString();
                     },
 
@@ -3520,6 +3696,50 @@
                         const dias = [...new Set(this.escombros.map(r => r.fecha))];
                         const expandir = !this.todosEscomExpandidos();
                         for (const d of dias) this.escomExpandidos[d] = expandir;
+                    },
+
+                    // ─── Movimientos Detallados ───────────────────────────────
+                    async cargarMovimientosDetallados() {
+                        this.loadingMovDet = true;
+                        try {
+                            const params = new URLSearchParams();
+                            if (this.movDet.q)     params.set('q',     this.movDet.q);
+                            if (this.movDet.desde) params.set('desde', this.movDet.desde);
+                            if (this.movDet.hasta) params.set('hasta', this.movDet.hasta);
+                            const res = await fetchConCsrf(
+                                '{{ route("explore.movimientos_detallados") }}?' + params.toString(),
+                                { headers: { 'Accept': 'application/json' }, cache: 'no-store' }
+                            );
+                            this.movimientosDetallados = await res.json();
+                        } catch (e) {
+                            console.error(e);
+                            this.movimientosDetallados = [];
+                        } finally {
+                            this.loadingMovDet = false;
+                        }
+                    },
+
+                    movDetFiltered() {
+                        if (!this.movDet.filtroTipo) return this.movimientosDetallados;
+                        if (this.movDet.filtroTipo === 'salida')
+                            return this.movimientosDetallados.filter(r => r.tipo_key !== 'entrada');
+                        return this.movimientosDetallados.filter(r => r.tipo_key === 'entrada');
+                    },
+
+                    movDetTotalEntradas() {
+                        return this.movimientosDetallados
+                            .filter(r => r.tipo_key === 'entrada')
+                            .reduce((s, r) => s + (r.importe ?? 0), 0);
+                    },
+
+                    movDetTotalSalidas() {
+                        return Math.abs(this.movimientosDetallados
+                            .filter(r => r.tipo_key !== 'entrada')
+                            .reduce((s, r) => s + (r.importe ?? 0), 0));
+                    },
+
+                    movDetBalance() {
+                        return this.movimientosDetallados.reduce((s, r) => s + (r.importe ?? 0), 0);
                     },
 
                 }

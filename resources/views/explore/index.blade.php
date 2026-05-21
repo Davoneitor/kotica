@@ -62,6 +62,12 @@
                         Ordenes compra (ERP)
                     </button>
 
+                    <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
+                            :class="tab==='movdet' ? 'bg-indigo-700 text-white' : 'bg-white'"
+                            @click="tab='movdet'; if(!movimientosDetallados.length) cargarMovimientosDetallados()">
+                        Movimientos Detallados
+                    </button>
+
                 </div>
             </div>
 
@@ -1992,6 +1998,156 @@
             </div>
         </div>
 
+        {{-- ========================= --}}
+        {{-- MOVIMIENTOS DETALLADOS  --}}
+        {{-- ========================= --}}
+        <div x-show="tab==='movdet'" x-cloak class="mt-4 space-y-3">
+
+            {{-- Filtros --}}
+            <div class="bg-white shadow-sm sm:rounded-lg p-4">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs text-gray-500 mb-1">Buscar código o descripción</label>
+                        <input class="w-full border rounded px-3 py-2 text-sm"
+                               placeholder="Ej: RP-80-12 / cemento…"
+                               x-model="movDet.q"
+                               @input.debounce.400ms="cargarMovimientosDetallados()">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Desde</label>
+                        <input type="date" class="w-full border rounded px-3 py-2 text-sm"
+                               x-model="movDet.desde"
+                               @change="cargarMovimientosDetallados()">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Hasta</label>
+                        <input type="date" class="w-full border rounded px-3 py-2 text-sm"
+                               x-model="movDet.hasta"
+                               @change="cargarMovimientosDetallados()">
+                    </div>
+                </div>
+                <div class="mt-3 flex flex-wrap items-center gap-2">
+                    <span class="text-xs text-gray-500 font-medium">Tipo:</span>
+                    <button @click="movDet.filtroTipo=''"
+                            :class="movDet.filtroTipo==='' ? 'bg-gray-900 text-white' : 'bg-white hover:bg-gray-50'"
+                            class="px-3 py-1 rounded border text-xs transition-colors">Todos</button>
+                    <button @click="movDet.filtroTipo='entrada'"
+                            :class="movDet.filtroTipo==='entrada' ? 'bg-emerald-700 text-white' : 'bg-white hover:bg-emerald-50'"
+                            class="px-3 py-1 rounded border text-xs transition-colors">Entradas</button>
+                    <button @click="movDet.filtroTipo='salida'"
+                            :class="movDet.filtroTipo==='salida' ? 'bg-red-700 text-white' : 'bg-white hover:bg-red-50'"
+                            class="px-3 py-1 rounded border text-xs transition-colors">Salidas</button>
+                    <div class="ml-auto text-xs text-gray-400" x-show="loadingMovDet">Cargando...</div>
+                </div>
+            </div>
+
+            {{-- Barra de balance --}}
+            <div x-show="movimientosDetallados.length > 0 && !loadingMovDet"
+                 class="bg-indigo-900 text-white rounded-lg px-4 py-3 grid grid-cols-3 gap-4 text-center">
+                <div>
+                    <div class="text-xs text-indigo-300 uppercase tracking-wide font-semibold">Entradas</div>
+                    <div class="text-lg font-bold text-emerald-300 tabular-nums"
+                         x-text="'$' + formatMoney(movDetTotalEntradas())"></div>
+                </div>
+                <div>
+                    <div class="text-xs text-indigo-300 uppercase tracking-wide font-semibold">Salidas</div>
+                    <div class="text-lg font-bold text-red-300 tabular-nums"
+                         x-text="'$' + formatMoney(movDetTotalSalidas())"></div>
+                </div>
+                <div>
+                    <div class="text-xs text-indigo-300 uppercase tracking-wide font-semibold">Balance</div>
+                    <div class="text-lg font-bold tabular-nums"
+                         :class="movDetBalance() >= 0 ? 'text-emerald-300' : 'text-red-300'"
+                         x-text="'$' + formatMoney(movDetBalance())"></div>
+                </div>
+            </div>
+
+            {{-- Sin resultados --}}
+            <div x-show="!loadingMovDet && movDetFiltered().length === 0"
+                 class="bg-white shadow-sm sm:rounded-lg p-8 text-center text-gray-400 text-sm">
+                Sin movimientos en el período seleccionado.
+            </div>
+
+            {{-- Tabla --}}
+            <div x-show="movDetFiltered().length > 0 && !loadingMovDet"
+                 class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase">
+                            <tr>
+                                <th class="px-3 py-2 text-left whitespace-nowrap">Fecha</th>
+                                <th class="px-3 py-2 text-left whitespace-nowrap">Tipo</th>
+                                <th class="px-3 py-2 text-left whitespace-nowrap">Origen / Destino</th>
+                                <th class="px-3 py-2 text-left whitespace-nowrap">Código</th>
+                                <th class="px-3 py-2 text-left">Descripción</th>
+                                <th class="px-3 py-2 text-left whitespace-nowrap">Unidad</th>
+                                <th class="px-3 py-2 text-right whitespace-nowrap">Cantidad</th>
+                                <th class="px-3 py-2 text-right whitespace-nowrap">P.U.</th>
+                                <th class="px-3 py-2 text-right whitespace-nowrap">Importe</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="r in movDetFiltered()" :key="r.id">
+                                <tr class="border-t border-gray-100 hover:bg-gray-50"
+                                    :class="r.tipo_key === 'entrada' ? '' :
+                                            r.tipo_key === 'salida' ? 'bg-red-50/30' :
+                                            'bg-purple-50/30'">
+                                    <td class="px-3 py-2 text-xs text-gray-500 whitespace-nowrap tabular-nums"
+                                        x-text="formatFechaCorta(r.fecha)"></td>
+                                    <td class="px-3 py-2 whitespace-nowrap">
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold"
+                                              :class="{
+                                                  'bg-emerald-100 text-emerald-800': r.tipo === 'Entrada OC',
+                                                  'bg-blue-100 text-blue-800': r.tipo === 'Entrada Manual',
+                                                  'bg-orange-100 text-orange-800': r.tipo === 'Entrada Transferencia',
+                                                  'bg-red-100 text-red-800': r.tipo === 'Salida',
+                                                  'bg-purple-100 text-purple-800': r.tipo === 'Salida Transferencia',
+                                              }"
+                                              x-text="r.tipo"></span>
+                                    </td>
+                                    <td class="px-3 py-2 text-xs text-gray-600 max-w-[140px] truncate"
+                                        x-text="r.origen_destino || '—'"></td>
+                                    <td class="px-3 py-2 font-mono text-xs text-gray-700 whitespace-nowrap"
+                                        x-text="r.codigo || '—'"></td>
+                                    <td class="px-3 py-2 text-xs text-gray-800 max-w-xs"
+                                        x-text="r.descripcion"></td>
+                                    <td class="px-3 py-2 text-xs text-gray-500"
+                                        x-text="r.unidad || '—'"></td>
+                                    <td class="px-3 py-2 text-right text-xs font-semibold tabular-nums whitespace-nowrap"
+                                        :class="r.cantidad >= 0 ? 'text-emerald-700' : 'text-red-700'"
+                                        x-text="(r.cantidad >= 0 ? '+' : '') + formatNum(r.cantidad)"></td>
+                                    <td class="px-3 py-2 text-right text-xs text-gray-500 tabular-nums whitespace-nowrap"
+                                        x-text="r.precio_unitario != null ? '$' + formatMoney(r.precio_unitario) : '—'"></td>
+                                    <td class="px-3 py-2 text-right text-xs font-semibold tabular-nums whitespace-nowrap"
+                                        :class="r.importe != null ? (r.importe >= 0 ? 'text-emerald-700' : 'text-red-700') : 'text-gray-400'"
+                                        x-text="r.importe != null ? (r.importe >= 0 ? '+' : '') + '$' + formatMoney(r.importe) : '—'"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                        {{-- Totals footer --}}
+                        <tfoot x-show="movDetFiltered().length > 0"
+                               class="bg-gray-100 border-t-2 border-gray-300 text-xs font-bold">
+                            <tr>
+                                <td colspan="6" class="px-3 py-2 text-right text-gray-600 uppercase tracking-wide">
+                                    Total (<span x-text="movDetFiltered().length"></span> registros)
+                                </td>
+                                <td class="px-3 py-2 text-right tabular-nums"
+                                    :class="movDetFiltered().reduce((s,r)=>s+r.cantidad,0) >= 0 ? 'text-emerald-800' : 'text-red-800'"
+                                    x-text="(movDetFiltered().reduce((s,r)=>s+r.cantidad,0) >= 0 ? '+' : '') + formatNum(movDetFiltered().reduce((s,r)=>s+r.cantidad,0))">
+                                </td>
+                                <td></td>
+                                <td class="px-3 py-2 text-right tabular-nums"
+                                    :class="movDetFiltered().reduce((s,r)=>s+(r.importe??0),0) >= 0 ? 'text-emerald-800' : 'text-red-800'"
+                                    x-text="(movDetFiltered().reduce((s,r)=>s+(r.importe??0),0) >= 0 ? '+$' : '-$') + formatMoney(Math.abs(movDetFiltered().reduce((s,r)=>s+(r.importe??0),0)))">
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
         </div>
 
         <style>[x-cloak]{display:none!important}</style>
@@ -2075,6 +2231,10 @@
 
                     familias: [],
                     insumos: [],
+
+                    movDet: { q: '', desde: '', hasta: '', filtroTipo: '' },
+                    movimientosDetallados: [],
+                    loadingMovDet: false,
 
                     init() {
                         this.cargarMovimientos();
@@ -3033,6 +3193,50 @@
                         const nuevo = {};
                         for (const d of dias) nuevo[d] = expandir;
                         this.escomExpandidos = nuevo;
+                    },
+
+                    // ─── Movimientos Detallados ───────────────────────────────
+                    async cargarMovimientosDetallados() {
+                        this.loadingMovDet = true;
+                        try {
+                            const params = new URLSearchParams();
+                            if (this.movDet.q)     params.set('q',     this.movDet.q);
+                            if (this.movDet.desde) params.set('desde', this.movDet.desde);
+                            if (this.movDet.hasta) params.set('hasta', this.movDet.hasta);
+                            const res = await fetchConCsrf(
+                                '{{ route("explore.movimientos_detallados") }}?' + params.toString(),
+                                { headers: { 'Accept': 'application/json' }, cache: 'no-store' }
+                            );
+                            this.movimientosDetallados = await res.json();
+                        } catch (e) {
+                            console.error(e);
+                            this.movimientosDetallados = [];
+                        } finally {
+                            this.loadingMovDet = false;
+                        }
+                    },
+
+                    movDetFiltered() {
+                        if (!this.movDet.filtroTipo) return this.movimientosDetallados;
+                        return this.movimientosDetallados.filter(r => r.tipo_key === this.movDet.filtroTipo ||
+                            (this.movDet.filtroTipo === 'salida' && r.tipo_key === 'salida_transferencia') ||
+                            (this.movDet.filtroTipo === 'entrada' && r.tipo_key === 'entrada'));
+                    },
+
+                    movDetTotalEntradas() {
+                        return this.movimientosDetallados
+                            .filter(r => r.tipo_key === 'entrada')
+                            .reduce((s, r) => s + (r.importe ?? 0), 0);
+                    },
+
+                    movDetTotalSalidas() {
+                        return Math.abs(this.movimientosDetallados
+                            .filter(r => r.tipo_key !== 'entrada')
+                            .reduce((s, r) => s + (r.importe ?? 0), 0));
+                    },
+
+                    movDetBalance() {
+                        return this.movimientosDetallados.reduce((s, r) => s + (r.importe ?? 0), 0);
                     },
 
                 }

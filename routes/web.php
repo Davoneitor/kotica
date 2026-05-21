@@ -135,6 +135,9 @@ Route::get('/inventario/{inventario}/historial', [InventarioController::class, '
     Route::get('/explore/exportar/transferencias',  [ExploreController::class, 'exportarTransferencias']) ->name('explore.exportar.transferencias');
     Route::get('/explore/exportar/finiquitadas',    [ExploreController::class, 'exportarFiniquitadas'])   ->name('explore.exportar.finiquitadas');
 
+    Route::get('/explore/movimientos-detallados', [ExploreController::class, 'movimientosDetallados'])
+        ->name('explore.movimientos_detallados');
+
     // Transferencias en Explore
     Route::get('/explore/transferencias', [ExploreController::class, 'transferencias'])
         ->name('explore.transferencias');

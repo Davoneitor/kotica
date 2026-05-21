@@ -665,7 +665,8 @@ class InventarioController extends Controller
     // Asegurar que la obra esté en obra_user para este usuario
     $user->obras()->syncWithoutDetaching([$obraId]);
 
-    return redirect()->route('inventario.index');
+    $referer = $request->headers->get('referer');
+    return $referer ? redirect($referer) : redirect()->route('inventario.index');
 }
 
 public function buscarPorInsumo(Request $request)
