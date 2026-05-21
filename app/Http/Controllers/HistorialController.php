@@ -26,6 +26,7 @@ class HistorialController extends Controller
             ->leftJoin('users as u', 'u.id', '=', 'r.user_id')
             ->where('r.obra_id', $inv->obra_id)
             ->where('r.insumo', $inv->insumo_id)
+            ->whereNull('r.revertida_at')
             ->orderBy('r.fecha_recibido')
             ->get([
                 'r.id', 'r.id_pedido', 'r.cantidad_llego', 'r.unidad',

@@ -10,9 +10,6 @@ use App\Jobs\ActualizarReportesJob;
 
 class ActualizarReportesController extends Controller
 {
-    private const ADMIN_ID    = 14;
-    private const ADMIN_EMAIL = 'david.berumen.lozano@gmail.com';
-
     /**
      * Tablas soportadas con su configuración de join, filtro de tipo y campos disponibles.
      * 'campos' = columnas que existen en la tabla y pueden sincronizarse desde ERP.
@@ -68,7 +65,7 @@ class ActualizarReportesController extends Controller
     private function auth(): void
     {
         $u = Auth::user();
-        if (! $u || ($u->id !== self::ADMIN_ID && $u->email !== self::ADMIN_EMAIL)) {
+        if (! $u || ! $u->is_admin) {
             abort(403);
         }
     }

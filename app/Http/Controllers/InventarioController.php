@@ -306,7 +306,7 @@ class InventarioController extends Controller
                     'Unidad'        => $data['unidad'],
                     'Familia'       => $data['familia'],
                     'Subfamilia'    => $data['subfamilia'],
-                    'CorreoUsuario' => 'sistemas@kotica.com.mx',
+                    'CorreoUsuario' => $correo,
                 ]);
 
                 if (!$resp['ok']) {

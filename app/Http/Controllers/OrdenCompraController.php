@@ -64,7 +64,7 @@ class OrdenCompraController extends Controller
             PD.ParcialPralmacen,
             CASE
                 WHEN P.PorcentajeIVA > 0
-                THEN (PD.Costo * P.PorcentajeIVA) / 100
+                THEN PD.Costo * (1 + P.PorcentajeIVA / 100)
                 ELSE PD.Costo
             END AS PU
         FROM AcPedidosDet PD
@@ -181,18 +181,6 @@ if ($obraLocalId <= 0) abort(403);
         return back()->withErrors(['obra_id' => 'El usuario no tiene una obra asignada.']);
     }
 
-    // ✅ DEBUG (ponlo en false cuando termines de probar)
-   $debug = false;
-
-        if ($debug) {
-            dd([
-                'content_type'       => $request->header('content-type'),
-                'hasFile_items0foto' => $request->hasFile('items.0.foto'),
-                'items_files'        => $request->file('items'),
-                'allFiles'           => $request->allFiles(),
-                'all'                => $request->all(),
-            ]);
-        }
     // ✅ Validación (una sola vez)
     $data = $request->validate([
         'items' => ['required', 'array', 'size:1'],
@@ -322,7 +310,8 @@ if ($obraLocalId <= 0) abort(403);
                 );
             }
 
-            $inv->cantidad = $cantNueva;
+            $inv->cantidad         = $cantNueva;
+            $inv->cantidad_teorica = (float) ($inv->cantidad_teorica ?? 0) + $llego;
 
             if (empty($inv->familia)) {
                 $inv->familia = ($familia !== 'SIN FAMILIA') ? $familia : 'SIN FAMILIA';

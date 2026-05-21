@@ -92,12 +92,17 @@ class EntradaManualController extends Controller
                 ]);
             } else {
                 // Cantidades siempre se acumulan
-                $inv->cantidad         = (float) ($inv->cantidad       ?? 0) + $cantidad;
+                $cantAnterior          = (float) ($inv->cantidad       ?? 0);
+                $inv->cantidad         = $cantAnterior + $cantidad;
                 $inv->cantidad_teorica = (float) ($inv->cantidad_teorica ?? 0) + $cantidad;
 
-                // Precio: la entrada manual reemplaza el costo_promedio cuando se proporciona
+                // Promedio ponderado (no reemplazo)
                 if ($pu > 0) {
-                    $inv->costo_promedio = $pu;
+                    $costoAnterior       = (float) ($inv->costo_promedio ?? 0);
+                    $cantTotal           = $cantAnterior + $cantidad;
+                    $inv->costo_promedio = $cantTotal > 0
+                        ? round(($cantAnterior * $costoAnterior + $cantidad * $pu) / $cantTotal, 6)
+                        : $pu;
                 }
 
                 // Todos los campos se actualizan si vienen con datos

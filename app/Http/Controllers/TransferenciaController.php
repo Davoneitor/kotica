@@ -176,6 +176,12 @@ class TransferenciaController extends Controller
                             'updated_at' => now(),
                         ]);
 
+                    // Incrementar en_espera en destino (items en tránsito)
+                    DB::table('inventarios')
+                        ->where('obra_id', $obraDestinoId)
+                        ->where('insumo_id', $origen->insumo_id)
+                        ->increment('en_espera', $cantidad, ['updated_at' => now()]);
+
                     DB::table('transferencias_entre_obras_detalle')->insert([
                         'transferencia_id'     => $transferenciaId,
                         'insumo_id'            => $origen->insumo_id,
@@ -222,7 +228,6 @@ class TransferenciaController extends Controller
             ->join('users as u', 't.user_id', '=', 'u.id')
             ->where('t.obra_destino_id', $obraId)
             ->where('t.estatus', 'pendiente')
-            ->where('t.created_at', '>=', '2026-04-29 00:00:00')
             ->select([
                 't.id',
                 't.fecha',
@@ -232,19 +237,24 @@ class TransferenciaController extends Controller
                 'u.name as usuario_envia',
             ])
             ->orderByDesc('t.created_at')
+            ->get();
+
+        // Cargar todos los detalles en una sola query
+        $ids = $rows->pluck('id')->all();
+        $detallesMap = DB::table('transferencias_entre_obras_detalle')
+            ->whereIn('transferencia_id', $ids)
             ->get()
-            ->map(function ($r) {
-                $detalles = DB::table('transferencias_entre_obras_detalle')
-                    ->where('transferencia_id', $r->id)
-                    ->get()
-                    ->map(fn ($d) => [
-                        'id'               => (int)    $d->id,
-                        'insumo_id'        => (string) ($d->insumo_id ?? ''),
-                        'descripcion'      => (string) $d->descripcion,
-                        'unidad'           => (string) ($d->unidad ?? ''),
-                        'cantidad'         => (float)  $d->cantidad,
-                        'cantidad_recibida'=> (float)  $d->cantidad,
-                    ]);
+            ->groupBy('transferencia_id');
+
+        $rows = $rows->map(function ($r) use ($detallesMap) {
+                $detalles = ($detallesMap[$r->id] ?? collect())->map(fn ($d) => [
+                    'id'               => (int)    $d->id,
+                    'insumo_id'        => (string) ($d->insumo_id ?? ''),
+                    'descripcion'      => (string) $d->descripcion,
+                    'unidad'           => (string) ($d->unidad ?? ''),
+                    'cantidad'         => (float)  $d->cantidad,
+                    'cantidad_recibida'=> (float)  $d->cantidad,
+                ]);
                 return [
                     'id'            => (int)    $r->id,
                     'fecha'         => substr((string) $r->fecha, 0, 10),
@@ -252,7 +262,7 @@ class TransferenciaController extends Controller
                     'obra_origen'   => (string) $r->obra_origen,
                     'usuario_envia' => (string) $r->usuario_envia,
                     'observaciones' => (string) ($r->observaciones ?? ''),
-                    'total_items'   => count($detalles),
+                    'total_items'   => $detalles->count(),
                     'items'         => $detalles,
                 ];
             });
@@ -390,6 +400,17 @@ class TransferenciaController extends Controller
                         ]);
                     }
 
+                    // Decrementar en_espera: la transferencia ya no está en tránsito
+                    $cantSent = (float) $detalle->cantidad;
+                    DB::table('inventarios')
+                        ->where('obra_id', $obraId)
+                        ->where('insumo_id', $detalle->insumo_id)
+                        ->where('en_espera', '>', 0)
+                        ->update([
+                            'en_espera'  => DB::raw("CASE WHEN en_espera >= {$cantSent} THEN en_espera - {$cantSent} ELSE 0 END"),
+                            'updated_at' => now(),
+                        ]);
+
                     // Bitácora en oc_recepciones para que aparezca en Explore → Entradas
                     DB::table('oc_recepciones')->insert([
                         'obra_id'         => $obraId,
@@ -456,12 +477,22 @@ class TransferenciaController extends Controller
                     ->where('transferencia_id', (int) $id)
                     ->get();
 
-                // Devolver cantidades al inventario origen
+                // Devolver cantidades al inventario origen y limpiar en_espera en destino
                 foreach ($detalles as $d) {
                     DB::table('inventarios')
                         ->where('obra_id', $transfer->obra_origen_id)
                         ->where('insumo_id', $d->insumo_id)
                         ->increment('cantidad', (float) $d->cantidad, ['updated_at' => now()]);
+
+                    $cantSent = (float) $d->cantidad;
+                    DB::table('inventarios')
+                        ->where('obra_id', $transfer->obra_destino_id)
+                        ->where('insumo_id', $d->insumo_id)
+                        ->where('en_espera', '>', 0)
+                        ->update([
+                            'en_espera'  => DB::raw("CASE WHEN en_espera >= {$cantSent} THEN en_espera - {$cantSent} ELSE 0 END"),
+                            'updated_at' => now(),
+                        ]);
                 }
 
                 DB::table('transferencias_entre_obras')

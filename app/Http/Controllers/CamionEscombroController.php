@@ -152,6 +152,29 @@ class CamionEscombroController extends Controller
             ->sum('metros_cubicos');
     }
 
+    public function choferInfo(Request $request)
+    {
+        $placas = trim((string) $request->get('placas', ''));
+        if ($placas === '') {
+            return response()->json([]);
+        }
+
+        $placasNorm = strtoupper(preg_replace('/[\s\.\-]+/', '', $placas));
+
+        $registro = SalidaCamionEscombro::whereRaw(
+            "UPPER(REPLACE(REPLACE(REPLACE(placas, ' ', ''), '-', ''), '.', '')) = ?",
+            [$placasNorm]
+        )
+        ->orderByDesc('created_at')
+        ->first(['chofer', 'camion', 'tipo_material']);
+
+        return response()->json($registro ? [
+            'chofer'        => $registro->chofer        ?? '',
+            'camion'        => $registro->camion         ?? '',
+            'tipo_material' => $registro->tipo_material  ?? '',
+        ] : []);
+    }
+
     public function catalogos()
     {
         $user = Auth::user();

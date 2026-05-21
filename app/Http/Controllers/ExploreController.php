@@ -14,6 +14,7 @@ use App\Models\OcRecepcion;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use App\Services\ExcelExporter;
 
 
@@ -349,7 +350,6 @@ public function movimientoDetalles(Movimiento $movimiento)
                      ->where('inv.obra_id', '=', $obraId);
             })
             ->where('t.obra_origen_id', $obraId)
-            ->whereNotNull('d.precio_unitario')
             ->when($desde, fn($q2) => $q2->whereDate('t.fecha', '>=', $desde))
             ->when($hasta, fn($q2) => $q2->whereDate('t.fecha', '<=', $hasta))
             ->when($q !== '', function ($q2) use ($q) {
@@ -461,45 +461,36 @@ public function movimientoDetalles(Movimiento $movimiento)
      */
     private function erpFindUpdatedExpr(string $tableAlias, string $tableName): ?string
     {
-        $candidates = [
-            'FechaModificacion',
-            'FechaActualizacion',
-            'FechaUpdate',
-            'FechaCambio',
-            'UpdatedAt',
-            'updated_at',
-            'LastUpdate',
-            'LastUpdated',
-            'TimeStamp',
-            'timestamp',
-        ];
+        $cacheKey = "erp_updated_col_{$tableName}";
 
-        foreach ($candidates as $col) {
-            $exists = DB::connection('erp')->selectOne(
-                "SELECT 1 AS ok
+        $col = Cache::remember($cacheKey, 3600, function () use ($tableName) {
+            $candidates = [
+                'FechaModificacion', 'FechaActualizacion', 'FechaUpdate',
+                'FechaCambio', 'UpdatedAt', 'updated_at',
+                'LastUpdate', 'LastUpdated', 'TimeStamp', 'timestamp',
+            ];
+
+            $rows = DB::connection('erp')->select(
+                "SELECT COLUMN_NAME, DATA_TYPE
                  FROM INFORMATION_SCHEMA.COLUMNS
-                 WHERE TABLE_NAME = ? AND COLUMN_NAME = ?",
-                [$tableName, $col]
+                 WHERE TABLE_NAME = ?
+                   AND COLUMN_NAME IN ('" . implode("','", $candidates) . "')",
+                [$tableName]
             );
 
-            if ($exists) {
-                $type = DB::connection('erp')->selectOne(
-                    "SELECT DATA_TYPE AS t
-                     FROM INFORMATION_SCHEMA.COLUMNS
-                     WHERE TABLE_NAME = ? AND COLUMN_NAME = ?",
-                    [$tableName, $col]
-                );
+            $found = collect($rows)->keyBy('COLUMN_NAME');
 
-                $t = strtolower((string)($type->t ?? ''));
-                if (in_array($t, ['timestamp', 'rowversion', 'binary', 'varbinary'], true)) {
-                    continue;
-                }
-
-                return "{$tableAlias}.{$col}";
+            foreach ($candidates as $c) {
+                if (! $found->has($c)) continue;
+                $t = strtolower((string) $found[$c]->DATA_TYPE);
+                if (in_array($t, ['timestamp', 'rowversion', 'binary', 'varbinary'], true)) continue;
+                return $c;
             }
-        }
 
-        return null;
+            return null;
+        });
+
+        return $col !== null ? "{$tableAlias}.{$col}" : null;
     }
 
     /**
@@ -994,10 +985,6 @@ public function entradaDetalles($id)
         'fecha_oc'      => $r->fecha_oc ? (string) $r->fecha_oc : null,
         'fecha_recibido'=> $r->fecha_recibido ? (string) $r->fecha_recibido : null,
 
-        // ? lista para <img :src="...">
-        'foto_url'      => $fotoUrl,
-
-        // ? debug opcional
         'foto_url' => $r->foto_path ? route('explore.entradas.foto', ['id' => $r->id]) : null,
 
     ]);
@@ -1039,6 +1026,10 @@ public function entradaFoto($id)
 
         if (!$user || $obraId <= 0) {
             return response()->json(['ok' => false, 'message' => 'Sin obra asignada.'], 403);
+        }
+
+        if (!$user->is_admin) {
+            return response()->json(['ok' => false, 'message' => 'Solo administradores pueden revertir entradas.'], 403);
         }
 
         $motivo = trim((string) $request->get('motivo', ''));
@@ -1109,8 +1100,10 @@ public function entradaFoto($id)
     {
         $user          = Auth::user();
         $obraActualId  = $user?->obra_actual_id;
-        $obraFiltroId  = $request->get('obra_id') ? (int) $request->get('obra_id') : null;
-        // Si el usuario seleccionó una obra específica la usamos; si no, la obra actual
+        $obraFiltroId  = ($request->get('obra_id') && $user?->is_multiobra)
+                         ? (int) $request->get('obra_id')
+                         : null;
+        // Si el usuario seleccionó una obra específica (y es multiobra) la usamos; si no, la obra actual
         $obraId        = $obraFiltroId ?? $obraActualId;
 
         $q     = trim((string) $request->get('q', ''));
@@ -1350,7 +1343,8 @@ public function entradaFoto($id)
         $invFamilias = DB::table('inventarios')
             ->select('insumo_id',
                 DB::raw("MAX(CASE WHEN familia    IS NOT NULL AND familia    <> '' THEN familia    END) as familia"),
-                DB::raw("MAX(CASE WHEN subfamilia IS NOT NULL AND subfamilia <> '' THEN subfamilia END) as subfamilia")
+                DB::raw("MAX(CASE WHEN subfamilia IS NOT NULL AND subfamilia <> '' THEN subfamilia END) as subfamilia"),
+                DB::raw("MAX(descripcionauxiliar) as descripcionauxiliar")
             )
             ->groupBy('insumo_id');
 
@@ -1375,6 +1369,7 @@ public function entradaFoto($id)
                 }
             })
             ->orderByDesc('r.fecha_recibido')
+            ->limit(10000)
             ->get([
                 'r.fecha_recibido', 'r.fecha_oc', 'r.tipo',
                 'r.id_pedido', 'r.pedido_det_id',
@@ -1509,6 +1504,7 @@ public function entradaFoto($id)
             ->orderByDesc('m.fecha')
             ->orderByDesc('m.id')
             ->orderBy('d.id')
+            ->limit(10000)
             ->get([
                 'm.fecha',
                 'd.familia',
@@ -1723,6 +1719,7 @@ public function entradaFoto($id)
             ->when($desde, fn($qq) => $qq->whereDate('f.created_at', '>=', $desde))
             ->when($hasta, fn($qq) => $qq->whereDate('f.created_at', '<=', $hasta))
             ->orderByDesc('f.created_at')
+            ->limit(10000)
             ->get([
                 'f.created_at',
                 'f.id_pedido',
@@ -1885,10 +1882,15 @@ public function entradaFoto($id)
                     'observaciones'        => $request->input('observaciones'),
                 ]);
 
-                // Reintegrar al inventario
+                // Reintegrar al inventario con lock para evitar condición de carrera
                 if ($detalle->inventario_id) {
-                    Inventario::where('id', $detalle->inventario_id)
-                        ->increment('cantidad', $cantAjuste);
+                    $invAjuste = Inventario::where('id', $detalle->inventario_id)
+                        ->lockForUpdate()
+                        ->first();
+                    if ($invAjuste) {
+                        $invAjuste->cantidad = (float) $invAjuste->cantidad + $cantAjuste;
+                        $invAjuste->save();
+                    }
                 }
 
                 $registros[] = $ajuste->id;
@@ -2139,6 +2141,165 @@ public function entradaFoto($id)
 
         return response()->json(
             $rows->sortByDesc('fecha')->values()
+        );
+    }
+
+    /**
+     * GET /explore/exportar/movimientos-detallados
+     * Exporta Entradas + Salidas + Transferencias enviadas en una sola hoja Excel.
+     */
+    public function exportarMovimientosDetallados(Request $request)
+    {
+        $user   = Auth::user();
+        $obraId = $user?->obra_actual_id;
+        $obra   = $obraId ? Obra::find($obraId) : null;
+
+        $q     = trim((string) $request->get('q', ''));
+        $desde = $request->get('desde');
+        $hasta = $request->get('hasta');
+
+        $rows = collect();
+
+        // ── 1. Entradas ───────────────────────────────────────────────────
+        $entradas = DB::table('oc_recepciones as e')
+            ->where('e.obra_id', $obraId)
+            ->whereNull('e.revertida_at')
+            ->when($desde, fn($q2) => $q2->whereDate('e.fecha_recibido', '>=', $desde))
+            ->when($hasta, fn($q2) => $q2->whereDate('e.fecha_recibido', '<=', $hasta))
+            ->when($q !== '', function ($q2) use ($q) {
+                $q2->where(function ($w) use ($q) {
+                    $w->where('e.descripcion', 'like', "%{$q}%")
+                      ->orWhere('e.insumo',    'like', "%{$q}%");
+                });
+            })
+            ->orderByDesc('e.fecha_recibido')
+            ->limit(5000)
+            ->select(['e.id', 'e.tipo', 'e.insumo', 'e.descripcion', 'e.unidad',
+                      'e.cantidad_llego as cantidad', 'e.precio_unitario',
+                      'e.fecha_recibido as fecha', 'e.observaciones'])
+            ->get();
+
+        $fmtDate = fn($d) => $d ? date('d/m/Y', strtotime((string) $d)) : '';
+
+        foreach ($entradas as $e) {
+            $tipoE = $e->tipo ?: 'oc';
+            $tipoLabel = match ($tipoE) {
+                'manual'        => 'Entrada Manual',
+                'transferencia' => 'Entrada Transferencia',
+                default         => 'Entrada OC',
+            };
+            $cantidad = (float) $e->cantidad;
+            $pu       = $e->precio_unitario !== null ? (float) $e->precio_unitario : null;
+            $rows->push([
+                $fmtDate($e->fecha),                                               // 0 fecha
+                $tipoLabel,                                                        // 1 tipo
+                '',                                                                // 2 origen/destino
+                (string) $e->insumo,                                               // 3 código
+                (string) $e->descripcion,                                          // 4 descripción
+                (string) ($e->unidad ?? ''),                                       // 5 unidad
+                $cantidad,                                                         // 6 cantidad
+                $pu,                                                               // 7 p.u.
+                $pu !== null ? round($cantidad * $pu, 2) : null,                   // 8 importe
+            ]);
+        }
+
+        // ── 2. Salidas ────────────────────────────────────────────────────
+        $obraNombre = $obra?->nombre ?? '';
+        $salidas = DB::table('movimiento_detalles as md')
+            ->join('movimientos as m', 'm.id', '=', 'md.movimiento_id')
+            ->leftJoin('inventarios as inv', 'inv.id', '=', 'md.inventario_id')
+            ->where('m.obra_id', $obraId)
+            ->when($desde, fn($q2) => $q2->whereDate('m.fecha', '>=', $desde))
+            ->when($hasta, fn($q2) => $q2->whereDate('m.fecha', '<=', $hasta))
+            ->when($q !== '', function ($q2) use ($q) {
+                $q2->where(function ($w) use ($q) {
+                    $w->where('md.descripcion', 'like', "%{$q}%")
+                      ->orWhere('inv.insumo_id', 'like', "%{$q}%");
+                });
+            })
+            ->orderByDesc('m.fecha')->orderByDesc('m.id')
+            ->limit(5000)
+            ->select(['md.id', 'm.fecha', 'm.destino', 'm.nombre_cabo',
+                      DB::raw('inv.insumo_id as codigo_insumo'),
+                      'md.descripcion', 'md.unidad', 'md.cantidad', 'md.precio_unitario'])
+            ->get();
+
+        foreach ($salidas as $s) {
+            $cantidad = -(float) $s->cantidad;
+            $pu       = $s->precio_unitario !== null ? (float) $s->precio_unitario : null;
+            $cabo     = (string) ($s->nombre_cabo ?? '');
+            $destino  = $cabo !== '' ? "{$obraNombre} / {$cabo}" : $obraNombre;
+            $rows->push([
+                $fmtDate($s->fecha),                                               // 0 fecha
+                'Salida',                                                          // 1 tipo
+                $destino,                                                          // 2 origen/destino
+                (string) ($s->codigo_insumo ?? ''),                                // 3 código
+                (string) $s->descripcion,                                          // 4 descripción
+                (string) ($s->unidad ?? ''),                                       // 5 unidad
+                $cantidad,                                                         // 6 cantidad (negativa)
+                $pu,                                                               // 7 p.u.
+                $pu !== null ? round(abs($cantidad) * $pu, 2) : null,              // 8 importe
+            ]);
+        }
+
+        // ── 3. Transferencias enviadas ────────────────────────────────────
+        $transferencias = DB::table('transferencias_entre_obras_detalle as d')
+            ->join('transferencias_entre_obras as t', 't.id', '=', 'd.transferencia_id')
+            ->join('obras as od', 'od.id', '=', 't.obra_destino_id')
+            ->where('t.obra_origen_id', $obraId)
+            ->when($desde, fn($q2) => $q2->whereDate('t.fecha', '>=', $desde))
+            ->when($hasta, fn($q2) => $q2->whereDate('t.fecha', '<=', $hasta))
+            ->when($q !== '', function ($q2) use ($q) {
+                $q2->where(function ($w) use ($q) {
+                    $w->where('d.descripcion', 'like', "%{$q}%")
+                      ->orWhere('d.insumo_id',  'like', "%{$q}%");
+                });
+            })
+            ->orderByDesc('t.fecha')->orderByDesc('t.id')
+            ->limit(5000)
+            ->select(['d.id', 't.fecha', 'd.insumo_id', 'd.descripcion', 'd.unidad',
+                      'd.cantidad', 'd.precio_unitario', DB::raw('od.nombre as obra_destino')])
+            ->get();
+
+        foreach ($transferencias as $tr) {
+            $cantidad = -(float) $tr->cantidad;
+            $pu       = $tr->precio_unitario !== null ? (float) $tr->precio_unitario : null;
+            $rows->push([
+                $fmtDate($tr->fecha),                                              // 0 fecha
+                'Salida Transferencia',                                            // 1 tipo
+                (string) ($tr->obra_destino ?? ''),                                // 2 origen/destino
+                (string) ($tr->insumo_id ?? ''),                                   // 3 código
+                (string) $tr->descripcion,                                         // 4 descripción
+                (string) ($tr->unidad ?? ''),                                      // 5 unidad
+                $cantidad,                                                         // 6 cantidad
+                $pu,                                                               // 7 p.u.
+                $pu !== null ? round(abs($cantidad) * $pu, 2) : null,              // 8 importe
+            ]);
+        }
+
+        $data = $rows->sortByDesc(fn($r) => $r[0])->values()->toArray();
+
+        $filters = array_filter([
+            $obra  ? 'Obra: ' . $obra->nombre : null,
+            $q     ? 'Búsqueda: ' . $q        : null,
+            $desde ? 'Desde: ' . $desde        : null,
+            $hasta ? 'Hasta: ' . $hasta         : null,
+        ]);
+
+        Log::info('Excel export: Movimientos Detallados', [
+            'user_id'   => Auth::id(),
+            'obra_id'   => $obraId,
+            'registros' => count($data),
+            'filtros'   => $filters,
+        ]);
+
+        return ExcelExporter::download(
+            filename:    'movimientos_detallados',
+            moduleName:  'Movimientos Detallados',
+            headers:     ['Fecha', 'Tipo', 'Origen / Destino', 'Código', 'Descripción', 'Unidad', 'Cantidad', 'P.U.', 'Importe'],
+            rows:        $data,
+            columnTypes: [6 => 'number', 7 => 'currency', 8 => 'currency'],
+            filters:     $filters,
         );
     }
 }

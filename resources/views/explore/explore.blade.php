@@ -24,44 +24,45 @@
                 <div class="flex gap-2 overflow-auto">
 
                     <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
-                            :class="tab==='ent' ? 'bg-gray-900 text-white' : 'bg-white'"
+                            :class="tab==='ent' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700'"
                             @click="tab='ent'; cargarEntradas()">
                         Entradas
                     </button>
 
                     <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
-                            :class="tab==='mov' ? 'bg-gray-900 text-white' : 'bg-white'"
+                            :class="tab==='mov' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700'"
                             @click="tab='mov'; cargarMovimientos()">
                         Salidas
                     </button>
 
                     <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
-                            :class="tab==='escom' ? 'bg-gray-900 text-white' : 'bg-white'"
+                            :class="tab==='movdet' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700'"
+                            @click="tab='movdet'; if(!movimientosDetallados.length) cargarMovimientosDetallados()">
+                        Movimientos Detallados
+                    </button>
+
+                    <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
+                            :class="tab==='escom' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700'"
                             @click="tab='escom'; cargarEscombro()">
                         Control Salida Camiones
                     </button>
+
                     <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
-                            :class="tab==='trans' ? 'bg-gray-900 text-white' : 'bg-white'"
+                            :class="tab==='trans' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700'"
                             @click="tab='trans'; cargarTransferencias()">
                         Transferencias
                     </button>
 
                     <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
-                            :class="tab==='inv' ? 'bg-gray-900 text-white' : 'bg-white'"
+                            :class="tab==='inv' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700'"
                             @click="tab='inv'; cargarInventario()">
                         Inventario
                     </button>
 
                     <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
-                            :class="tab==='oc' ? 'bg-gray-900 text-white' : 'bg-white'"
+                            :class="tab==='oc' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700'"
                             @click="tab='oc'; cargarOC()">
                         Ordenes compra (ERP)
-                    </button>
-
-                    <button class="px-4 py-2 rounded border text-sm whitespace-nowrap"
-                            :class="tab==='movdet' ? 'bg-indigo-700 text-white' : 'bg-white'"
-                            @click="tab='movdet'; if(!movimientosDetallados.length) cargarMovimientosDetallados()">
-                        Movimientos Detallados
                     </button>
 
                 </div>
@@ -2315,6 +2316,16 @@
                             :style="movDet.filtroTipo==='salida' ? 'background:#b91c1c;color:#fff' : 'background:#fff;color:#374151'"
                             class="px-3 py-1 rounded border text-xs transition-colors">Salidas</button>
                     <span class="text-xs text-gray-400 ml-2" x-show="loadingMovDet">Cargando...</span>
+                    <div class="ml-auto">
+                        <button @click="exportarMovimientosDetallados()"
+                                class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded flex items-center gap-1 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                            Exportar Excel
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -3647,6 +3658,14 @@
                         if (this.ent.desde) params.set('desde', this.ent.desde);
                         if (this.ent.hasta) params.set('hasta', this.ent.hasta);
                         window.open('/explore/exportar/finiquitadas?' + params.toString(), '_blank');
+                    },
+
+                    exportarMovimientosDetallados() {
+                        const params = new URLSearchParams();
+                        if (this.movDet.q)     params.set('q',     this.movDet.q);
+                        if (this.movDet.desde) params.set('desde', this.movDet.desde);
+                        if (this.movDet.hasta) params.set('hasta', this.movDet.hasta);
+                        window.open('/explore/exportar/movimientos-detallados?' + params.toString(), '_blank');
                     },
 
                     exportarEscombro() {
