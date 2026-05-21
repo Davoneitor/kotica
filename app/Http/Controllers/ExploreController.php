@@ -2183,17 +2183,17 @@ public function entradaFoto($id)
 
         foreach ($entradas as $e) {
             $tipoE = $e->tipo ?: 'oc';
-            $tipoLabel = match ($tipoE) {
-                'manual'        => 'Entrada Manual',
-                'transferencia' => 'Entrada Transferencia',
-                default         => 'Entrada OC',
+            [$tipoLabel, $origenLabel] = match ($tipoE) {
+                'manual'        => ['Entrada Manual',        'Entrada directa'],
+                'transferencia' => ['Entrada Transferencia', 'Transferencia recibida'],
+                default         => ['Entrada OC',            'ERP / OC'],
             };
             $cantidad = (float) $e->cantidad;
             $pu       = $e->precio_unitario !== null ? (float) $e->precio_unitario : null;
             $rows->push([
                 $fmtDate($e->fecha),                                               // 0 fecha
                 $tipoLabel,                                                        // 1 tipo
-                '',                                                                // 2 origen/destino
+                $origenLabel,                                                      // 2 origen/destino
                 (string) $e->insumo,                                               // 3 código
                 (string) $e->descripcion,                                          // 4 descripción
                 (string) ($e->unidad ?? ''),                                       // 5 unidad
@@ -2225,10 +2225,11 @@ public function entradaFoto($id)
             ->get();
 
         foreach ($salidas as $s) {
-            $cantidad = -(float) $s->cantidad;
-            $pu       = $s->precio_unitario !== null ? (float) $s->precio_unitario : null;
-            $cabo     = (string) ($s->nombre_cabo ?? '');
-            $destino  = $cabo !== '' ? "{$obraNombre} / {$cabo}" : $obraNombre;
+            $cantidad    = -(float) $s->cantidad;
+            $pu          = $s->precio_unitario !== null ? (float) $s->precio_unitario : null;
+            $destinoProy = trim((string) ($s->destino     ?? ''));
+            $cabo        = trim((string) ($s->nombre_cabo ?? ''));
+            $destino     = implode(' / ', array_filter([$obraNombre, $destinoProy, $cabo]));
             $rows->push([
                 $fmtDate($s->fecha),                                               // 0 fecha
                 'Salida',                                                          // 1 tipo
