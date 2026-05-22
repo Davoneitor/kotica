@@ -13,6 +13,7 @@ use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use App\Models\Inventario;
+use App\Models\Obra;
 
 class ImportarInventarioController extends Controller
 {
@@ -24,7 +25,8 @@ class ImportarInventarioController extends Controller
     public function index()
     {
         $this->requireAdmin();
-        return view('importar-inventario.index');
+        $obras = Obra::orderBy('nombre')->get(['id', 'nombre']);
+        return view('importar-inventario.index', compact('obras'));
     }
 
     // ── Descargar plantilla Excel ──────────────────────────────────────────
@@ -50,7 +52,6 @@ class ImportarInventarioController extends Controller
             $sheet->setCellValue("{$letter}1", $label);
         }
 
-        // Header style
         $sheet->getStyle('A1:G1')->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4F46E5']],
@@ -58,7 +59,6 @@ class ImportarInventarioController extends Controller
         ]);
         $sheet->getRowDimension(1)->setRowHeight(22);
 
-        // Example rows
         $examples = [
             ['13ON-001', 100,   'VARILLA CORRUGADA 3/8"',   'TON', 18500.00, 'ACERO',      'VARILLA'],
             ['13ON-002', 50,    'CEMENTO GRIS SACO 50KG',   'SAC',   145.00, 'MATERIALES', 'CEMENTO'],
@@ -68,14 +68,12 @@ class ImportarInventarioController extends Controller
             foreach (array_values($row) as $ci => $val) {
                 $sheet->setCellValue(chr(65 + $ci) . ($ri + 2), $val);
             }
-            // Alternate row shade
             if ($ri % 2 === 0) {
                 $sheet->getStyle('A' . ($ri + 2) . ':G' . ($ri + 2))
                     ->applyFromArray(['fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EEF2FF']]]);
             }
         }
 
-        // Border
         $sheet->getStyle('A1:G' . (count($examples) + 1))->applyFromArray([
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'C7D2FE']]],
         ]);
@@ -108,7 +106,6 @@ class ImportarInventarioController extends Controller
 
         $headers = array_map(fn($h) => trim((string) ($h ?? '')), $allRows[0]);
 
-        // Remove trailing empty columns
         while (!empty($headers) && end($headers) === '') array_pop($headers);
 
         if (empty(array_filter($headers))) {
@@ -130,17 +127,20 @@ class ImportarInventarioController extends Controller
         ]);
     }
 
-    // ── Paso 2: Validar filas contra ERP ──────────────────────────────────
+    // ── Paso 2: Validar filas + detectar conflictos ───────────────────────
     public function validar(Request $request)
     {
         $this->requireAdmin();
         $request->validate([
+            'obra_id'             => 'required|integer|exists:obras,id',
             'archivo'             => 'required|file|mimes:xlsx,xls,csv|max:20480',
             'mapeo.codigo_insumo' => 'required|integer|min:0',
             'mapeo.cantidad'      => 'required|integer|min:0',
         ]);
 
-        $mapeo   = $request->input('mapeo', []);
+        $obraId = (int) $request->input('obra_id');
+        $mapeo  = $request->input('mapeo', []);
+
         $allRows = IOFactory::load($request->file('archivo')->getPathname())
                             ->getActiveSheet()
                             ->toArray(null, true, true, false);
@@ -154,11 +154,21 @@ class ImportarInventarioController extends Controller
             return response()->json(['error' => 'No se encontraron filas con código de insumo.'], 422);
         }
 
+        // Detectar duplicados dentro del Excel
+        $codigoCounts = array_count_values(array_column($mapped, 'codigo'));
+
         $erpMap = $this->fetchErp(array_unique(array_column($mapped, 'codigo')));
+
+        // Cargar inventario existente para la obra seleccionada
+        $codigos    = array_unique(array_column($mapped, 'codigo'));
+        $invExist   = Inventario::where('obra_id', $obraId)
+                        ->whereIn('insumo_id', $codigos)
+                        ->get(['insumo_id', 'cantidad'])
+                        ->keyBy('insumo_id');
 
         $resultados = [];
         foreach ($mapped as $row) {
-            $resultados[] = $this->validateRow($row, $erpMap, $mapeo);
+            $resultados[] = $this->validateRow($row, $erpMap, $mapeo, $invExist, $codigoCounts);
         }
 
         $counts = [
@@ -166,6 +176,8 @@ class ImportarInventarioController extends Controller
             'ok'          => count(array_filter($resultados, fn($r) => $r['estado'] === 'ok')),
             'advertencia' => count(array_filter($resultados, fn($r) => $r['estado'] === 'advertencia')),
             'error'       => count(array_filter($resultados, fn($r) => $r['estado'] === 'error')),
+            'conflicto'   => count(array_filter($resultados, fn($r) => $r['conflicto'] === true)),
+            'duplicado'   => count(array_filter($resultados, fn($r) => $r['duplicado_excel'] === true)),
         ];
 
         return response()->json(['resultados' => $resultados, 'counts' => $counts]);
@@ -176,15 +188,21 @@ class ImportarInventarioController extends Controller
     {
         $this->requireAdmin();
         $request->validate([
+            'obra_id'             => 'required|integer|exists:obras,id',
             'archivo'             => 'required|file|mimes:xlsx,xls,csv|max:20480',
             'mapeo.codigo_insumo' => 'required|integer|min:0',
             'mapeo.cantidad'      => 'required|integer|min:0',
+            'conflict_resolution' => 'required|in:sumar,sobrescribir,ignorar,manual',
         ]);
 
-        $user   = Auth::user();
-        $obraId = (int) ($user?->obra_actual_id ?? 0);
-        if (! $obraId) {
-            return response()->json(['error' => 'No tienes una obra seleccionada.'], 422);
+        $user              = Auth::user();
+        $obraId            = (int) $request->input('obra_id');
+        $conflictRes       = $request->input('conflict_resolution', 'ignorar');
+        $overrides         = json_decode($request->input('overrides', '{}'), true) ?? [];
+
+        $obra = Obra::find($obraId);
+        if (! $obra) {
+            return response()->json(['error' => 'Obra no encontrada.'], 422);
         }
 
         $mapeo   = $request->input('mapeo', []);
@@ -197,7 +215,11 @@ class ImportarInventarioController extends Controller
             return response()->json(['error' => 'No hay filas válidas para importar.'], 422);
         }
 
-        $erpMap     = $this->fetchErp(array_unique(array_column($mapped, 'codigo')));
+        $erpMap = $this->fetchErp(array_unique(array_column($mapped, 'codigo')));
+
+        // Para detectar duplicados dentro del Excel, solo procesar la primera ocurrencia
+        $seenCodigos = [];
+
         $insertados = $actualizados = $omitidos = 0;
         $now        = now();
 
@@ -210,16 +232,38 @@ class ImportarInventarioController extends Controller
                     continue;
                 }
 
+                // Si es duplicado en Excel, solo procesar la primera ocurrencia
+                if (in_array($row['codigo'], $seenCodigos)) {
+                    $omitidos++;
+                    continue;
+                }
+                $seenCodigos[] = $row['codigo'];
+
                 $cantidad = (float) $row['cantidad'];
-                $pu       = is_numeric($row['pu']) ? (float) $row['pu'] : null;
+                $pu       = is_numeric($row['pu']) && (float) $row['pu'] >= 0 ? (float) $row['pu'] : null;
 
                 $existing = Inventario::where('obra_id', $obraId)
                     ->where('insumo_id', $row['codigo'])
                     ->first();
 
                 if ($existing) {
-                    $existing->cantidad         = $cantidad;
-                    $existing->cantidad_teorica = $cantidad;
+                    // Determinar resolución para este código
+                    $resolucion = $overrides[$row['codigo']] ?? $conflictRes;
+
+                    if ($resolucion === 'ignorar') {
+                        $omitidos++;
+                        continue;
+                    }
+
+                    if ($resolucion === 'sumar') {
+                        $existing->cantidad         = $existing->cantidad + $cantidad;
+                        $existing->cantidad_teorica = $existing->cantidad_teorica + $cantidad;
+                    } else {
+                        // sobrescribir (default for manual overrides too)
+                        $existing->cantidad         = $cantidad;
+                        $existing->cantidad_teorica = $cantidad;
+                    }
+
                     if ($pu !== null) $existing->costo_promedio = $pu;
                     $existing->save();
                     $actualizados++;
@@ -247,18 +291,23 @@ class ImportarInventarioController extends Controller
         }
 
         Log::info('Importar Inventario', [
-            'user_id'     => $user->id,
-            'obra_id'     => $obraId,
-            'insertados'  => $insertados,
-            'actualizados'=> $actualizados,
-            'omitidos'    => $omitidos,
+            'user_id'            => $user->id,
+            'user_name'          => $user->name,
+            'obra_id'            => $obraId,
+            'obra_nombre'        => $obra->nombre,
+            'conflict_resolution'=> $conflictRes,
+            'insertados'         => $insertados,
+            'actualizados'       => $actualizados,
+            'omitidos'           => $omitidos,
+            'timestamp'          => $now->toIso8601String(),
         ]);
 
         return response()->json([
-            'ok'          => true,
-            'insertados'  => $insertados,
-            'actualizados'=> $actualizados,
-            'omitidos'    => $omitidos,
+            'ok'           => true,
+            'obra_nombre'  => $obra->nombre,
+            'insertados'   => $insertados,
+            'actualizados' => $actualizados,
+            'omitidos'     => $omitidos,
         ]);
     }
 
@@ -314,32 +363,45 @@ class ImportarInventarioController extends Controller
         return $result->keyBy('codigo');
     }
 
-    private function validateRow(array $row, $erpMap, array $mapeo): array
+    private function validateRow(array $row, $erpMap, array $mapeo, $invExist, array $codigoCounts): array
     {
         $erp    = $erpMap->get($row['codigo']);
         $existe = $erp !== null;
 
         $cantOk   = is_numeric($row['cantidad']) && (float) $row['cantidad'] >= 0;
+        $puOk     = null;
         $unitOk   = null;
         $descOk   = null;
         $famOk    = null;
 
+        if (isset($mapeo['pu']) && $row['pu'] !== '') {
+            $puOk = is_numeric($row['pu']) && (float) $row['pu'] >= 0;
+        }
+
         if ($existe) {
-            // Unidad — solo si fue mapeada y tiene valor
             if (isset($mapeo['unidad']) && $row['unidad'] !== '') {
                 $unitOk = mb_strtoupper(trim($row['unidad'])) === mb_strtoupper(trim($erp->unidad ?? ''));
             }
-            // Descripción — coincidencia parcial (advertencia)
             if (isset($mapeo['descripcion']) && $row['descripcion'] !== '') {
                 $haystack = mb_strtolower(trim($erp->descripcion ?? ''));
                 $needle   = mb_strtolower(trim($row['descripcion']));
                 $descOk   = str_contains($haystack, $needle) || str_contains($needle, $haystack);
             }
-            // Familia — advertencia
             if (isset($mapeo['familia']) && $row['familia'] !== '') {
                 $famOk = mb_strtoupper(trim($row['familia'])) === mb_strtoupper(trim($erp->familia ?? ''));
             }
         }
+
+        // Conflicto: insumo ya existe en el inventario de la obra
+        $conflicto         = false;
+        $cantidad_actual   = null;
+        if ($existe && $invExist->has($row['codigo'])) {
+            $conflicto       = true;
+            $cantidad_actual = (float) $invExist->get($row['codigo'])->cantidad;
+        }
+
+        // Duplicado dentro del Excel
+        $duplicado_excel = ($codigoCounts[$row['codigo']] ?? 1) > 1;
 
         $estado  = 'ok';
         $errores = [];
@@ -351,6 +413,10 @@ class ImportarInventarioController extends Controller
         if (! $cantOk) {
             $estado    = 'error';
             $errores[] = 'Cantidad inválida: "' . $row['cantidad'] . '"';
+        }
+        if ($puOk === false) {
+            $estado    = 'error';
+            $errores[] = 'P.U. inválido: "' . $row['pu'] . '" (debe ser número ≥ 0)';
         }
         if ($unitOk === false) {
             $estado    = 'error';
@@ -364,12 +430,16 @@ class ImportarInventarioController extends Controller
             if ($estado === 'ok') $estado = 'advertencia';
             $errores[] = 'Familia difiere — Excel: "' . $row['familia'] . '" / ERP: "' . ($erp->familia ?? '') . '"';
         }
+        if ($duplicado_excel && $estado === 'ok') {
+            $estado    = 'advertencia';
+            $errores[] = 'Código duplicado en el archivo — solo se procesará la primera ocurrencia';
+        }
 
         return [
             'fila'            => $row['fila'],
             'codigo'          => $row['codigo'],
             'cantidad'        => $cantOk ? (float) $row['cantidad'] : null,
-            'pu'              => is_numeric($row['pu']) ? (float) $row['pu'] : null,
+            'pu'              => (isset($mapeo['pu']) && is_numeric($row['pu']) && (float) $row['pu'] >= 0) ? (float) $row['pu'] : null,
             'descripcion_erp' => $existe ? ($erp->descripcion ?? '') : null,
             'unidad_erp'      => $existe ? ($erp->unidad      ?? '') : null,
             'familia_erp'     => $existe ? ($erp->familia     ?? '') : null,
@@ -379,8 +449,12 @@ class ImportarInventarioController extends Controller
             'desc_ok'         => $descOk,
             'fam_ok'          => $famOk,
             'cantidad_ok'     => $cantOk,
+            'pu_ok'           => $puOk,
             'estado'          => $estado,
             'errores'         => $errores,
+            'conflicto'       => $conflicto,
+            'cantidad_actual' => $cantidad_actual,
+            'duplicado_excel' => $duplicado_excel,
         ];
     }
 }
