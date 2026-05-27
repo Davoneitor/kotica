@@ -407,15 +407,16 @@ public function movimientoDetalles(Movimiento $movimiento)
         $user = Auth::user();
         $obraId = (int) ($user?->obra_actual_id ?? 0);
 
-        $q     = trim((string) $request->get('q', ''));
-        $soloH = $request->boolean('solo_h');
+        $q        = trim((string) $request->get('q', ''));
+        $soloH    = $request->boolean('solo_h');
+        $agrupado = $request->boolean('agrupado');
 
         // Soporta "#RP-80-12"
         if (str_starts_with($q, '#')) {
             $q = trim(substr($q, 1));
         }
 
-        $rows = Inventario::query()
+        $query = Inventario::query()
             ->when($obraId, fn($qq) => $qq->where('obra_id', $obraId))
             ->when($soloH, fn($qq) => $qq->where('devolvible', 1))
             ->when($q !== '', function ($qq) use ($q) {
@@ -423,14 +424,28 @@ public function movimientoDetalles(Movimiento $movimiento)
                     $w->where('insumo_id', 'like', "%{$q}%")
                       ->orWhere('descripcion', 'like', "%{$q}%");
                 });
-            })
-            ->orderByDesc('updated_at')
-            ->limit(80)
-            ->get([
-                'id','insumo_id','familia','subfamilia','descripcion','descripcionauxiliar',
-                'unidad','cantidad','cantidad_teorica','en_espera','costo_promedio',
-                'destino','proveedor','devolvible','obsoleto','updated_at'
-            ]);
+            });
+
+        if ($agrupado) {
+            $rows = $query
+                ->orderBy('familia')
+                ->orderBy('subfamilia')
+                ->orderBy('descripcion')
+                ->get([
+                    'id','insumo_id','familia','subfamilia','descripcion','descripcionauxiliar',
+                    'unidad','cantidad','cantidad_teorica','en_espera','costo_promedio',
+                    'destino','proveedor','devolvible','obsoleto','updated_at',
+                ]);
+        } else {
+            $rows = $query
+                ->orderByDesc('updated_at')
+                ->limit(80)
+                ->get([
+                    'id','insumo_id','familia','subfamilia','descripcion','descripcionauxiliar',
+                    'unidad','cantidad','cantidad_teorica','en_espera','costo_promedio',
+                    'destino','proveedor','devolvible','obsoleto','updated_at',
+                ]);
+        }
 
         return response()->json($rows->map(fn($r) => [
             'id'                  => $r->id,
@@ -1658,8 +1673,7 @@ public function entradaFoto($id)
     }
 
     /**
-     * Exportar Inventario a Excel.
-     * Mismos filtros que inventario() pero sin límite.
+     * Exportar Inventario a Excel — agrupado por familia/subfamilia con subtotales.
      */
     public function exportarInventario(Request $request)
     {
@@ -1680,62 +1694,197 @@ public function entradaFoto($id)
                       ->orWhere('descripcion', 'like', "%{$q}%");
                 });
             })
+            ->orderBy(DB::raw("CASE WHEN ISNULL(familia,'')='' THEN 1 ELSE 0 END"))
             ->orderBy('familia')
+            ->orderBy(DB::raw("CASE WHEN ISNULL(subfamilia,'')='' THEN 1 ELSE 0 END"))
             ->orderBy('subfamilia')
             ->orderBy('descripcion')
             ->get([
                 'id', 'insumo_id', 'familia', 'subfamilia', 'descripcion',
-                'descripcionauxiliar', 'unidad', 'cantidad', 'cantidad_teorica',
-                'en_espera', 'costo_promedio', 'proveedor', 'destino',
-                'devolvible', 'obsoleto', 'updated_at',
+                'unidad', 'cantidad', 'costo_promedio', 'obsoleto',
             ]);
-
-        $data = $rows->map(fn($r) => [
-            (string) ($r->familia              ?? ''),                                // 0
-            (string) ($r->subfamilia           ?? ''),                                // 1
-            (string) ($r->insumo_id            ?? ''),                                // 2
-            (string) ($r->descripcion          ?? ''),                                // 3
-            (string) ($r->descripcionauxiliar  ?? ''),                                // 4
-            (string) ($r->unidad               ?? ''),                                // 5
-            (float)  ($r->cantidad             ?? 0),                                 // 6 number
-            (float)  ($r->cantidad_teorica     ?? 0),                                 // 7 number
-            (float)  ($r->en_espera            ?? 0),                                 // 8 number
-            $r->costo_promedio !== null ? (float) $r->costo_promedio : null,          // 9 currency
-            $r->costo_promedio !== null
-                ? round((float) $r->cantidad * (float) $r->costo_promedio, 2)
-                : null,                                                               // 10 currency
-            (string) ($r->proveedor            ?? ''),                                // 11
-            (string) ($r->destino              ?? ''),                                // 12
-            $r->devolvible ? 'Sí' : 'No',                                            // 13
-            $r->obsoleto   ? 'Sí' : 'No',                                            // 14
-            $r->updated_at ? $r->updated_at->format('d/m/Y') : '',                   // 15
-        ])->values()->toArray();
 
         $filters = array_filter([
             $obra ? 'Obra: ' . $obra->nombre : null,
             $q    ? 'Búsqueda: ' . $q        : null,
         ]);
 
-        Log::info('Excel export: Inventario', [
-            'user_id'  => Auth::id(),
-            'obra_id'  => $obraId,
-            'registros'=> count($data),
-            'filtros'  => $filters,
+        // ── Construir filas con subtotales ───────────────────────────────
+        $headers = ['Código', 'Descripción', 'Unidad', 'Cantidad', 'P.U.', 'Importe'];
+        // col indices: 0=codigo,1=desc,2=unidad,3=qty(number),4=pu(currency),5=importe(currency)
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Inventario');
+        $sheet->getTabColor()->setRGB('D97706');
+
+        $colCount   = count($headers);
+        $lastColLtr = chr(64 + $colCount); // F
+
+        $userName   = $user?->name ?? 'Sistema';
+        $now        = now()->format('d/m/Y H:i');
+        $filtersText= empty($filters) ? 'Sin filtros' : implode('  ·  ', array_filter($filters));
+        $infoText   = "Sistema Almacén  |  Inventario Agrupado  |  Generado: {$now}  |  Usuario: {$userName}  |  {$filtersText}";
+
+        $sheet->setCellValue('A1', $infoText);
+        $sheet->mergeCells("A1:{$lastColLtr}1");
+        $sheet->getStyle('A1')->applyFromArray([
+            'font' => ['bold'=>true,'size'=>9,'color'=>['rgb'=>'FFFFFF']],
+            'fill' => ['fillType'=>\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,'startColor'=>['rgb'=>'111827']],
+            'alignment' => ['horizontal'=>\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT,'vertical'=>\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(20);
+
+        foreach ($headers as $i => $label) {
+            $sheet->setCellValue(chr(65+$i).'2', $label);
+        }
+        $sheet->getStyle("A2:{$lastColLtr}2")->applyFromArray([
+            'font' => ['bold'=>true,'size'=>10,'color'=>['rgb'=>'FFFFFF']],
+            'fill' => ['fillType'=>\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,'startColor'=>['rgb'=>'D97706']],
+            'alignment' => ['horizontal'=>\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,'vertical'=>\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER],
+        ]);
+        $sheet->getRowDimension(2)->setRowHeight(20);
+        $sheet->freezePane('A3');
+
+        $excelRow      = 3;
+        $totalGeneral  = 0.0;
+
+        // Agrupar en PHP por familia → subfamilia
+        $byFamilia = [];
+        foreach ($rows as $r) {
+            $fam  = trim($r->familia  ?? '') ?: 'SIN FAMILIA';
+            $sub  = trim($r->subfamilia ?? '') ?: 'SIN SUBFAMILIA';
+            $byFamilia[$fam][$sub][] = $r;
+        }
+        ksort($byFamilia);
+
+        foreach ($byFamilia as $familia => $subFamilias) {
+            // Subtotales de familia
+            $famCant   = 0.0;
+            $famImport = 0.0;
+            foreach ($subFamilias as $sub => $items) {
+                foreach ($items as $r) {
+                    $famCant   += (float)($r->cantidad ?? 0);
+                    $pu         = $r->costo_promedio !== null ? (float)$r->costo_promedio : 0;
+                    $famImport += round((float)($r->cantidad ?? 0) * $pu, 2);
+                }
+            }
+
+            // Fila familia
+            $sheet->setCellValue("A{$excelRow}", $familia);
+            $sheet->mergeCells("A{$excelRow}:C{$excelRow}");
+            $sheet->setCellValue("D{$excelRow}", $famCant);
+            $sheet->setCellValue("F{$excelRow}", $famImport);
+            $sheet->getStyle("A{$excelRow}:{$lastColLtr}{$excelRow}")->applyFromArray([
+                'font' => ['bold'=>true,'size'=>10,'color'=>['rgb'=>'92400E']],
+                'fill' => ['fillType'=>\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,'startColor'=>['rgb'=>'FEF3C7']],
+                'borders' => ['top'=>['borderStyle'=>\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM,'color'=>['rgb'=>'D97706']]],
+            ]);
+            $sheet->getStyle("D{$excelRow}")->getNumberFormat()->setFormatCode('#,##0.00');
+            $sheet->getStyle("F{$excelRow}")->getNumberFormat()->setFormatCode('"$"#,##0.00');
+            $sheet->getRowDimension($excelRow)->setRowHeight(18);
+            $totalGeneral += $famImport;
+            $excelRow++;
+
+            ksort($subFamilias);
+            foreach ($subFamilias as $subfamilia => $items) {
+                $subCant   = 0.0;
+                $subImport = 0.0;
+                foreach ($items as $r) {
+                    $subCant   += (float)($r->cantidad ?? 0);
+                    $pu         = $r->costo_promedio !== null ? (float)$r->costo_promedio : 0;
+                    $subImport += round((float)($r->cantidad ?? 0) * $pu, 2);
+                }
+
+                // Fila subfamilia
+                $sheet->setCellValue("A{$excelRow}", '  ' . $subfamilia);
+                $sheet->mergeCells("A{$excelRow}:C{$excelRow}");
+                $sheet->setCellValue("D{$excelRow}", $subCant);
+                $sheet->setCellValue("F{$excelRow}", $subImport);
+                $sheet->getStyle("A{$excelRow}:{$lastColLtr}{$excelRow}")->applyFromArray([
+                    'font' => ['bold'=>true,'size'=>9,'color'=>['rgb'=>'1E3A5F']],
+                    'fill' => ['fillType'=>\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,'startColor'=>['rgb'=>'EFF6FF']],
+                    'borders' => ['top'=>['borderStyle'=>\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,'color'=>['rgb'=>'93C5FD']]],
+                ]);
+                $sheet->getStyle("D{$excelRow}")->getNumberFormat()->setFormatCode('#,##0.00');
+                $sheet->getStyle("F{$excelRow}")->getNumberFormat()->setFormatCode('"$"#,##0.00');
+                $sheet->getRowDimension($excelRow)->setRowHeight(16);
+                $excelRow++;
+
+                // Filas detalle
+                foreach ($items as $idx => $r) {
+                    $cantidad = (float)($r->cantidad ?? 0);
+                    $pu       = $r->costo_promedio !== null ? (float)$r->costo_promedio : null;
+                    $importe  = $pu !== null ? round($cantidad * $pu, 2) : null;
+
+                    $sheet->setCellValue("A{$excelRow}", (string)($r->insumo_id ?? ''));
+                    $sheet->setCellValue("B{$excelRow}", (string)($r->descripcion ?? ''));
+                    $sheet->setCellValue("C{$excelRow}", (string)($r->unidad ?? ''));
+                    $sheet->setCellValue("D{$excelRow}", $cantidad);
+                    if ($pu !== null) $sheet->setCellValue("E{$excelRow}", $pu);
+                    if ($importe !== null) $sheet->setCellValue("F{$excelRow}", $importe);
+
+                    $sheet->getStyle("D{$excelRow}")->getNumberFormat()->setFormatCode('#,##0.00');
+                    $sheet->getStyle("E{$excelRow}")->getNumberFormat()->setFormatCode('"$"#,##0.00');
+                    $sheet->getStyle("F{$excelRow}")->getNumberFormat()->setFormatCode('"$"#,##0.00');
+
+                    if ($idx % 2 === 0) {
+                        $sheet->getStyle("A{$excelRow}:{$lastColLtr}{$excelRow}")
+                            ->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                            ->getStartColor()->setRGB('FFFFFF');
+                    } else {
+                        $sheet->getStyle("A{$excelRow}:{$lastColLtr}{$excelRow}")
+                            ->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                            ->getStartColor()->setRGB('F9FAFB');
+                    }
+                    $sheet->getStyle("A{$excelRow}:{$lastColLtr}{$excelRow}")->applyFromArray([
+                        'borders' => ['allBorders'=>['borderStyle'=>\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,'color'=>['rgb'=>'E5E7EB']]],
+                    ]);
+                    $excelRow++;
+                }
+            }
+        }
+
+        // Fila total general
+        $sheet->setCellValue("A{$excelRow}", 'TOTAL GENERAL');
+        $sheet->mergeCells("A{$excelRow}:E{$excelRow}");
+        $sheet->setCellValue("F{$excelRow}", $totalGeneral);
+        $sheet->getStyle("A{$excelRow}:{$lastColLtr}{$excelRow}")->applyFromArray([
+            'font' => ['bold'=>true,'size'=>11,'color'=>['rgb'=>'FFFFFF']],
+            'fill' => ['fillType'=>\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,'startColor'=>['rgb'=>'111827']],
+            'borders' => ['top'=>['borderStyle'=>\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM,'color'=>['rgb'=>'000000']]],
+        ]);
+        $sheet->getStyle("F{$excelRow}")->getNumberFormat()->setFormatCode('"$"#,##0.00');
+        $sheet->getRowDimension($excelRow)->setRowHeight(20);
+
+        // Anchos de columna
+        $sheet->getColumnDimension('A')->setWidth(18);
+        $sheet->getColumnDimension('B')->setWidth(42);
+        $sheet->getColumnDimension('C')->setWidth(10);
+        $sheet->getColumnDimension('D')->setWidth(14);
+        $sheet->getColumnDimension('E')->setWidth(14);
+        $sheet->getColumnDimension('F')->setWidth(16);
+
+        Log::info('Excel export: Inventario Agrupado', [
+            'user_id'   => Auth::id(),
+            'obra_id'   => $obraId,
+            'registros' => $rows->count(),
+            'filtros'   => $filters,
         ]);
 
-        return ExcelExporter::download(
-            filename:    'inventario',
-            moduleName:  'Inventario',
-            headers:     [
-                'Familia', 'Subfamilia', 'Código', 'Descripción', 'Desc. Auxiliar',
-                'Unidad', 'Cantidad', 'Cant. Teórica', 'En Espera',
-                'P.U. (Costo Prom.)', 'Importe', 'Proveedor', 'Destino',
-                'Devolvible', 'Obsoleto', 'Actualizado',
-            ],
-            rows:        $data,
-            columnTypes: [6 => 'number', 7 => 'number', 8 => 'number', 9 => 'currency', 10 => 'currency'],
-            filters:     $filters,
-            columnWidths: [3 => 42, 4 => 35],   // Descripción, Desc. Auxiliar
+        $xlsxFilename = 'inventario_agrupado_' . now()->format('Ymd_Hi') . '.xlsx';
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        return response()->stream(
+            fn () => $writer->save('php://output'),
+            200,
+            [
+                'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Disposition' => "attachment; filename=\"{$xlsxFilename}\"",
+                'Cache-Control'       => 'max-age=0, no-cache, no-store',
+                'Pragma'              => 'no-cache',
+                'Expires'             => '0',
+            ]
         );
     }
 
