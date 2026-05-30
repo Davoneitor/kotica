@@ -509,9 +509,11 @@
                                 <input type="text"
                                        name="descripcion"
                                        x-model="descripcion"
-                                       @input.debounce.300ms="buscarPorDesc()"
+                                       @input.debounce.300ms="if(!insumoFijado) buscarPorDesc()"
                                        @keydown.escape="resultsDesc = []"
                                        @click.outside="resultsDesc = []"
+                                       :readonly="insumoFijado"
+                                       :class="insumoFijado ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''"
                                        class="w-full border rounded-lg px-4 py-3 text-sm"
                                        placeholder="Descripción del insumo"
                                        required>
@@ -549,6 +551,8 @@
                                 <input type="text"
                                        name="unidad"
                                        x-model="unidad"
+                                       :readonly="insumoFijado"
+                                       :class="insumoFijado ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''"
                                        class="w-full border rounded-lg px-4 py-3 text-sm"
                                        placeholder="PZA, M2, KG…"
                                        required>
@@ -564,10 +568,11 @@
                             <input type="text"
                                    name="insumo_id"
                                    :value="selectedInsumoId"
-                                   @input="selectedInsumoId = $event.target.value.toUpperCase()"
-                                   @input.debounce.300ms="buscarPorCode()"
+                                   @input="if(!insumoFijado){ selectedInsumoId = $event.target.value.toUpperCase(); buscarPorCode(); }"
                                    @keydown.escape="resultsCode = []"
                                    @click.outside="resultsCode = []"
+                                   :readonly="insumoFijado"
+                                   :class="insumoFijado ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''"
                                    class="w-full border rounded-lg px-4 py-3 text-sm font-mono uppercase"
                                    placeholder="Ej: 02ON-VAR-00001"
                                    style="text-transform:uppercase">
@@ -635,6 +640,8 @@
                             <input type="date"
                                    name="fecha_entrada"
                                    value="{{ date('Y-m-d') }}"
+                                   :readonly="insumoFijado"
+                                   :class="insumoFijado ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''"
                                    class="w-full border rounded-lg px-4 py-3 text-sm"
                                    required>
                         </div>
@@ -648,6 +655,8 @@
                                 <input type="text"
                                        name="familia"
                                        x-model="familia"
+                                       :readonly="insumoFijado"
+                                       :class="insumoFijado ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''"
                                        class="w-full border rounded-lg px-4 py-3 text-sm"
                                        placeholder="SIN FAMILIA">
                             </div>
@@ -658,6 +667,8 @@
                                 <input type="text"
                                        name="subfamilia"
                                        x-model="subfamilia"
+                                       :readonly="insumoFijado"
+                                       :class="insumoFijado ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''"
                                        class="w-full border rounded-lg px-4 py-3 text-sm"
                                        placeholder="SIN SUBFAMILIA">
                             </div>
@@ -859,6 +870,7 @@
 
                 // ── datos formulario entrada manual ──────────────────────
                 sending:          false,
+                insumoFijado:     false,
                 selectedInsumoId: '',
                 descripcion:      '',
                 unidad:           '',
@@ -922,6 +934,7 @@
                     this.costoUnitario    = item.costo_promedio > 0 ? item.costo_promedio : '';
                     this.familia          = item.familia      || '';
                     this.subfamilia       = item.subfamilia   || '';
+                    this.insumoFijado     = true;
                 },
 
                 seleccionarDesc(item) {
@@ -945,6 +958,7 @@
                     this.resultsDesc      = [];
                     this.resultsCode      = [];
                     this.sending          = false;
+                    this.insumoFijado     = false;
                 },
 
                 // ── estado tab transferencias ─────────────────────────────

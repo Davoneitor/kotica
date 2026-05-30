@@ -60,7 +60,8 @@ class ExcelExporter
         array  $filters      = [],
         array  $extraSheets  = [],
         string $color        = '1F2937',
-        array  $columnWidths = []   // [col_index => width_chars]  — overrides autoSize
+        array  $columnWidths = [],
+        array  $totalRow     = []   // fila de totales al final: misma estructura que una fila de datos
     ): StreamedResponse {
         $spreadsheet = new Spreadsheet();
 
@@ -69,7 +70,7 @@ class ExcelExporter
 
         // ── Hoja principal ───────────────────────────────────────────────
         $mainSheet = $spreadsheet->getActiveSheet();
-        self::fillSheet($mainSheet, $moduleName, $headers, $rows, $columnTypes, $filters, $user, $now, $color, $columnWidths);
+        self::fillSheet($mainSheet, $moduleName, $headers, $rows, $columnTypes, $filters, $user, $now, $color, $columnWidths, $totalRow);
         $mainSheet->getTabColor()->setRGB($color);
 
         // ── Hojas adicionales ────────────────────────────────────────────
@@ -86,7 +87,8 @@ class ExcelExporter
                 $user,
                 $now,
                 $sheetColor,
-                $extra['columnWidths'] ?? $columnWidths
+                $extra['columnWidths'] ?? $columnWidths,
+                $extra['totalRow'] ?? []
             );
             $sheet->getTabColor()->setRGB($sheetColor);
         }
@@ -120,7 +122,8 @@ class ExcelExporter
         $user,
         string $now,
         string $color        = '1F2937',
-        array  $columnWidths = []
+        array  $columnWidths = [],
+        array  $totalRow     = []
     ): void {
         $userName = $user?->name ?? 'Sistema';
 
@@ -186,6 +189,30 @@ class ExcelExporter
                     ->getFill()
                     ->setFillType(Fill::FILL_SOLID)
                     ->getStartColor()->setRGB($zebraRgb);
+            }
+        }
+
+        // ── Fila de totales ──────────────────────────────────────────────
+        if (!empty($totalRow)) {
+            $totalExcelRow = count($rows) + 3;
+            foreach ($totalRow as $colIdx => $value) {
+                $sheet->setCellValue(self::colLetter($colIdx + 1) . $totalExcelRow, $value);
+            }
+            $sheet->getStyle("A{$totalExcelRow}:{$lastColLtr}{$totalExcelRow}")->applyFromArray([
+                'font' => ['bold' => true, 'size' => 10, 'color' => ['rgb' => 'FFFFFF']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1F2937']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT],
+            ]);
+            $sheet->getStyle('A' . $totalExcelRow)->getAlignment()
+                ->setHorizontal(Alignment::HORIZONTAL_LEFT);
+            // Aplicar formato currency a las celdas numéricas del total
+            foreach ($columnTypes as $colIdx => $type) {
+                if (in_array($type, ['currency', 'number'])) {
+                    $col = self::colLetter($colIdx + 1);
+                    $fmt = $type === 'currency' ? '"$"#,##0.00' : '#,##0.00';
+                    $sheet->getStyle($col . $totalExcelRow)
+                        ->getNumberFormat()->setFormatCode($fmt);
+                }
             }
         }
 

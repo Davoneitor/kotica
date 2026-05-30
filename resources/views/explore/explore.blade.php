@@ -510,13 +510,11 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                                 </svg>
                                 <span class="font-bold text-sm">🟠 Transferencias Enviadas</span>
-                                <span class="text-xs opacity-75" x-text="'(' + transSalidasData.length + ' registros)'"></span>
+                                <span class="text-xs font-semibold px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.25)"
+                                      x-text="transSalidasData.length + ' registros'"></span>
                             </div>
-                            <div class="font-bold tabular-nums text-sm flex gap-3">
-                                <span x-text="transSalidasData.reduce((s,r)=>s+parseFloat(r.cantidad||0),0).toFixed(2) + ' uds'"></span>
-                                <span x-show="transSalidasData.some(r=>r.importe!=null)" style="opacity:0.85"
-                                      x-text="'$' + formatMoney(transSalidasData.reduce((s,r)=>s+(r.importe!=null?parseFloat(r.importe):0),0))"></span>
-                            </div>
+                            <span class="font-bold text-base tabular-nums"
+                                  x-text="'$' + formatMoney(transSalidasData.reduce((s,r)=>s+(r.importe!=null?parseFloat(r.importe):0),0))"></span>
                         </div>
                         {{-- Tabla --}}
                         <div x-show="seccionSalidasAbierta.transferencias" class="overflow-x-auto">
@@ -936,16 +934,20 @@
         <div x-show="entradasPorTipo('manual').length > 0" class="rounded-lg overflow-hidden"
              :style="dk('border:2px solid #2563eb','border:2px solid #1e3a6e')">
             <div @click="ent.seccionAbierta.manual = !ent.seccionAbierta.manual"
-                 class="flex items-center gap-2 px-4 py-3 cursor-pointer select-none"
+                 class="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
                  :style="dk('background:#2563eb;color:#fff','background:#0d1e45;color:#93c5fd;border-bottom:2px solid #2563eb')">
-                <svg :class="ent.seccionAbierta.manual ? 'rotate-90':''"
-                     class="w-4 h-4 transition-transform shrink-0"
-                     fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-                </svg>
-                <span class="font-bold text-sm">🔵 Entradas Manuales</span>
-                <span class="text-xs font-semibold px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.25)"
-                      x-text="entradasPorTipo('manual').length + ' registros'"></span>
+                <div class="flex items-center gap-2">
+                    <svg :class="ent.seccionAbierta.manual ? 'rotate-90':''"
+                         class="w-4 h-4 transition-transform shrink-0"
+                         fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                    </svg>
+                    <span class="font-bold text-sm">🔵 Entradas Manuales</span>
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.25)"
+                          x-text="entradasPorTipo('manual').length + ' registros'"></span>
+                </div>
+                <span class="font-bold text-base tabular-nums"
+                      x-text="'$' + formatMoney(entradasPorTipo('manual').reduce((s,e) => s + (e.importe ?? 0), 0))"></span>
             </div>
             <div x-show="ent.seccionAbierta.manual" class="overflow-x-auto"
                  :style="dk('background:#fff','background:#060810')">
@@ -1055,16 +1057,20 @@
         <div x-show="entradasPorTipo('transferencia').length > 0" class="rounded-lg overflow-hidden"
              :style="dk('border:2px solid #f97316','border:2px solid #7c3a00')">
             <div @click="ent.seccionAbierta.transferencia = !ent.seccionAbierta.transferencia"
-                 class="flex items-center gap-2 px-4 py-3 cursor-pointer select-none"
+                 class="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
                  :style="dk('background:#f97316;color:#fff','background:#2e1200;color:#fdba74;border-bottom:2px solid #f97316')">
-                <svg :class="ent.seccionAbierta.transferencia ? 'rotate-90':''"
-                     class="w-4 h-4 transition-transform shrink-0"
-                     fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-                </svg>
-                <span class="font-bold text-sm">🟠 Transferencias Recibidas</span>
-                <span class="text-xs font-semibold px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.25)"
-                      x-text="entradasPorTipo('transferencia').length + ' registros'"></span>
+                <div class="flex items-center gap-2">
+                    <svg :class="ent.seccionAbierta.transferencia ? 'rotate-90':''"
+                         class="w-4 h-4 transition-transform shrink-0"
+                         fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                    </svg>
+                    <span class="font-bold text-sm">🟠 Transferencias Recibidas</span>
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.25)"
+                          x-text="entradasPorTipo('transferencia').length + ' registros'"></span>
+                </div>
+                <span class="font-bold text-base"
+                      x-text="'$' + formatMoney(entradasPorTipo('transferencia').reduce((s,e) => s + (e.importe ?? 0), 0))"></span>
             </div>
             <div x-show="ent.seccionAbierta.transferencia" class="overflow-x-auto"
                  :style="dk('background:#fff','background:#0e0600')">
@@ -1500,9 +1506,6 @@
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Obra Origen</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Obra Destino</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Usuario</th>
-                                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Insumos</th>
-                                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Piezas</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Observaciones</th>
                                     <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Acciones</th>
                                 </tr>
                             </thead>
@@ -1526,9 +1529,6 @@
                                             <td class="px-4 py-3 text-sm font-medium text-gray-800" x-text="tr.obra_origen"></td>
                                             <td class="px-4 py-3 text-sm font-medium text-gray-800" x-text="tr.obra_destino"></td>
                                             <td class="px-4 py-3 text-sm text-gray-600" x-text="tr.usuario"></td>
-                                            <td class="px-4 py-3 text-right font-semibold tabular-nums" x-text="tr.total_insumos"></td>
-                                            <td class="px-4 py-3 text-right tabular-nums" x-text="parseFloat(tr.total_piezas || 0).toFixed(2)"></td>
-                                            <td class="px-4 py-3 text-xs text-gray-500 italic max-w-xs truncate" x-text="tr.observaciones || '—'"></td>
                                             <td class="px-4 py-3 text-center">
                                                 <div class="flex items-center justify-center gap-2">
                                                     <button @click="verTransDetalles(tr.id)"
@@ -2280,144 +2280,203 @@
         {{-- ========================= --}}
         {{-- MOVIMIENTOS DETALLADOS  --}}
         {{-- ========================= --}}
-        <div x-show="tab==='movdet'" x-cloak class="mt-4 space-y-3">
+        <div x-show="tab==='movdet'" x-cloak class="mt-4 space-y-4">
 
-            <div class="bg-white shadow-sm sm:rounded-lg p-4">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
-                    <div class="md:col-span-2">
-                        <label class="block text-xs text-gray-500 mb-1">Buscar código o descripción</label>
-                        <input class="w-full border rounded px-3 py-2 text-sm"
-                               placeholder="Ej: RP-80-12 / cemento…"
-                               x-model="movDet.q"
-                               @input.debounce.400ms="cargarMovimientosDetallados()">
+            {{-- ── Filtros ── --}}
+            <div class="bg-white shadow-sm sm:rounded-xl p-5 border border-gray-100">
+                <div class="flex flex-wrap items-end gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Desde</label>
+                        <input type="date" class="border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-300 focus:outline-none"
+                               x-model="movDet.desde">
                     </div>
                     <div>
-                        <label class="block text-xs text-gray-500 mb-1">Desde</label>
-                        <input type="date" class="w-full border rounded px-3 py-2 text-sm"
-                               x-model="movDet.desde"
-                               @change="cargarMovimientosDetallados()">
+                        <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Hasta</label>
+                        <input type="date" class="border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-300 focus:outline-none"
+                               x-model="movDet.hasta">
                     </div>
-                    <div>
-                        <label class="block text-xs text-gray-500 mb-1">Hasta</label>
-                        <input type="date" class="w-full border rounded px-3 py-2 text-sm"
-                               x-model="movDet.hasta"
-                               @change="cargarMovimientosDetallados()">
-                    </div>
-                </div>
-                <div class="mt-3 flex flex-wrap items-center gap-2">
-                    <span class="text-xs text-gray-500 font-medium">Tipo:</span>
-                    <button @click="movDet.filtroTipo=''"
-                            :style="movDet.filtroTipo==='' ? 'background:#111827;color:#fff' : 'background:#fff;color:#374151'"
-                            class="px-3 py-1 rounded border text-xs transition-colors">Todos</button>
-                    <button @click="movDet.filtroTipo='entrada'"
-                            :style="movDet.filtroTipo==='entrada' ? 'background:#047857;color:#fff' : 'background:#fff;color:#374151'"
-                            class="px-3 py-1 rounded border text-xs transition-colors">Entradas</button>
-                    <button @click="movDet.filtroTipo='salida'"
-                            :style="movDet.filtroTipo==='salida' ? 'background:#b91c1c;color:#fff' : 'background:#fff;color:#374151'"
-                            class="px-3 py-1 rounded border text-xs transition-colors">Salidas</button>
-                    <span class="text-xs text-gray-400 ml-2" x-show="loadingMovDet">Cargando...</span>
-                    <div class="ml-auto">
-                        <button @click="exportarMovimientosDetallados()"
-                                class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded flex items-center gap-1 transition-colors">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                            </svg>
-                            Exportar Excel
-                        </button>
-                    </div>
+                    <button @click="cargarMovimientosDetallados()"
+                            :disabled="loadingMovDet"
+                            class="flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-700 disabled:opacity-60 transition-colors">
+                        <svg x-show="loadingMovDet" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                        <span x-text="loadingMovDet ? 'Cargando...' : 'Consultar'"></span>
+                    </button>
+                    <button x-show="movimientosDetallados.length > 0 && !loadingMovDet"
+                            @click="exportarMovimientosDetallados()"
+                            class="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm font-medium transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                        </svg>
+                        Exportar Excel
+                    </button>
                 </div>
             </div>
 
-            {{-- Balance bar --}}
-            <div x-show="movimientosDetallados.length > 0 && !loadingMovDet"
-                 class="bg-gray-900 text-white rounded-lg px-4 py-3 grid grid-cols-3 gap-4 text-center">
-                <div>
-                    <div class="text-xs uppercase tracking-wide font-semibold mb-1" style="color:#86efac">Entradas</div>
-                    <div class="text-lg font-bold tabular-nums" style="color:#4ade80"
-                         x-text="'$' + formatMoney(movDetTotalEntradas())"></div>
-                </div>
-                <div>
-                    <div class="text-xs uppercase tracking-wide font-semibold mb-1" style="color:#fca5a5">Salidas</div>
-                    <div class="text-lg font-bold tabular-nums" style="color:#f87171"
-                         x-text="'$' + formatMoney(movDetTotalSalidas())"></div>
-                </div>
-                <div>
-                    <div class="text-xs uppercase tracking-wide font-semibold mb-1 text-gray-400">Balance</div>
-                    <div class="text-lg font-bold tabular-nums"
-                         :style="movDetBalance() >= 0 ? 'color:#4ade80' : 'color:#f87171'"
-                         x-text="'$' + formatMoney(movDetBalance())"></div>
-                </div>
-            </div>
-
+            {{-- ── Estado vacío ── --}}
             <div x-show="!loadingMovDet && movimientosDetallados.length === 0"
-                 class="bg-white shadow-sm sm:rounded-lg p-8 text-center text-gray-400 text-sm">
-                Sin movimientos — aplica un rango de fechas y haz clic en el tab para cargar.
+                 class="bg-white shadow-sm sm:rounded-xl p-16 text-center border border-gray-100">
+                <svg class="w-12 h-12 mx-auto mb-3 text-gray-200" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z"/>
+                </svg>
+                <p class="text-gray-400 text-sm">Selecciona un rango de fechas y presiona <strong class="text-gray-600">Consultar</strong></p>
             </div>
 
-            <div x-show="movDetFiltered().length > 0 && !loadingMovDet"
-                 class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
+            {{-- ── Tarjetas de resumen ── --}}
+            <div x-show="movimientosDetallados.length > 0 && !loadingMovDet"
+                 class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+                    <div class="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Total Entradas</div>
+                    <div class="text-2xl font-bold tabular-nums" style="color:#15803d"
+                         x-text="'$' + formatMoney(movDetTotalEntradas())"></div>
+                    <div class="text-xs text-gray-400 mt-1"
+                         x-text="movimientosDetallados.filter(r=>r.tipo_key==='entrada').length + ' movimientos'"></div>
+                </div>
+                <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+                    <div class="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Total Salidas</div>
+                    <div class="text-2xl font-bold tabular-nums" style="color:#b91c1c"
+                         x-text="'$' + formatMoney(movDetTotalSalidas())"></div>
+                    <div class="text-xs text-gray-400 mt-1"
+                         x-text="movimientosDetallados.filter(r=>r.tipo_key!=='entrada').length + ' movimientos'"></div>
+                </div>
+                <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+                    <div class="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Balance Neto</div>
+                    <div class="text-2xl font-bold tabular-nums"
+                         :style="movDetBalance() >= 0 ? 'color:#15803d' : 'color:#b91c1c'"
+                         x-text="(movDetBalance() >= 0 ? '+' : '') + '$' + formatMoney(movDetBalance())"></div>
+                    <div class="text-xs text-gray-400 mt-1"
+                         x-text="movimientosDetallados.length + ' registros totales'"></div>
+                </div>
+            </div>
+
+            {{-- ── Tabla resumen por tipo ── --}}
+            <div x-show="movimientosDetallados.length > 0 && !loadingMovDet"
+                 class="bg-white shadow-sm sm:rounded-xl overflow-hidden border border-gray-100">
+                <div class="px-5 py-4 border-b border-gray-100">
+                    <h3 class="text-sm font-semibold text-gray-800">Suma de Importe por Tipo</h3>
+                    <p class="text-xs text-gray-400 mt-0.5">Haz clic en una fila para ver el detalle</p>
+                </div>
+                <table class="w-full">
+                    <thead>
+                        <tr style="background:#1f2937;color:#fff">
+                            <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider">Tipo</th>
+                            <th class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider">Registros</th>
+                            <th class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="grupo in movDetResumen()" :key="grupo.tipo">
+                            <tr class="border-t border-gray-100 cursor-pointer select-none transition-colors"
+                                :style="movDetTipoAbierto === grupo.tipo
+                                    ? (grupo.esEntrada ? 'background:#f0fdf4' : 'background:#fef2f2')
+                                    : 'background:#fff'"
+                                @click="movDetTipoAbierto = movDetTipoAbierto === grupo.tipo ? null : grupo.tipo"
+                                @mouseenter="$event.currentTarget.style.background = grupo.esEntrada ? '#f0fdf4' : '#fef2f2'"
+                                @mouseleave="$event.currentTarget.style.background = movDetTipoAbierto === grupo.tipo ? (grupo.esEntrada ? '#f0fdf4' : '#fef2f2') : '#fff'">
+                                <td class="px-5 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg shrink-0"
+                                              :style="grupo.esEntrada ? 'background:#dcfce7' : 'background:#fee2e2'">
+                                            <svg class="w-3.5 h-3.5"
+                                                 :style="grupo.esEntrada ? 'color:#15803d' : 'color:#b91c1c'"
+                                                 fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                <path x-show="grupo.esEntrada" stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3"/>
+                                                <path x-show="!grupo.esEntrada" stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"/>
+                                            </svg>
+                                        </span>
+                                        <span class="text-sm font-medium text-gray-800" x-text="grupo.tipo"></span>
+                                        <svg class="w-3.5 h-3.5 text-gray-300 ml-auto transition-transform duration-150 shrink-0"
+                                             :class="movDetTipoAbierto === grupo.tipo ? 'rotate-90' : ''"
+                                             fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                        </svg>
+                                    </div>
+                                </td>
+                                <td class="px-5 py-4 text-right text-sm text-gray-400 tabular-nums"
+                                    x-text="movimientosDetallados.filter(r=>r.tipo===grupo.tipo).length"></td>
+                                <td class="px-5 py-4 text-right text-base font-bold tabular-nums"
+                                    :style="grupo.esEntrada ? 'color:#15803d' : 'color:#b91c1c'"
+                                    x-text="'$' + formatMoney(Math.abs(grupo.total))"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                    <tfoot>
+                        <tr style="background:#f9fafb;border-top:2px solid #e5e7eb">
+                            <td class="px-5 py-4 text-sm font-bold text-gray-800">Total general</td>
+                            <td class="px-5 py-4 text-right text-sm text-gray-500 tabular-nums"
+                                x-text="movimientosDetallados.length"></td>
+                            <td class="px-5 py-4 text-right tabular-nums">
+                                <div class="text-base font-bold text-gray-900"
+                                     x-text="'$' + formatMoney(movimientosDetallados.reduce((s,r) => s + Math.abs(r.importe ?? 0), 0))"></div>
+                                <div class="text-xs font-semibold mt-0.5"
+                                     :style="movDetBalance() >= 0 ? 'color:#15803d' : 'color:#b91c1c'"
+                                     x-text="'Balance: ' + (movDetBalance()>=0?'+':'') + '$' + formatMoney(movDetBalance())"></div>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            {{-- ── Desglose del tipo seleccionado ── --}}
+            <div x-show="movDetTipoAbierto !== null"
+                 class="bg-white shadow-sm sm:rounded-xl overflow-hidden border border-gray-100">
+                <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-1 h-6 rounded-full"
+                             :style="movimientosDetallados.find(r=>r.tipo===movDetTipoAbierto)?.tipo_key==='entrada' ? 'background:#15803d' : 'background:#b91c1c'"></div>
+                        <div>
+                            <h3 class="text-sm font-bold text-gray-800" x-text="movDetTipoAbierto"></h3>
+                            <p class="text-xs text-gray-400"
+                               x-text="movimientosDetallados.filter(r=>r.tipo===movDetTipoAbierto).length + ' registros'"></p>
+                        </div>
+                    </div>
+                    <button @click="movDetTipoAbierto = null"
+                            class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors text-lg leading-none">✕</button>
+                </div>
                 <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm">
-                        <thead class="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase">
+                    <table class="min-w-full">
+                        <thead style="background:#f9fafb;border-bottom:1px solid #e5e7eb">
                             <tr>
-                                <th class="px-3 py-2 text-left whitespace-nowrap">Fecha</th>
-                                <th class="px-3 py-2 text-left whitespace-nowrap">Tipo</th>
-                                <th class="px-3 py-2 text-left whitespace-nowrap">Origen / Destino</th>
-                                <th class="px-3 py-2 text-left whitespace-nowrap">Código</th>
-                                <th class="px-3 py-2 text-left">Descripción</th>
-                                <th class="px-3 py-2 text-left whitespace-nowrap">Unidad</th>
-                                <th class="px-3 py-2 text-right whitespace-nowrap">Cantidad</th>
-                                <th class="px-3 py-2 text-right whitespace-nowrap">P.U.</th>
-                                <th class="px-3 py-2 text-right whitespace-nowrap">Importe</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Fecha</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Origen / Destino</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Código</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Descripción</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Unidad</th>
+                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Cantidad</th>
+                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">P.U.</th>
+                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Importe</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <template x-for="r in movDetFiltered()" :key="r.id">
-                                <tr class="border-t border-gray-100 hover:bg-gray-50">
-                                    <td class="px-3 py-2 text-xs text-gray-500 whitespace-nowrap tabular-nums"
+                            <template x-for="r in movimientosDetallados.filter(r => r.tipo === movDetTipoAbierto)" :key="r.id">
+                                <tr style="border-top:1px solid #f3f4f6" onmouseenter="this.style.background='#f9fafb'" onmouseleave="this.style.background=''">
+                                    <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap tabular-nums"
                                         x-text="formatFechaCorta(r.fecha)"></td>
-                                    <td class="px-3 py-2 whitespace-nowrap">
-                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold"
-                                              :style="r.tipo === 'Entrada OC'            ? 'background:#d1fae5;color:#065f46' :
-                                                      r.tipo === 'Entrada Manual'        ? 'background:#dbeafe;color:#1e40af' :
-                                                      r.tipo === 'Entrada Transferencia' ? 'background:#ffedd5;color:#9a3412' :
-                                                      r.tipo === 'Salida Transferencia'  ? 'background:#ede9fe;color:#5b21b6' :
-                                                                                           'background:#fee2e2;color:#991b1b'"
-                                              x-text="r.tipo"></span>
-                                    </td>
-                                    <td class="px-3 py-2 text-xs text-gray-600 max-w-[140px] truncate"
+                                    <td class="px-4 py-3 text-xs text-gray-600 whitespace-nowrap max-w-xs truncate"
                                         x-text="r.origen_destino || '—'"></td>
-                                    <td class="px-3 py-2 font-mono text-xs text-gray-700 whitespace-nowrap"
+                                    <td class="px-4 py-3 font-mono text-xs text-gray-500 whitespace-nowrap"
                                         x-text="r.codigo || '—'"></td>
-                                    <td class="px-3 py-2 text-xs text-gray-800 max-w-xs"
-                                        x-text="r.descripcion"></td>
-                                    <td class="px-3 py-2 text-xs text-gray-500"
-                                        x-text="r.unidad || '—'"></td>
-                                    <td class="px-3 py-2 text-right text-xs font-semibold tabular-nums whitespace-nowrap"
-                                        :class="r.cantidad >= 0 ? 'text-emerald-700' : 'text-red-700'"
+                                    <td class="px-4 py-3 text-sm text-gray-800" x-text="r.descripcion"></td>
+                                    <td class="px-4 py-3 text-xs text-gray-400" x-text="r.unidad || '—'"></td>
+                                    <td class="px-4 py-3 text-right text-sm font-medium tabular-nums whitespace-nowrap"
+                                        :style="r.cantidad >= 0 ? 'color:#15803d' : 'color:#b91c1c'"
                                         x-text="(r.cantidad >= 0 ? '+' : '') + formatNum(r.cantidad)"></td>
-                                    <td class="px-3 py-2 text-right text-xs text-gray-500 tabular-nums whitespace-nowrap"
+                                    <td class="px-4 py-3 text-right text-xs text-gray-400 tabular-nums whitespace-nowrap"
                                         x-text="r.precio_unitario != null ? '$' + formatMoney(r.precio_unitario) : '—'"></td>
-                                    <td class="px-3 py-2 text-right text-xs font-semibold tabular-nums whitespace-nowrap"
-                                        :class="r.importe != null ? (r.importe >= 0 ? 'text-emerald-700' : 'text-red-700') : 'text-gray-400'"
+                                    <td class="px-4 py-3 text-right text-sm font-bold tabular-nums whitespace-nowrap"
+                                        :style="r.importe != null ? (r.importe >= 0 ? 'color:#15803d' : 'color:#b91c1c') : 'color:#d1d5db'"
                                         x-text="r.importe != null ? (r.importe >= 0 ? '+$' : '-$') + formatMoney(Math.abs(r.importe)) : '—'"></td>
                                 </tr>
                             </template>
                         </tbody>
-                        <tfoot class="bg-gray-100 border-t-2 border-gray-300 text-xs font-bold">
+                        <tfoot style="background:#f9fafb;border-top:2px solid #e5e7eb">
                             <tr>
-                                <td colspan="6" class="px-3 py-2 text-right text-gray-600 uppercase tracking-wide">
-                                    Total (<span x-text="movDetFiltered().length"></span> registros)
-                                </td>
-                                <td class="px-3 py-2 text-right tabular-nums"
-                                    :class="movDetFiltered().reduce((s,r)=>s+r.cantidad,0) >= 0 ? 'text-emerald-800' : 'text-red-800'"
-                                    x-text="(movDetFiltered().reduce((s,r)=>s+r.cantidad,0) >= 0 ? '+' : '') + formatNum(movDetFiltered().reduce((s,r)=>s+r.cantidad,0))">
-                                </td>
-                                <td></td>
-                                <td class="px-3 py-2 text-right tabular-nums"
-                                    :class="movDetFiltered().reduce((s,r)=>s+(r.importe??0),0) >= 0 ? 'text-emerald-800' : 'text-red-800'"
-                                    x-text="(movDetFiltered().reduce((s,r)=>s+(r.importe??0),0) >= 0 ? '+$' : '-$') + formatMoney(Math.abs(movDetFiltered().reduce((s,r)=>s+(r.importe??0),0)))">
+                                <td colspan="7" class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</td>
+                                <td class="px-4 py-3 text-right text-base font-bold tabular-nums"
+                                    :style="movimientosDetallados.filter(r=>r.tipo===movDetTipoAbierto).reduce((s,r)=>s+(r.importe??0),0) >= 0 ? 'color:#15803d' : 'color:#b91c1c'"
+                                    x-text="'$' + formatMoney(Math.abs(movimientosDetallados.filter(r=>r.tipo===movDetTipoAbierto).reduce((s,r)=>s+(r.importe??0),0)))">
                                 </td>
                             </tr>
                         </tfoot>
@@ -2529,6 +2588,7 @@
                     movDet: { q: '', desde: '', hasta: '', filtroTipo: '' },
                     movimientosDetallados: [],
                     loadingMovDet: false,
+                    movDetTipoAbierto: null,
 
                     init() {
                         this.modoHerramientas = localStorage.getItem('modoHerramientas') === '1';
@@ -3743,6 +3803,24 @@
                         if (this.movDet.filtroTipo === 'salida')
                             return this.movimientosDetallados.filter(r => r.tipo_key !== 'entrada');
                         return this.movimientosDetallados.filter(r => r.tipo_key === 'entrada');
+                    },
+
+                    exportarMovimientosDetallados() {
+                        const params = new URLSearchParams();
+                        if (this.movDet.q)     params.set('q',     this.movDet.q);
+                        if (this.movDet.desde) params.set('desde', this.movDet.desde);
+                        if (this.movDet.hasta) params.set('hasta', this.movDet.hasta);
+                        window.location.href = '{{ route("explore.exportar.movimientos_detallados") }}?' + params.toString();
+                    },
+
+                    movDetResumen() {
+                        const orden = ['Entrada OC', 'Entrada Manual', 'Entrada Transferencia', 'Salida', 'Salida Transferencia'];
+                        const map = {};
+                        for (const r of this.movimientosDetallados) {
+                            if (!map[r.tipo]) map[r.tipo] = { tipo: r.tipo, total: 0, esEntrada: r.tipo_key === 'entrada' };
+                            map[r.tipo].total += (r.importe ?? 0);
+                        }
+                        return orden.filter(t => map[t]).map(t => map[t]);
                     },
 
                     movDetTotalEntradas() {

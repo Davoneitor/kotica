@@ -1509,11 +1509,19 @@ public function entradaFoto($id)
         $mainCfg  = $sheetConfig[$mainTipo];
         $mainFmt  = $cfgPorTipo[$mainTipo];
 
+        // Índice de la columna "Importe" según tipo
+        $importeIdx = ['oc' => 11, 'manual' => 8, 'transferencia' => 8, 'finiquito' => 11];
+
+        $calcTotal = fn(array $filas, int $idx) =>
+            round(array_sum(array_column(array_filter($filas, fn($r) => $r[$idx] !== null), $idx)), 2);
+
         $extraSheets = [];
         foreach ($sheetConfig as $t => $cfg) {
             if ($t === $mainTipo) continue;
             if (empty($byTipo[$t])) continue;
-            $fmt = $cfgPorTipo[$t];
+            $fmt   = $cfgPorTipo[$t];
+            $idx   = $importeIdx[$t];
+            $total = $calcTotal($byTipo[$t], $idx);
             $extraSheets[] = [
                 'title'        => $cfg[0],
                 'headers'      => $fmt['headers'],
@@ -1521,8 +1529,12 @@ public function entradaFoto($id)
                 'columnTypes'  => $fmt['columnTypes'],
                 'color'        => $cfg[1],
                 'columnWidths' => $fmt['columnWidths'],
+                'totalRow'     => [0 => 'TOTAL', $idx => $total],
             ];
         }
+
+        $mainIdx   = $importeIdx[$mainTipo];
+        $mainTotal = $calcTotal($byTipo[$mainTipo], $mainIdx);
 
         Log::info('Excel export: Entradas', [
             'user_id'   => Auth::id(),
@@ -1541,6 +1553,7 @@ public function entradaFoto($id)
             extraSheets: $extraSheets,
             color:       $mainCfg[1],
             columnWidths: $mainFmt['columnWidths'],
+            totalRow:    [0 => 'TOTAL', $mainIdx => $mainTotal],
         );
     }
 
@@ -1652,6 +1665,9 @@ public function entradaFoto($id)
             'filtros'     => $filters,
         ]);
 
+        $totalSalidas = round(array_sum(array_column(array_filter($data, fn($r) => $r[7] !== null), 7)), 2);
+        $totalTrans   = round(array_sum(array_column(array_filter($transData, fn($r) => $r[7] !== null), 7)), 2);
+
         return ExcelExporter::download(
             filename:    'salidas',
             moduleName:  'Salidas',
@@ -1666,9 +1682,11 @@ public function entradaFoto($id)
                 'columnTypes' => [5 => 'number', 6 => 'currency', 7 => 'currency'],
                 'color'       => 'EA580C',
                 'columnWidths'=> [3 => 42],
+                'totalRow'    => [0 => 'TOTAL', 7 => $totalTrans],
             ]],
             color:        '4338CA',
             columnWidths: [3 => 42],
+            totalRow:     [0 => 'TOTAL', 7 => $totalSalidas],
         );
     }
 
@@ -2495,6 +2513,8 @@ public function entradaFoto($id)
             'filtros'   => $filters,
         ]);
 
+        $total = round(array_sum(array_column(array_filter($data, fn($r) => $r[8] !== null), 8)), 2);
+
         return ExcelExporter::download(
             filename:    'movimientos_detallados',
             moduleName:  'Movimientos Detallados',
@@ -2502,6 +2522,9 @@ public function entradaFoto($id)
             rows:        $data,
             columnTypes: [6 => 'number', 7 => 'currency', 8 => 'currency'],
             filters:     $filters,
+            color:       '4338CA',
+            columnWidths: [4 => 42],
+            totalRow:    [0 => 'TOTAL', 8 => $total],
         );
     }
 }
