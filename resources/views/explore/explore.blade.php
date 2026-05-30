@@ -1484,6 +1484,16 @@
                     </div>
                 </div>
 
+                {{-- Resumen de importe --}}
+                <div x-show="transferenciasFiltered().length > 0 && !loading"
+                     class="bg-white shadow-sm sm:rounded-lg px-5 py-3 flex items-center justify-between border-l-4 border-indigo-400">
+                    <span class="text-sm text-gray-600">
+                        <span class="font-semibold" x-text="transferenciasFiltered().length"></span> transferencias
+                    </span>
+                    <span class="text-base font-bold tabular-nums text-gray-800"
+                          x-text="'$' + formatMoney(transferenciasFiltered().reduce((s,t) => s + parseFloat(t.total_importe||0), 0))"></span>
+                </div>
+
                 {{-- Sin resultados --}}
                 <div x-show="!loading && transferenciasFiltered().length === 0"
                      class="bg-white shadow-sm sm:rounded-lg p-8 text-center text-gray-500 text-sm">
@@ -1506,6 +1516,7 @@
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Obra Origen</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Obra Destino</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Usuario</th>
+                                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Importe</th>
                                     <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Acciones</th>
                                 </tr>
                             </thead>
@@ -1529,6 +1540,9 @@
                                             <td class="px-4 py-3 text-sm font-medium text-gray-800" x-text="tr.obra_origen"></td>
                                             <td class="px-4 py-3 text-sm font-medium text-gray-800" x-text="tr.obra_destino"></td>
                                             <td class="px-4 py-3 text-sm text-gray-600" x-text="tr.usuario"></td>
+                                            <td class="px-4 py-3 text-right text-sm font-semibold tabular-nums"
+                                                :class="parseFloat(tr.total_importe||0) > 0 ? 'text-gray-800' : 'text-gray-300'"
+                                                x-text="parseFloat(tr.total_importe||0) > 0 ? '$'+formatMoney(tr.total_importe) : '—'"></td>
                                             <td class="px-4 py-3 text-center">
                                                 <div class="flex items-center justify-center gap-2">
                                                     <button @click="verTransDetalles(tr.id)"
@@ -1624,7 +1638,7 @@
                                       class="px-2.5 py-1 rounded-lg border font-semibold text-xs" x-text="tr.obra_destino"></span>
                             </div>
 
-                            <div class="mt-3 grid grid-cols-3 gap-2 text-sm">
+                            <div class="mt-3 grid grid-cols-4 gap-2 text-sm">
                                 <div>
                                     <div class="text-xs text-gray-400">Fecha</div>
                                     <div class="font-medium" x-text="tr.fecha"></div>
@@ -1636,6 +1650,12 @@
                                 <div>
                                     <div class="text-xs text-gray-400">Piezas</div>
                                     <div class="font-bold text-lg" x-text="parseFloat(tr.total_piezas || 0).toFixed(2)"></div>
+                                </div>
+                                <div>
+                                    <div class="text-xs text-gray-400">Importe</div>
+                                    <div class="font-bold text-lg tabular-nums"
+                                         :class="parseFloat(tr.total_importe||0) > 0 ? 'text-gray-800' : 'text-gray-300'"
+                                         x-text="parseFloat(tr.total_importe||0) > 0 ? '$'+formatMoney(tr.total_importe) : '—'"></div>
                                 </div>
                             </div>
 

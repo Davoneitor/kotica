@@ -1171,6 +1171,7 @@ public function entradaFoto($id)
                 DB::raw('u.name as usuario'),
                 DB::raw('(SELECT COUNT(*) FROM transferencias_entre_obras_detalle WHERE transferencia_id = t.id) as total_insumos'),
                 DB::raw('(SELECT ISNULL(SUM(cantidad), 0) FROM transferencias_entre_obras_detalle WHERE transferencia_id = t.id) as total_piezas'),
+                DB::raw('(SELECT ISNULL(SUM(cantidad * precio_unitario), 0) FROM transferencias_entre_obras_detalle WHERE transferencia_id = t.id AND precio_unitario IS NOT NULL) as total_importe'),
             ]);
     }
 
