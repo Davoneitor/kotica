@@ -1743,13 +1743,14 @@
                                 :class="inv.vista==='tabla' ? 'bg-gray-900 text-white' : 'bg-white hover:bg-gray-50'"
                                 class="px-3 py-1 rounded border text-sm transition-colors">Tabla</button>
                         <div class="ml-auto">
-                            <button @click="exportarInventario()"
-                                    class="flex items-center gap-1.5 px-3 py-1.5 rounded border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 text-sm font-medium transition-colors whitespace-nowrap">
+                            <a href="{{ route('explore.exportar.inventario_pro') }}"
+                               target="_blank"
+                               class="flex items-center gap-1.5 px-4 py-2 rounded border border-emerald-400 bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-semibold transition-colors whitespace-nowrap shadow-sm">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
                                 </svg>
-                                Exportar Excel
-                            </button>
+                                Exportar Excel Agrupado
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -2600,6 +2601,7 @@
 
 
                     inventario: [],
+                    inventarioTotalImporte: null,
                     ordenesCompra: [],
 
                     familias: [],
@@ -2851,10 +2853,19 @@
                                 headers: {'Accept':'application/json'},
                                 cache: 'no-store'
                             });
-                            this.inventario = await res.json();
+                            const data = await res.json();
+                            // La respuesta ahora es { rows: [...], total_importe: N }
+                            if (Array.isArray(data)) {
+                                this.inventario = data;
+                                this.inventarioTotalImporte = null;
+                            } else {
+                                this.inventario = data.rows ?? [];
+                                this.inventarioTotalImporte = data.total_importe ?? null;
+                            }
                         } catch (e) {
                             console.error(e);
                             this.inventario = [];
+                            this.inventarioTotalImporte = null;
                         } finally {
                             this.loading = false;
                         }
@@ -3569,6 +3580,8 @@
                     },
 
                     totalInventario() {
+                        // Usa el total del servidor (universo completo) si está disponible
+                        if (this.inventarioTotalImporte !== null) return this.inventarioTotalImporte;
                         return this.inventario.reduce((s, p) => s + (p.importe ?? 0), 0);
                     },
 

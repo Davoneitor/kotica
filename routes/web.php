@@ -133,6 +133,7 @@ Route::get('/inventario/{inventario}/historial', [InventarioController::class, '
     Route::get('/explore/exportar/entradas',               [ExploreController::class, 'exportarEntradas'])              ->name('explore.exportar.entradas');
     Route::get('/explore/exportar/salidas',                [ExploreController::class, 'exportarSalidas'])               ->name('explore.exportar.salidas');
     Route::get('/explore/exportar/inventario',             [ExploreController::class, 'exportarInventario'])            ->name('explore.exportar.inventario');
+    Route::get('/explore/exportar/inventario-pro',         [ExploreController::class, 'exportarInventarioProfesional']) ->name('explore.exportar.inventario_pro');
     Route::get('/explore/exportar/transferencias',         [ExploreController::class, 'exportarTransferencias'])        ->name('explore.exportar.transferencias');
     Route::get('/explore/exportar/finiquitadas',           [ExploreController::class, 'exportarFiniquitadas'])          ->name('explore.exportar.finiquitadas');
     Route::get('/explore/exportar/movimientos-detallados', [ExploreController::class, 'exportarMovimientosDetallados']) ->name('explore.exportar.movimientos_detallados');

@@ -88,7 +88,6 @@ public function movimientos(Request $request)
         ->when($desde, fn($qq) => $qq->whereDate('movimientos.fecha', '>=', $desde))
         ->when($hasta, fn($qq) => $qq->whereDate('movimientos.fecha', '<=', $hasta))
         ->orderByDesc('movimientos.fecha')
-        ->limit(80)
         ->get([
             'movimientos.id',
             'movimientos.obra_id',
@@ -230,7 +229,6 @@ public function movimientoDetalles(Movimiento $movimiento)
             })
             ->orderByDesc('movimientos.fecha')
             ->orderByDesc('movimientos.id')
-            ->limit(2000)
             ->get([
                 'movimiento_detalles.id',
                 'movimiento_detalles.movimiento_id',
@@ -314,7 +312,6 @@ public function movimientoDetalles(Movimiento $movimiento)
                 DB::raw('DATEDIFF(day, m.fecha, GETDATE()) as dias'),
             ])
             ->orderByDesc('m.fecha')
-            ->limit(500)
             ->get();
 
         return response()->json($rows->map(fn($r) => [
@@ -361,7 +358,6 @@ public function movimientoDetalles(Movimiento $movimiento)
             })
             ->orderByDesc('t.fecha')
             ->orderByDesc('t.id')
-            ->limit(2000)
             ->select([
                 'd.id',
                 't.id as transferencia_id',
@@ -439,7 +435,6 @@ public function movimientoDetalles(Movimiento $movimiento)
         } else {
             $rows = $query
                 ->orderByDesc('updated_at')
-                ->limit(80)
                 ->get([
                     'id','insumo_id','familia','subfamilia','descripcion','descripcionauxiliar',
                     'unidad','cantidad','cantidad_teorica','en_espera','costo_promedio',
@@ -447,27 +442,44 @@ public function movimientoDetalles(Movimiento $movimiento)
                 ]);
         }
 
-        return response()->json($rows->map(fn($r) => [
-            'id'                  => $r->id,
-            'insumo_id'           => (string) ($r->insumo_id ?? ''),
-            'familia'             => (string) ($r->familia ?? ''),
-            'subfamilia'          => (string) ($r->subfamilia ?? ''),
-            'descripcion'         => (string) ($r->descripcion ?? ''),
-            'descripcionauxiliar' => (string) ($r->descripcionauxiliar ?? ''),
-            'unidad'              => (string) ($r->unidad ?? ''),
-            'cantidad'            => (float)  ($r->cantidad ?? 0),
-            'cantidad_teorica'    => (float)  ($r->cantidad_teorica ?? 0),
-            'en_espera'           => (float)  ($r->en_espera ?? 0),
-            'costo_promedio'      => $r->costo_promedio !== null ? (float) $r->costo_promedio : null,
-            'importe'             => $r->costo_promedio !== null
-                                        ? round((float) $r->cantidad * (float) $r->costo_promedio, 2)
-                                        : null,
-            'destino'             => (string) ($r->destino ?? ''),
-            'proveedor'           => (string) ($r->proveedor ?? ''),
-            'devolvible'          => $r->devolvible,
-            'obsoleto'            => (bool)   ($r->obsoleto ?? false),
-            'updated_at'          => (string) ($r->updated_at ?? ''),
-        ])->values());
+        // Total importe real de TODOS los registros (sin limit) para mostrar en la UI
+        $totalImporte = (float) Inventario::query()
+            ->when($obraId, fn($qq) => $qq->where('obra_id', $obraId))
+            ->when($soloH,  fn($qq) => $qq->where('devolvible', 1))
+            ->when($q !== '', function ($qq) use ($q) {
+                $qq->where(function ($w) use ($q) {
+                    $w->where('insumo_id',  'like', "%{$q}%")
+                      ->orWhere('descripcion', 'like', "%{$q}%");
+                });
+            })
+            ->whereNotNull('costo_promedio')
+            ->selectRaw('SUM(cantidad * costo_promedio) as total')
+            ->value('total') ?? 0;
+
+        return response()->json([
+            'rows'          => $rows->map(fn($r) => [
+                'id'                  => $r->id,
+                'insumo_id'           => (string) ($r->insumo_id ?? ''),
+                'familia'             => (string) ($r->familia ?? ''),
+                'subfamilia'          => (string) ($r->subfamilia ?? ''),
+                'descripcion'         => (string) ($r->descripcion ?? ''),
+                'descripcionauxiliar' => (string) ($r->descripcionauxiliar ?? ''),
+                'unidad'              => (string) ($r->unidad ?? ''),
+                'cantidad'            => (float)  ($r->cantidad ?? 0),
+                'cantidad_teorica'    => (float)  ($r->cantidad_teorica ?? 0),
+                'en_espera'           => (float)  ($r->en_espera ?? 0),
+                'costo_promedio'      => $r->costo_promedio !== null ? (float) $r->costo_promedio : null,
+                'importe'             => $r->costo_promedio !== null
+                                            ? round((float) $r->cantidad * (float) $r->costo_promedio, 2)
+                                            : null,
+                'destino'             => (string) ($r->destino ?? ''),
+                'proveedor'           => (string) ($r->proveedor ?? ''),
+                'devolvible'          => $r->devolvible,
+                'obsoleto'            => (bool)   ($r->obsoleto ?? false),
+                'updated_at'          => (string) ($r->updated_at ?? ''),
+            ])->values(),
+            'total_importe' => round($totalImporte, 2),
+        ]);
     }
 
     /**
@@ -849,7 +861,6 @@ $user = Auth::user();
             }
         })
         ->orderByDesc('oc_recepciones.fecha_recibido')
-        ->limit(2000)
         ->get();
 
     // Lookup obra_origen + transferencia_id for transferencias by matching insumo + obra_destino_id
@@ -1125,7 +1136,7 @@ public function entradaFoto($id)
         $desde = $request->get('desde');
         $hasta = $request->get('hasta');
 
-        $rows = $this->queryTransferencias($obraId, $q, $desde, $hasta)->limit(200)->get();
+        $rows = $this->queryTransferencias($obraId, $q, $desde, $hasta)->get();
 
         return response()->json($rows->map(fn($r) => array_merge((array) $r, [
             'direccion' => ($obraId && (int) $r->obra_origen_id === (int) $obraId)
@@ -1908,6 +1919,269 @@ public function entradaFoto($id)
     }
 
     /**
+     * Exportar Inventario Profesional — outline grouping Familia → Subfamilia → Insumo.
+     * Estilo limpio tabla plana con outline nativo de Excel.
+     */
+    public function exportarInventarioProfesional(Request $request)
+    {
+        $F = \PhpOffice\PhpSpreadsheet\Style\Fill::class;
+        $A = \PhpOffice\PhpSpreadsheet\Style\Alignment::class;
+        $B = \PhpOffice\PhpSpreadsheet\Style\Border::class;
+
+        $user   = Auth::user();
+        $obraId = (int) ($user?->obra_actual_id ?? 0);
+        $obra   = $obraId ? Obra::find($obraId) : null;
+        $q      = trim((string) $request->get('q', ''));
+
+        $rows = Inventario::query()
+            ->when($obraId, fn($qq) => $qq->where('obra_id', $obraId))
+            ->when($q !== '', function ($qq) use ($q) {
+                $qq->where(function ($w) use ($q) {
+                    $w->where('insumo_id',   'like', "%{$q}%")
+                      ->orWhere('descripcion','like', "%{$q}%");
+                });
+            })
+            ->orderBy(DB::raw("CASE WHEN ISNULL(familia,'')='' THEN 1 ELSE 0 END"))
+            ->orderBy('familia')
+            ->orderBy(DB::raw("CASE WHEN ISNULL(subfamilia,'')='' THEN 1 ELSE 0 END"))
+            ->orderBy('subfamilia')
+            ->orderBy('insumo_id')
+            ->orderBy('descripcion')
+            ->get(['id','insumo_id','familia','subfamilia','descripcion','unidad','cantidad','costo_promedio']);
+
+        $byFamilia = [];
+        foreach ($rows as $r) {
+            $fam = trim($r->familia   ?? '') ?: 'SIN FAMILIA';
+            $sub = trim($r->subfamilia ?? '') ?: 'SIN SUBFAMILIA';
+            $byFamilia[$fam][$sub][] = $r;
+        }
+        ksort($byFamilia);
+        foreach ($byFamilia as &$subs) { ksort($subs); }
+        unset($subs);
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+
+        // ── Hoja 1: Inventario ───────────────────────────────
+        $sh = $spreadsheet->getActiveSheet();
+        $sh->setTitle('Inventario');
+        $sh->getTabColor()->setRGB('1D4ED8');
+        $sh->setShowSummaryBelow(false);
+        $sh->setShowSummaryRight(false);
+
+        $userName   = $user?->name ?? 'Sistema';
+        $now        = now()->format('d/m/Y H:i');
+        $obraNombre = $obra?->nombre ?? 'Sin obra';
+
+        // Fila 1 — barra de info
+        $sh->setCellValue('A1', "Inventario  |  Obra: {$obraNombre}  |  Generado: {$now}  |  Usuario: {$userName}");
+        $sh->mergeCells('A1:G1');
+        $sh->getStyle('A1')->applyFromArray([
+            'font'      => ['bold'=>true,'size'=>9,'color'=>['rgb'=>'FFFFFF']],
+            'fill'      => ['fillType'=>$F::FILL_SOLID,'startColor'=>['rgb'=>'111827']],
+            'alignment' => ['horizontal'=>$A::HORIZONTAL_LEFT,'vertical'=>$A::VERTICAL_CENTER],
+        ]);
+        $sh->getRowDimension(1)->setRowHeight(20);
+
+        // Fila 2 — encabezados de columna (azul oscuro, texto blanco, bold)
+        foreach (['Familia','Subfamilia','Código','Descripción','Cantidad','P.U. (Costo)','Total'] as $i => $h) {
+            $sh->setCellValue(chr(65+$i).'2', $h);
+        }
+        $sh->getStyle('A2:G2')->applyFromArray([
+            'font'      => ['bold'=>true,'size'=>10,'color'=>['rgb'=>'FFFFFF']],
+            'fill'      => ['fillType'=>$F::FILL_SOLID,'startColor'=>['rgb'=>'1E3A8A']],
+            'alignment' => ['horizontal'=>$A::HORIZONTAL_CENTER,'vertical'=>$A::VERTICAL_CENTER,
+                            'wrapText'=>false],
+            'borders'   => ['bottom'=>['borderStyle'=>$B::BORDER_MEDIUM,'color'=>['rgb'=>'1D4ED8']]],
+        ]);
+        $sh->getRowDimension(2)->setRowHeight(20);
+        $sh->setAutoFilter('A2:G2');
+        $sh->freezePane('A3');
+
+        $row = 3;
+        $totalGeneral = 0.0;
+        $cntFamilias = $cntSubs = $cntInsumos = 0;
+
+        foreach ($byFamilia as $familia => $subFamilias) {
+            $cntFamilias++;
+            $esPrimeraSubDeFamilia = true;
+
+            foreach ($subFamilias as $subfamilia => $items) {
+                $cntSubs++;
+                $esPrimeraFilaDeSub = true;
+
+                foreach ($items as $r) {
+                    $cntInsumos++;
+                    $cantidad = (float)($r->cantidad ?? 0);
+                    $pu       = $r->costo_promedio !== null ? (float)$r->costo_promedio : null;
+                    $total    = $pu !== null ? round($cantidad * $pu, 2) : null;
+                    $totalGeneral += $total ?? 0;
+
+                    // Col A: familia solo en la primera fila de cada familia
+                    // Col B: subfamilia solo en la primera fila de cada subfamilia
+                    $sh->setCellValue("A{$row}", ($esPrimeraSubDeFamilia && $esPrimeraFilaDeSub) ? $familia : '');
+                    $sh->setCellValue("B{$row}", $esPrimeraFilaDeSub ? $subfamilia : '');
+                    $sh->setCellValue("C{$row}", (string)($r->insumo_id ?? ''));
+                    $sh->setCellValue("D{$row}", (string)($r->descripcion ?? ''));
+                    $sh->setCellValue("E{$row}", $cantidad);
+                    if ($pu !== null)    $sh->setCellValue("F{$row}", $pu);
+                    if ($total !== null) $sh->setCellValue("G{$row}", $total);
+
+                    $sh->getStyle("E{$row}")->getNumberFormat()->setFormatCode('#,##0.00');
+                    $sh->getStyle("F{$row}")->getNumberFormat()->setFormatCode('"$"#,##0.00');
+                    $sh->getStyle("G{$row}")->getNumberFormat()->setFormatCode('"$"#,##0.00');
+
+                    // ── Outline level ─────────────────────────────────────
+                    // Primera fila del familia + primera subfamilia → sin nivel (resumen padre)
+                    // Primera fila de subfamilias siguientes           → nivel 1 (resumen sub)
+                    // Resto de filas de detalle                        → nivel 2 (detalle)
+                    $rd = $sh->getRowDimension($row);
+                    $rd->setRowHeight(15);
+                    if ($esPrimeraSubDeFamilia && $esPrimeraFilaDeSub) {
+                        // Resumen de nivel superior — sin outline
+                    } elseif ($esPrimeraFilaDeSub) {
+                        $rd->setOutlineLevel(1);
+                    } else {
+                        $rd->setOutlineLevel(2);
+                    }
+
+                    // ── Estilo ─────────────────────────────────────────────
+                    if ($esPrimeraSubDeFamilia && $esPrimeraFilaDeSub) {
+                        // Primera fila de familia: fondo muy claro
+                        $sh->getStyle("A{$row}:G{$row}")->applyFromArray([
+                            'font'    => ['size'=>9,'bold'=>true,'color'=>['rgb'=>'111827']],
+                            'fill'    => ['fillType'=>$F::FILL_SOLID,'startColor'=>['rgb'=>'F3F4F6']],
+                            'borders' => ['allBorders'=>['borderStyle'=>$B::BORDER_THIN,'color'=>['rgb'=>'D1D5DB']]],
+                        ]);
+                        $sh->getStyle("A{$row}")->applyFromArray([
+                            'font' => ['bold'=>true,'size'=>9,'color'=>['rgb'=>'111827']],
+                        ]);
+                        $sh->getStyle("B{$row}")->applyFromArray([
+                            'font' => ['bold'=>true,'size'=>9,'color'=>['rgb'=>'374151']],
+                        ]);
+                    } elseif ($esPrimeraFilaDeSub) {
+                        // Primera fila de subfamilia: fondo levemente distinto
+                        $sh->getStyle("A{$row}:G{$row}")->applyFromArray([
+                            'font'    => ['size'=>9,'color'=>['rgb'=>'374151']],
+                            'fill'    => ['fillType'=>$F::FILL_SOLID,'startColor'=>['rgb'=>'F9FAFB']],
+                            'borders' => ['allBorders'=>['borderStyle'=>$B::BORDER_THIN,'color'=>['rgb'=>'E5E7EB']]],
+                            'borders' => ['top'=>['borderStyle'=>$B::BORDER_THIN,'color'=>['rgb'=>'9CA3AF']],
+                                          'bottom'=>['borderStyle'=>$B::BORDER_THIN,'color'=>['rgb'=>'D1D5DB']],
+                                          'left'=>['borderStyle'=>$B::BORDER_THIN,'color'=>['rgb'=>'D1D5DB']],
+                                          'right'=>['borderStyle'=>$B::BORDER_THIN,'color'=>['rgb'=>'D1D5DB']]],
+                        ]);
+                        $sh->getStyle("B{$row}")->applyFromArray([
+                            'font' => ['bold'=>true,'size'=>9,'color'=>['rgb'=>'374151']],
+                        ]);
+                    } else {
+                        // Fila de detalle normal
+                        $sh->getStyle("A{$row}:G{$row}")->applyFromArray([
+                            'font'    => ['size'=>9,'color'=>['rgb'=>'374151']],
+                            'fill'    => ['fillType'=>$F::FILL_SOLID,'startColor'=>['rgb'=>'FFFFFF']],
+                            'borders' => ['allBorders'=>['borderStyle'=>$B::BORDER_THIN,'color'=>['rgb'=>'E5E7EB']]],
+                        ]);
+                    }
+
+                    $esPrimeraFilaDeSub    = false;
+                    $esPrimeraSubDeFamilia = false;
+                    $row++;
+                }
+            }
+        }
+
+        // ── Total General ────────────────────────────────────
+        $sh->setCellValue("A{$row}", 'TOTAL GENERAL');
+        $sh->mergeCells("A{$row}:F{$row}");
+        $sh->setCellValue("G{$row}", $totalGeneral);
+        $sh->getStyle("A{$row}:G{$row}")->applyFromArray([
+            'font'    => ['bold'=>true,'size'=>11,'color'=>['rgb'=>'FFFFFF']],
+            'fill'    => ['fillType'=>$F::FILL_SOLID,'startColor'=>['rgb'=>'111827']],
+            'borders' => ['top'=>['borderStyle'=>$B::BORDER_MEDIUM,'color'=>['rgb'=>'000000']]],
+        ]);
+        $sh->getStyle("G{$row}")->getNumberFormat()->setFormatCode('"$"#,##0.00');
+        $sh->getRowDimension($row)->setRowHeight(22);
+
+        // Anchos de columna
+        $sh->getColumnDimension('A')->setWidth(28);
+        $sh->getColumnDimension('B')->setWidth(20);
+        $sh->getColumnDimension('C')->setWidth(20);
+        $sh->getColumnDimension('D')->setWidth(46);
+        $sh->getColumnDimension('E')->setWidth(13);
+        $sh->getColumnDimension('F')->setWidth(15);
+        $sh->getColumnDimension('G')->setWidth(16);
+
+        // ── Hoja 2: Resumen ──────────────────────────────────
+        $rs = $spreadsheet->createSheet();
+        $rs->setTitle('Resumen');
+        $rs->getTabColor()->setRGB('059669');
+
+        $rsRows = [
+            ['Reporte',                  'Inventario Detallado Agrupado'],
+            ['Obra',                     $obraNombre],
+            ['Fecha de generación',      $now],
+            ['Usuario',                  $userName],
+            ['',                         ''],
+            ['Total de familias',        $cntFamilias],
+            ['Total de subfamilias',     $cntSubs],
+            ['Total de insumos',         $cntInsumos],
+            ['Importe total inventario', $totalGeneral],
+        ];
+
+        $rs->setCellValue('A1', 'Resumen del Inventario');
+        $rs->mergeCells('A1:B1');
+        $rs->getStyle('A1')->applyFromArray([
+            'font'      => ['bold'=>true,'size'=>12,'color'=>['rgb'=>'FFFFFF']],
+            'fill'      => ['fillType'=>$F::FILL_SOLID,'startColor'=>['rgb'=>'1E3A8A']],
+            'alignment' => ['horizontal'=>$A::HORIZONTAL_CENTER,'vertical'=>$A::VERTICAL_CENTER],
+        ]);
+        $rs->getRowDimension(1)->setRowHeight(26);
+
+        foreach ($rsRows as $i => $rd) {
+            $rn = $i + 2;
+            $rs->setCellValue("A{$rn}", $rd[0]);
+            $rs->setCellValue("B{$rn}", $rd[1]);
+            if ($rd[0] === 'Importe total inventario') {
+                $rs->getStyle("B{$rn}")->getNumberFormat()->setFormatCode('"$"#,##0.00');
+                $rs->getStyle("A{$rn}:B{$rn}")->applyFromArray([
+                    'font' => ['bold'=>true,'size'=>11],
+                    'fill' => ['fillType'=>$F::FILL_SOLID,'startColor'=>['rgb'=>'DCFCE7']],
+                ]);
+            } elseif (str_starts_with($rd[0], 'Total')) {
+                $rs->getStyle("A{$rn}:B{$rn}")->getFont()->setBold(true);
+            }
+            $rs->getRowDimension($rn)->setRowHeight(18);
+        }
+        $rs->getStyle('A2:B10')->applyFromArray([
+            'borders' => ['allBorders'=>['borderStyle'=>$B::BORDER_THIN,'color'=>['rgb'=>'D1D5DB']]],
+        ]);
+        $rs->getColumnDimension('A')->setWidth(32);
+        $rs->getColumnDimension('B')->setWidth(34);
+
+        // ── Stream ────────────────────────────────────────────
+        $spreadsheet->setActiveSheetIndex(0);
+        $filename = 'inventario_' . now()->format('Ymd_Hi') . '.xlsx';
+        $writer   = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        Log::info('Excel export: Inventario Profesional', [
+            'user_id'  => Auth::id(),
+            'obra_id'  => $obraId,
+            'insumos'  => $cntInsumos,
+            'familias' => $cntFamilias,
+        ]);
+
+        return response()->stream(
+            fn() => $writer->save('php://output'),
+            200,
+            [
+                'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+                'Cache-Control'       => 'max-age=0, no-cache, no-store',
+                'Pragma'              => 'no-cache',
+                'Expires'             => '0',
+            ]
+        );
+    }
+
+    /**
      * Exportar Finiquitadas (oc_finiquitos) a Excel.
      */
     public function exportarFiniquitadas(Request $request)
@@ -2153,7 +2427,6 @@ public function entradaFoto($id)
             ->when($userId, fn($qq) => $qq->where('ajustes_salida.user_id', $userId))
             ->when($q !== '', fn($qq) => $qq->where('ajustes_salida.descripcion', 'like', "%{$q}%"))
             ->orderByDesc('ajustes_salida.created_at')
-            ->limit(500)
             ->get([
                 'ajustes_salida.id',
                 'ajustes_salida.movimiento_id',
@@ -2217,7 +2490,6 @@ public function entradaFoto($id)
                 });
             })
             ->orderByDesc('e.fecha_recibido')
-            ->limit(2000)
             ->select(['e.id', 'e.tipo', 'e.insumo', 'e.descripcion', 'e.unidad',
                       'e.cantidad_llego as cantidad', 'e.precio_unitario',
                       'e.fecha_recibido as fecha', 'e.observaciones'])
@@ -2289,7 +2561,6 @@ public function entradaFoto($id)
                 });
             })
             ->orderByDesc('m.fecha')->orderByDesc('m.id')
-            ->limit(2000)
             ->select(['md.id', 'm.fecha', 'm.destino', 'm.nombre_cabo',
                       DB::raw('inv.insumo_id as codigo_insumo'),
                       'md.inventario_id', 'md.descripcion', 'md.unidad',
@@ -2334,7 +2605,6 @@ public function entradaFoto($id)
                 });
             })
             ->orderByDesc('t.fecha')->orderByDesc('t.id')
-            ->limit(2000)
             ->select(['d.id', 't.fecha', 'd.insumo_id', 'd.descripcion', 'd.unidad',
                       'd.cantidad', 'd.precio_unitario',
                       DB::raw('od.nombre as obra_destino')])
@@ -2393,7 +2663,6 @@ public function entradaFoto($id)
                 });
             })
             ->orderByDesc('e.fecha_recibido')
-            ->limit(5000)
             ->select(['e.id', 'e.tipo', 'e.insumo', 'e.descripcion', 'e.unidad',
                       'e.cantidad_llego as cantidad', 'e.precio_unitario',
                       'e.fecha_recibido as fecha', 'e.observaciones'])
@@ -2438,7 +2707,6 @@ public function entradaFoto($id)
                 });
             })
             ->orderByDesc('m.fecha')->orderByDesc('m.id')
-            ->limit(5000)
             ->select(['md.id', 'm.fecha', 'm.destino', 'm.nombre_cabo',
                       DB::raw('inv.insumo_id as codigo_insumo'),
                       'md.descripcion', 'md.unidad', 'md.cantidad', 'md.precio_unitario'])
@@ -2477,7 +2745,6 @@ public function entradaFoto($id)
                 });
             })
             ->orderByDesc('t.fecha')->orderByDesc('t.id')
-            ->limit(5000)
             ->select(['d.id', 't.fecha', 'd.insumo_id', 'd.descripcion', 'd.unidad',
                       'd.cantidad', 'd.precio_unitario', DB::raw('od.nombre as obra_destino')])
             ->get();
