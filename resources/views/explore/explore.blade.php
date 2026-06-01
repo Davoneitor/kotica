@@ -670,6 +670,24 @@
 
             </div>
 
+            {{-- Cargar más — Salidas tarjetas --}}
+            <div x-show="movHasMore && mov.vista==='tarjetas'" class="flex justify-center pt-2">
+                <button @click="cargarMasMovimientos()"
+                        :disabled="loadingMasMov"
+                        class="px-6 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2">
+                    <svg x-show="loadingMasMov" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    <span x-text="loadingMasMov ? 'Cargando...' : 'Cargar más registros'"></span>
+                </button>
+            </div>
+            {{-- Cargar más — Salidas tabla --}}
+            <div x-show="salidasTablaHasMore && mov.vista==='tabla'" class="flex justify-center pt-2">
+                <button @click="cargarMasSalidasTabla()"
+                        :disabled="loadingMasSalidasTabla"
+                        class="px-6 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2">
+                    <svg x-show="loadingMasSalidasTabla" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    <span x-text="loadingMasSalidasTabla ? 'Cargando...' : 'Cargar más registros'"></span>
+                </button>
+            </div>
 
  {{-- ========================= --}}
 {{-- ENTRADAS (RECEPCIONES OC) --}}
@@ -1288,6 +1306,15 @@
             </div>
         </div>
 
+    {{-- Cargar más — Entradas --}}
+    <div x-show="entradasHasMore" class="flex justify-center pt-2 pb-4">
+        <button @click="cargarMasEntradas()" :disabled="loadingMasEntradas"
+                class="px-6 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2">
+            <svg x-show="loadingMasEntradas" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            <span x-text="loadingMasEntradas ? 'Cargando...' : 'Cargar más registros'"></span>
+        </button>
+    </div>
+
     </div>
 </div>
 
@@ -1890,6 +1917,15 @@
                 </div>
             </div>
 
+            {{-- Cargar más — Transferencias --}}
+            <div x-show="transHasMore && tab==='trans'" class="flex justify-center pt-2">
+                <button @click="cargarMasTransferencias()" :disabled="loadingMasTrans"
+                        class="px-6 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2">
+                    <svg x-show="loadingMasTrans" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    <span x-text="loadingMasTrans ? 'Cargando...' : 'Cargar más registros'"></span>
+                </button>
+            </div>
+
             {{-- ========================= --}}
             {{-- ORDENES COMPRA (ERP) --}}
             {{-- ========================= --}}
@@ -2021,6 +2057,15 @@
                         </div>
                     </template>
                 </div>
+
+            {{-- Cargar más — Inventario --}}
+            <div x-show="inventarioHasMore && tab==='inv'" class="flex justify-center pt-2">
+                <button @click="cargarMasInventario()" :disabled="loadingMasInventario"
+                        class="px-6 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2">
+                    <svg x-show="loadingMasInventario" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    <span x-text="loadingMasInventario ? 'Cargando...' : 'Cargar más registros'"></span>
+                </button>
+            </div>
 
             </div>
 
@@ -2530,12 +2575,14 @@
                 return {
                     ent: { q:'', desde:'', hasta:'', vista:'tarjetas', tipo:'', seccionAbierta:{ oc:true, manual:true, transferencia:true, finiquito:true } },
                     entradas: [],
+                    entradasOffset: 0, entradasHasMore: false, loadingMasEntradas: false,
                     detallesEntradaId: null,
                     entradaDetalle: null,
                     imgModal: { show:false, url:'' },
 
                     trans: { q:'', desde:'', hasta:'', dir:'todas', obra_nombre:'', vista:'tabla' },
                     transferencias: [],
+                    transOffset: 0, transHasMore: false, loadingMasTrans: false,
                     detallesTransId: null,
                     transDetalle: null,
 
@@ -2580,6 +2627,8 @@
                     escomImgModal: { show: false, url: '', label: '' },
                     escomExpandidos: {},
                     movimientos: [],
+                    movOffset: 0, movHasMore: false, loadingMasMov: false,
+                    salidasTablaOffset: 0, salidasTablaHasMore: false, loadingMasSalidasTabla: false,
                     detallesMovId: null,
                     detalles: [],
                     movimientoCabecera: null,
@@ -2601,6 +2650,7 @@
 
 
                     inventario: [],
+                    inventarioOffset: 0, inventarioHasMore: false, loadingMasInventario: false,
                     inventarioTotalImporte: null,
                     ordenesCompra: [],
 
@@ -2697,26 +2747,39 @@
 
                     async cargarMovimientos() {
                         this.loading = true;
-                        this.detallesMovId = null;
-                        this.detalles = [];
-                        this.movimientoCabecera = null;
+                        this.movOffset = 0; this.movHasMore = false;
+                        this.detallesMovId = null; this.detalles = []; this.movimientoCabecera = null;
                         try {
                             const params = new URLSearchParams();
                             if (this.mov.q) params.set('q', this.mov.q);
                             if (this.mov.desde) params.set('desde', this.mov.desde);
                             if (this.mov.hasta) params.set('hasta', this.mov.hasta);
+                            const res = await fetchConCsrf("{{ route('explore.movimientos') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
+                            const d = await res.json();
+                            this.movimientos = d.data ?? d;
+                            this.movOffset   = this.movimientos.length;
+                            this.movHasMore  = d.has_more ?? false;
+                        } catch(e) { console.error(e); this.movimientos = []; }
+                        finally { this.loading = false; }
+                    },
 
-                            const res = await fetchConCsrf("{{ route('explore.movimientos') }}?" + params.toString(), {
-                                headers: {'Accept':'application/json'},
-                                cache: 'no-store'
-                            });
-                            this.movimientos = await res.json();
-                        } catch (e) {
-                            console.error(e);
-                            this.movimientos = [];
-                        } finally {
-                            this.loading = false;
-                        }
+                    async cargarMasMovimientos() {
+                        if (!this.movHasMore || this.loadingMasMov) return;
+                        this.loadingMasMov = true;
+                        try {
+                            const params = new URLSearchParams();
+                            if (this.mov.q) params.set('q', this.mov.q);
+                            if (this.mov.desde) params.set('desde', this.mov.desde);
+                            if (this.mov.hasta) params.set('hasta', this.mov.hasta);
+                            params.set('offset', this.movOffset);
+                            const res = await fetchConCsrf("{{ route('explore.movimientos') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
+                            const d = await res.json();
+                            const nueva = d.data ?? d;
+                            this.movimientos = [...this.movimientos, ...nueva];
+                            this.movOffset  += nueva.length;
+                            this.movHasMore  = d.has_more ?? false;
+                        } catch(e) { console.error(e); }
+                        finally { this.loadingMasMov = false; }
                     },
 
                     async verDetalles(movId) {
@@ -2861,6 +2924,8 @@
                             } else {
                                 this.inventario = data.rows ?? [];
                                 this.inventarioTotalImporte = data.total_importe ?? null;
+                                this.inventarioOffset  = this.inventario.length;
+                                this.inventarioHasMore = data.has_more ?? false;
                             }
                         } catch (e) {
                             console.error(e);
@@ -2869,6 +2934,24 @@
                         } finally {
                             this.loading = false;
                         }
+                    },
+
+                    async cargarMasInventario() {
+                        if (!this.inventarioHasMore || this.loadingMasInventario) return;
+                        this.loadingMasInventario = true;
+                        try {
+                            const params = new URLSearchParams();
+                            if (this.inv.q) params.set('q', this.inv.q);
+                            if (this.modoHerramientas) params.set('solo_h', '1');
+                            params.set('offset', this.inventarioOffset);
+                            const res = await fetchConCsrf("{{ route('explore.inventario') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
+                            const d = await res.json();
+                            const nueva = d.rows ?? d;
+                            this.inventario         = [...this.inventario, ...nueva];
+                            this.inventarioOffset  += nueva.length;
+                            this.inventarioHasMore  = d.has_more ?? false;
+                        } catch(e) { console.error(e); }
+                        finally { this.loadingMasInventario = false; }
                     },
 
                     async cargarOC() {
@@ -2935,19 +3018,34 @@
         if (this.ent.tipo)         params.set('tipo',  this.ent.tipo);
         if (this.modoHerramientas) params.set('solo_h', '1');
 
-        const res = await fetchConCsrf("{{ route('explore.entradas') }}?" + params.toString(), {
-            headers: {'Accept':'application/json'},
-            cache: 'no-store'
-        });
-
-        this.entradas = await res.json();
-    } catch (e) {
-        console.error(e);
-        this.entradas = [];
-    } finally {
-        this.loading = false;
-    }
+        const res = await fetchConCsrf("{{ route('explore.entradas') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
+        const d = await res.json();
+        this.entradas       = d.data ?? d;
+        this.entradasOffset = this.entradas.length;
+        this.entradasHasMore = d.has_more ?? false;
+    } catch (e) { console.error(e); this.entradas = []; }
+    finally { this.loading = false; }
 },
+
+                    async cargarMasEntradas() {
+                        if (!this.entradasHasMore || this.loadingMasEntradas) return;
+                        this.loadingMasEntradas = true;
+                        try {
+                            const params = new URLSearchParams();
+                            if (this.ent.q)     params.set('q',     this.ent.q);
+                            if (this.ent.desde) params.set('desde', this.ent.desde);
+                            if (this.ent.hasta) params.set('hasta', this.ent.hasta);
+                            if (this.ent.tipo)  params.set('tipo',  this.ent.tipo);
+                            params.set('offset', this.entradasOffset);
+                            const res = await fetchConCsrf("{{ route('explore.entradas') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
+                            const d = await res.json();
+                            const nueva = d.data ?? d;
+                            this.entradas        = [...this.entradas, ...nueva];
+                            this.entradasOffset += nueva.length;
+                            this.entradasHasMore = d.has_more ?? false;
+                        } catch(e) { console.error(e); }
+                        finally { this.loadingMasEntradas = false; }
+                    },
 
                     async verEntradaDetalles(id) {
     if (this.detallesEntradaId === id) {
@@ -3003,17 +3101,32 @@
                             if (this.trans.desde) params.set('desde', this.trans.desde);
                             if (this.trans.hasta) params.set('hasta', this.trans.hasta);
 
-                            const res = await fetchConCsrf("{{ route('explore.transferencias') }}?" + params.toString(), {
-                                headers: { 'Accept': 'application/json' },
-                                cache: 'no-store'
-                            });
-                            this.transferencias = await res.json();
-                        } catch (e) {
-                            console.error(e);
-                            this.transferencias = [];
-                        } finally {
-                            this.loading = false;
-                        }
+                            const res = await fetchConCsrf("{{ route('explore.transferencias') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
+                            const d = await res.json();
+                            this.transferencias = d.data ?? d;
+                            this.transOffset    = this.transferencias.length;
+                            this.transHasMore   = d.has_more ?? false;
+                        } catch (e) { console.error(e); this.transferencias = []; }
+                        finally { this.loading = false; }
+                    },
+
+                    async cargarMasTransferencias() {
+                        if (!this.transHasMore || this.loadingMasTrans) return;
+                        this.loadingMasTrans = true;
+                        try {
+                            const params = new URLSearchParams();
+                            if (this.trans.q)     params.set('q',     this.trans.q);
+                            if (this.trans.desde) params.set('desde', this.trans.desde);
+                            if (this.trans.hasta) params.set('hasta', this.trans.hasta);
+                            params.set('offset', this.transOffset);
+                            const res = await fetchConCsrf("{{ route('explore.transferencias') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
+                            const d = await res.json();
+                            const nueva = d.data ?? d;
+                            this.transferencias  = [...this.transferencias, ...nueva];
+                            this.transOffset    += nueva.length;
+                            this.transHasMore    = d.has_more ?? false;
+                        } catch(e) { console.error(e); }
+                        finally { this.loadingMasTrans = false; }
                     },
 
                     exportarTransferenciasExcel() {
@@ -3104,12 +3217,17 @@
                             if (this.mov.desde)             params.set('desde',  this.mov.desde);
                             if (this.mov.hasta)             params.set('hasta',  this.mov.hasta);
                             if (this.mov.soloHerramientas)  params.set('solo_h', '1');
+                            this.salidasTablaOffset = 0; this.salidasTablaHasMore = false;
                             const [resSal, resTrans] = await Promise.all([
                                 fetch('/explore/salidas/tabla?' + params.toString(), { headers:{'Accept':'application/json'}, cache:'no-store' }),
                                 fetch('/explore/transferencias/enviadas/tabla?' + params.toString(), { headers:{'Accept':'application/json'}, cache:'no-store' }),
                             ]);
-                            this.salidasTablaData = await resSal.json();
-                            this.transSalidasData = await resTrans.json();
+                            const dSal = await resSal.json();
+                            this.salidasTablaData      = dSal.data ?? dSal;
+                            this.salidasTablaOffset    = this.salidasTablaData.length;
+                            this.salidasTablaHasMore   = dSal.has_more ?? false;
+                            const dTrans = await resTrans.json();
+                            this.transSalidasData = dTrans.data ?? dTrans;
                         } catch (e) {
                             console.error(e);
                             this.salidasTablaData = [];
@@ -3117,6 +3235,26 @@
                         } finally {
                             this.loading = false;
                         }
+                    },
+
+                    async cargarMasSalidasTabla() {
+                        if (!this.salidasTablaHasMore || this.loadingMasSalidasTabla) return;
+                        this.loadingMasSalidasTabla = true;
+                        try {
+                            const params = new URLSearchParams();
+                            if (this.mov.q)                params.set('q',      this.mov.q);
+                            if (this.mov.desde)            params.set('desde',  this.mov.desde);
+                            if (this.mov.hasta)            params.set('hasta',  this.mov.hasta);
+                            if (this.mov.soloHerramientas) params.set('solo_h', '1');
+                            params.set('offset', this.salidasTablaOffset);
+                            const res = await fetch('/explore/salidas/tabla?' + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
+                            const d = await res.json();
+                            const nueva = d.data ?? d;
+                            this.salidasTablaData      = [...this.salidasTablaData, ...nueva];
+                            this.salidasTablaOffset   += nueva.length;
+                            this.salidasTablaHasMore   = d.has_more ?? false;
+                        } catch(e) { console.error(e); }
+                        finally { this.loadingMasSalidasTabla = false; }
                     },
 
                     transSalidasGruposFlat() {
