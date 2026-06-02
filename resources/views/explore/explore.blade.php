@@ -695,24 +695,6 @@
 
             </div>
 
-            {{-- Cargar más — Salidas tarjetas --}}
-            <div x-show="movHasMore && mov.vista==='tarjetas'" class="flex justify-center pt-2">
-                <button @click="cargarMasMovimientos()"
-                        :disabled="loadingMasMov"
-                        class="px-6 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2">
-                    <svg x-show="loadingMasMov" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                    <span x-text="loadingMasMov ? 'Cargando...' : 'Cargar más registros'"></span>
-                </button>
-            </div>
-            {{-- Cargar más — Salidas tabla --}}
-            <div x-show="salidasTablaHasMore && mov.vista==='tabla'" class="flex justify-center pt-2">
-                <button @click="cargarMasSalidasTabla()"
-                        :disabled="loadingMasSalidasTabla"
-                        class="px-6 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2">
-                    <svg x-show="loadingMasSalidasTabla" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                    <span x-text="loadingMasSalidasTabla ? 'Cargando...' : 'Cargar más registros'"></span>
-                </button>
-            </div>
 
  {{-- ========================= --}}
 {{-- ENTRADAS (RECEPCIONES OC) --}}
@@ -1331,14 +1313,6 @@
             </div>
         </div>
 
-    {{-- Cargar más — Entradas --}}
-    <div x-show="entradasHasMore" class="flex justify-center pt-2 pb-4">
-        <button @click="cargarMasEntradas()" :disabled="loadingMasEntradas"
-                class="px-6 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2">
-            <svg x-show="loadingMasEntradas" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-            <span x-text="loadingMasEntradas ? 'Cargando...' : 'Cargar más registros'"></span>
-        </button>
-    </div>
 
     </div>
 </div>
@@ -1942,14 +1916,6 @@
                 </div>
             </div>
 
-            {{-- Cargar más — Transferencias --}}
-            <div x-show="transHasMore && tab==='trans'" class="flex justify-center pt-2">
-                <button @click="cargarMasTransferencias()" :disabled="loadingMasTrans"
-                        class="px-6 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2">
-                    <svg x-show="loadingMasTrans" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                    <span x-text="loadingMasTrans ? 'Cargando...' : 'Cargar más registros'"></span>
-                </button>
-            </div>
 
             {{-- ========================= --}}
             {{-- ORDENES COMPRA (ERP) --}}
@@ -2083,14 +2049,6 @@
                     </template>
                 </div>
 
-            {{-- Cargar más — Inventario --}}
-            <div x-show="inventarioHasMore && tab==='inv'" class="flex justify-center pt-2">
-                <button @click="cargarMasInventario()" :disabled="loadingMasInventario"
-                        class="px-6 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2">
-                    <svg x-show="loadingMasInventario" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                    <span x-text="loadingMasInventario ? 'Cargando...' : 'Cargar más registros'"></span>
-                </button>
-            </div>
 
             </div>
 
@@ -2779,28 +2737,10 @@
                             if (this.mov.desde) params.set('desde', this.mov.desde);
                             if (this.mov.hasta) params.set('hasta', this.mov.hasta);
                             const res = await fetchConCsrf("{{ route('explore.movimientos') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
-                            this.movimientos = await res.json();
+                            const d = await res.json();
+                            this.movimientos = d.data ?? d;
                         } catch(e) { console.error(e); this.movimientos = []; }
                         finally { this.loading = false; }
-                    },
-
-                    async cargarMasMovimientos() {
-                        if (!this.movHasMore || this.loadingMasMov) return;
-                        this.loadingMasMov = true;
-                        try {
-                            const params = new URLSearchParams();
-                            if (this.mov.q) params.set('q', this.mov.q);
-                            if (this.mov.desde) params.set('desde', this.mov.desde);
-                            if (this.mov.hasta) params.set('hasta', this.mov.hasta);
-                            params.set('offset', this.movOffset);
-                            const res = await fetchConCsrf("{{ route('explore.movimientos') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
-                            const d = await res.json();
-                            const nueva = d.data ?? d;
-                            this.movimientos = [...this.movimientos, ...nueva];
-                            this.movOffset  += nueva.length;
-                            this.movHasMore  = d.has_more ?? false;
-                        } catch(e) { console.error(e); }
-                        finally { this.loadingMasMov = false; }
                     },
 
                     async verDetalles(movId) {
@@ -2945,6 +2885,7 @@
                             } else {
                                 this.inventario = data.rows ?? [];
                                 this.inventarioTotalImporte = data.total_importe ?? null;
+                                this.inventarioHasMore = data.has_more ?? false;
                             }
                         } catch (e) {
                             console.error(e);
@@ -2953,24 +2894,6 @@
                         } finally {
                             this.loading = false;
                         }
-                    },
-
-                    async cargarMasInventario() {
-                        if (!this.inventarioHasMore || this.loadingMasInventario) return;
-                        this.loadingMasInventario = true;
-                        try {
-                            const params = new URLSearchParams();
-                            if (this.inv.q) params.set('q', this.inv.q);
-                            if (this.modoHerramientas) params.set('solo_h', '1');
-                            params.set('offset', this.inventarioOffset);
-                            const res = await fetchConCsrf("{{ route('explore.inventario') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
-                            const d = await res.json();
-                            const nueva = d.rows ?? d;
-                            this.inventario         = [...this.inventario, ...nueva];
-                            this.inventarioOffset  += nueva.length;
-                            this.inventarioHasMore  = d.has_more ?? false;
-                        } catch(e) { console.error(e); }
-                        finally { this.loadingMasInventario = false; }
                     },
 
                     async cargarOC() {
@@ -3038,11 +2961,11 @@
         if (this.modoHerramientas) params.set('solo_h', '1');
 
         const res = await fetchConCsrf("{{ route('explore.entradas') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
-        this.entradas = await res.json();
+        const d = await res.json();
+        this.entradas = d.data ?? d;
     } catch (e) { console.error(e); this.entradas = []; }
     finally { this.loading = false; }
 },
-                    },
 
                     async verEntradaDetalles(id) {
     if (this.detallesEntradaId === id) {
@@ -3099,7 +3022,8 @@
                             if (this.trans.hasta) params.set('hasta', this.trans.hasta);
 
                             const res = await fetchConCsrf("{{ route('explore.transferencias') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
-                            this.transferencias = await res.json();
+                            const d = await res.json();
+                            this.transferencias = d.data ?? d;
                         } catch (e) { console.error(e); this.transferencias = []; }
                         finally { this.loading = false; }
                     },
@@ -3196,8 +3120,10 @@
                                 fetch('/explore/salidas/tabla?' + params.toString(), { headers:{'Accept':'application/json'}, cache:'no-store' }),
                                 fetch('/explore/transferencias/enviadas/tabla?' + params.toString(), { headers:{'Accept':'application/json'}, cache:'no-store' }),
                             ]);
-                            this.salidasTablaData = await resSal.json();
-                            this.transSalidasData = await resTrans.json();
+                            const dSal = await resSal.json();
+                            this.salidasTablaData = dSal.data ?? dSal;
+                            const dTrans = await resTrans.json();
+                            this.transSalidasData = dTrans.data ?? dTrans;
                         } catch (e) {
                             console.error(e);
                             this.salidasTablaData = [];
