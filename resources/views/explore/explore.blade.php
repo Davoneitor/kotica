@@ -173,6 +173,27 @@
                     </div>
 
                     <div class="mt-3 text-xs text-gray-500" x-show="loading">Cargando...</div>
+                    <div x-show="movBgLoading || entradasBgLoading || transBgLoading || salidasTablaBgLoading"
+                         class="mt-2 flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
+                         style="background:#f0f9ff;color:#0369a1;display:none">
+                        <svg class="animate-spin w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                        <span>Cargando en segundo plano:</span>
+                        <span x-show="movBgLoading"
+                              class="px-2 py-0.5 rounded-full font-semibold" style="background:#dbeafe;color:#1d4ed8"
+                              x-text="'Salidas (' + movimientos.length + ')'"></span>
+                        <span x-show="salidasTablaBgLoading"
+                              class="px-2 py-0.5 rounded-full font-semibold" style="background:#dbeafe;color:#1d4ed8"
+                              x-text="'Salidas tabla (' + salidasTablaData.length + ')'"></span>
+                        <span x-show="entradasBgLoading"
+                              class="px-2 py-0.5 rounded-full font-semibold" style="background:#dcfce7;color:#15803d"
+                              x-text="'Entradas (' + entradas.length + ')'"></span>
+                        <span x-show="transBgLoading"
+                              class="px-2 py-0.5 rounded-full font-semibold" style="background:#ffedd5;color:#c2410c"
+                              x-text="'Transferencias (' + transferencias.length + ')'"></span>
+                    </div>
                     <div class="mt-3 flex flex-wrap items-center gap-2">
                         <span class="text-xs text-gray-500 font-medium">Vista:</span>
                         <button @click="mov.vista='tarjetas'; cargarMovimientos()"
@@ -187,13 +208,20 @@
                                 :class="mov.vista==='ajustes' ? 'bg-amber-700 text-white' : 'bg-white hover:bg-amber-50'"
                                 class="px-3 py-1 rounded border text-sm transition-colors">Historial ajustes</button>
 
-                        <div class="ml-auto">
+                        <div class="ml-auto flex items-center gap-2">
                             <button @click="exportarSalidas()"
                                     class="flex items-center gap-1.5 px-3 py-1.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm font-medium transition-colors whitespace-nowrap">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
                                 </svg>
                                 Exportar Excel
+                            </button>
+                            <button @click="exportarSalidasAgrupado()"
+                                    class="flex items-center gap-1.5 px-3 py-1.5 rounded border border-emerald-400 bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-semibold transition-colors whitespace-nowrap">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                                </svg>
+                                Exportar Excel Agrupado
                             </button>
                         </div>
                     </div>
@@ -432,7 +460,7 @@
                                 <span class="font-bold text-sm">🔴 Salidas</span>
                                 <span class="text-xs opacity-75" x-text="'(' + salidasTablaData.length + ' registros)'"></span>
                             </div>
-                            <div class="font-bold tabular-nums" x-text="'$' + formatMoney(totalSalidas())"></div>
+                            <div class="font-bold tabular-nums" x-text="'$' + formatMoney(salidasTablaData.reduce((s,r)=>s+(r.importe??0),0))"></div>
                         </div>
                         {{-- Tabla --}}
                         <div x-show="seccionSalidasAbierta.salidas" class="overflow-x-auto">
@@ -695,6 +723,20 @@
 
             </div>
 
+            {{-- Cargar más — Salidas tarjetas --}}
+            <div x-show="movHasMore && mov.vista==='tarjetas'" class="flex justify-center pt-2">
+                <button @click="cargarMasMov()"
+                        class="px-5 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    Cargar más registros
+                </button>
+            </div>
+            {{-- Cargar más — Salidas tabla --}}
+            <div x-show="salidasTablaHasMore && mov.vista==='tabla'" class="flex justify-center pt-2">
+                <button @click="cargarMasSalidasTabla()"
+                        class="px-5 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    Cargar más registros
+                </button>
+            </div>
 
  {{-- ========================= --}}
 {{-- ENTRADAS (RECEPCIONES OC) --}}
@@ -711,18 +753,6 @@
                        @input.debounce.400ms="cargarEntradas()">
             </div>
             <div>
-                <label class="block text-xs text-gray-500 mb-1">Tipo de entrada</label>
-                <select class="w-full border rounded px-3 py-2 bg-white"
-                        x-model="ent.tipo"
-                        @change="cargarEntradas()">
-                    <option value="">Todos</option>
-                    <option value="oc">🟢 Órdenes de Compra</option>
-                    <option value="manual">🔵 Entradas Manuales</option>
-                    <option value="transferencia">🟠 Transferencias</option>
-                    <option value="finiquito">⬛ Finiquitadas</option>
-                </select>
-            </div>
-            <div>
                 <label class="block text-xs text-gray-500 mb-1">Desde</label>
                 <input type="date" class="w-full border rounded px-3 py-2"
                        x-model="ent.desde"
@@ -737,6 +767,15 @@
         </div>
 
         <div class="mt-3 text-xs text-gray-500" x-show="loading">Cargando...</div>
+        <div x-show="entradasBgLoading"
+             class="mt-2 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium"
+             style="background:#f0f9ff;color:#0369a1;display:none">
+            <svg class="animate-spin w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+            Entradas — cargando en segundo plano… <span x-text="entradas.length + ' registros cargados'"></span>
+        </div>
         <div class="mt-3 flex flex-wrap items-center gap-2">
             <span class="text-xs text-gray-500 font-medium">Vista:</span>
             <button @click="ent.vista='tarjetas'"
@@ -746,13 +785,20 @@
                     :class="ent.vista==='tabla' ? 'bg-gray-900 text-white' : 'bg-white hover:bg-gray-50'"
                     class="px-3 py-1 rounded border text-sm transition-colors">Tabla</button>
 
-            <div class="ml-auto">
+            <div class="ml-auto flex items-center gap-2">
                 <button @click="exportarEntradas()"
                         class="flex items-center gap-1.5 px-3 py-1.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm font-medium transition-colors whitespace-nowrap">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
                     </svg>
                     Exportar Excel
+                </button>
+                <button @click="exportarEntradasAgrupado()"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded border border-emerald-400 bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-semibold transition-colors whitespace-nowrap">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                    </svg>
+                    Exportar Excel Agrupado
                 </button>
             </div>
         </div>
@@ -956,7 +1002,7 @@
         </div>
 
         {{-- ── 2. ENTRADAS MANUALES ── --}}
-        <div x-show="entradasPorTipo('manual').length > 0" class="rounded-lg overflow-hidden"
+        <div x-show="entradaTipoTieneRegistros('manual')" class="rounded-lg overflow-hidden"
              :style="dk('border:2px solid #2563eb','border:2px solid #1e3a6e')">
             <div @click="ent.seccionAbierta.manual = !ent.seccionAbierta.manual"
                  class="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
@@ -969,7 +1015,7 @@
                     </svg>
                     <span class="font-bold text-sm">🔵 Entradas Manuales</span>
                     <span class="text-xs font-semibold px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.25)"
-                          x-text="entradasPorTipo('manual').length + ' registros'"></span>
+                          x-text="entradaTipoConteo('manual') + ' registros'"></span>
                 </div>
                 <span class="font-bold text-base tabular-nums"
                       x-text="'$' + formatMoney(entradasPorTipo('manual').reduce((s,e) => s + (e.importe ?? 0), 0))"></span>
@@ -1079,7 +1125,7 @@
         </div>
 
         {{-- ── 3. TRANSFERENCIAS RECIBIDAS ── --}}
-        <div x-show="entradasPorTipo('transferencia').length > 0" class="rounded-lg overflow-hidden"
+        <div x-show="entradaTipoTieneRegistros('transferencia')" class="rounded-lg overflow-hidden"
              :style="dk('border:2px solid #f97316','border:2px solid #7c3a00')">
             <div @click="ent.seccionAbierta.transferencia = !ent.seccionAbierta.transferencia"
                  class="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
@@ -1092,7 +1138,7 @@
                     </svg>
                     <span class="font-bold text-sm">🟠 Transferencias Recibidas</span>
                     <span class="text-xs font-semibold px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.25)"
-                          x-text="entradasPorTipo('transferencia').length + ' registros'"></span>
+                          x-text="entradaTipoConteo('transferencia') + ' registros'"></span>
                 </div>
                 <span class="font-bold text-base"
                       x-text="'$' + formatMoney(entradasPorTipo('transferencia').reduce((s,e) => s + (e.importe ?? 0), 0))"></span>
@@ -1199,7 +1245,7 @@
         </div>
 
         {{-- ── FINIQUITADAS ── --}}
-        <div x-show="entradasPorTipo('finiquito').length > 0" class="rounded-lg overflow-hidden"
+        <div x-show="entradaTipoTieneRegistros('finiquito')" class="rounded-lg overflow-hidden"
              :style="dk('border:2px solid #64748b','border:2px solid #334155')">
             <div @click="ent.seccionAbierta.finiquito = !ent.seccionAbierta.finiquito"
                  class="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
@@ -1212,7 +1258,7 @@
                     </svg>
                     <span class="font-bold text-sm">⬛ Finiquitadas</span>
                     <span class="text-xs font-semibold px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.2)"
-                          x-text="entradasPorTipo('finiquito').length + ' registros'"></span>
+                          x-text="entradaTipoConteo('finiquito') + ' registros'"></span>
                 </div>
                 <div class="flex items-center gap-3">
                     <span class="text-xs opacity-75">Diferencias cerradas operativamente</span>
@@ -1467,6 +1513,15 @@
                     </div>
 
                     <div class="mt-3 text-xs text-gray-500" x-show="loading">Cargando...</div>
+                    <div x-show="transBgLoading"
+                         class="mt-2 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium"
+                         style="background:#f0f9ff;color:#0369a1;display:none">
+                        <svg class="animate-spin w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                        Transferencias — cargando en segundo plano… <span x-text="transferencias.length + ' registros cargados'"></span>
+                    </div>
                     <div class="mt-3 flex flex-wrap items-center gap-2">
 
                         <span class="text-xs text-gray-500 font-medium">Mostrar:</span>
@@ -1769,14 +1824,13 @@
                                 :class="inv.vista==='tabla' ? 'bg-gray-900 text-white' : 'bg-white hover:bg-gray-50'"
                                 class="px-3 py-1 rounded border text-sm transition-colors">Tabla</button>
                         <div class="ml-auto">
-                            <a href="{{ route('explore.exportar.inventario_pro') }}"
-                               target="_blank"
+                            <button @click="exportarInventarioAgrupado()"
                                class="flex items-center gap-1.5 px-4 py-2 rounded border border-emerald-400 bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-semibold transition-colors whitespace-nowrap shadow-sm">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
                                 </svg>
                                 Exportar Excel Agrupado
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -2556,16 +2610,18 @@
 
             function exploreUI() {
                 return {
-                    ent: { q:'', desde:'', hasta:'', vista:'tarjetas', tipo:'', seccionAbierta:{ oc:true, manual:true, transferencia:true, finiquito:true } },
+                    ent: { q:'', desde:'', hasta:'', vista:'tabla', tipo:'', seccionAbierta:{ oc:true, manual:true, transferencia:true, finiquito:true } },
                     entradas: [],
-                    entradasOffset: 0, entradasHasMore: false, loadingMasEntradas: false,
+                    entradasTotalImporte: null,
+                    entradasConteoPorTipo: {},
+                    entradasOffset: 0, entradasHasMore: false, entradasBgLoading: false,
                     detallesEntradaId: null,
                     entradaDetalle: null,
                     imgModal: { show:false, url:'' },
 
                     trans: { q:'', desde:'', hasta:'', dir:'todas', obra_nombre:'', vista:'tabla' },
                     transferencias: [],
-                    transOffset: 0, transHasMore: false, loadingMasTrans: false,
+                    transOffset: 0, transHasMore: false, transBgLoading: false,
                     detallesTransId: null,
                     transDetalle: null,
 
@@ -2574,7 +2630,7 @@
                     loading: false,
                     modoHerramientas: false,
 
-                    mov: { q:'', desde:'', hasta:'', vista:'tarjetas', soloHerramientas: false },
+                    mov: { q:'', desde:'', hasta:'', vista:'tabla', soloHerramientas: false },
                     salidasTablaData: [],
                     salidasTablaExpandidos: {},
                     salidasObraExpandidos: {},
@@ -2597,7 +2653,7 @@
                     finiquitoObraExpandidos: {},
                     finiquitoFolioExpandidos: {},
                     inventarioFamiliaExpandidos: {},
-                    inv: { q:'', vista:'tarjetas' },
+                    inv: { q:'', vista:'tabla' },
                     oc:  { q:'', estado:'todas' },
                     graf: { q:'', desde:'', hasta:'', soloObraActual:true },
 
@@ -2610,8 +2666,9 @@
                     escomImgModal: { show: false, url: '', label: '' },
                     escomExpandidos: {},
                     movimientos: [],
-                    movOffset: 0, movHasMore: false, loadingMasMov: false,
-                    salidasTablaOffset: 0, salidasTablaHasMore: false, loadingMasSalidasTabla: false,
+                    movOffset: 0, movHasMore: false, movBgLoading: false,
+                    salidasTotalImporte: null,
+                    salidasTablaOffset: 0, salidasTablaHasMore: false, salidasTablaBgLoading: false,
                     detallesMovId: null,
                     detalles: [],
                     movimientoCabecera: null,
@@ -2635,6 +2692,7 @@
                     inventario: [],
                     inventarioOffset: 0, inventarioHasMore: false, loadingMasInventario: false,
                     inventarioTotalImporte: null,
+                    inventarioTotalesFamilia: {},
                     ordenesCompra: [],
 
                     familias: [],
@@ -2650,7 +2708,7 @@
                         if (this.modoHerramientas) {
                             this.mov.soloHerramientas = true;
                         }
-                        this.cargarMovimientos();
+                        this.cargarSalidasTabla();
                     },
 
                     // Devuelve el valor oscuro si está en modo herramientas, si no el claro
@@ -2730,6 +2788,7 @@
 
                     async cargarMovimientos() {
                         this.loading = true;
+                        this.movOffset = 0; this.movHasMore = false; this.movBgLoading = false;
                         this.detallesMovId = null; this.detalles = []; this.movimientoCabecera = null;
                         try {
                             const params = new URLSearchParams();
@@ -2739,7 +2798,47 @@
                             const res = await fetchConCsrf("{{ route('explore.movimientos') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
                             const d = await res.json();
                             this.movimientos = d.data ?? d;
+                            this.movOffset   = this.movimientos.length;
+                            this.movHasMore  = d.has_more ?? false;
                         } catch(e) { console.error(e); this.movimientos = []; }
+                        finally { this.loading = false; }
+                    },
+
+                    async cargarMasMov() {
+                        if (!this.movHasMore || this.loading) return;
+                        this.loading = true;
+                        try {
+                            const params = new URLSearchParams();
+                            if (this.mov.q) params.set('q', this.mov.q);
+                            if (this.mov.desde) params.set('desde', this.mov.desde);
+                            if (this.mov.hasta) params.set('hasta', this.mov.hasta);
+                            params.set('offset', this.movOffset);
+                            const res = await fetchConCsrf("{{ route('explore.movimientos') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
+                            const d = await res.json();
+                            const nueva = d.data ?? d;
+                            this.movimientos = [...this.movimientos, ...nueva];
+                            this.movOffset  += nueva.length;
+                            this.movHasMore  = d.has_more ?? false;
+                        } catch(e) { console.error(e); }
+                        finally { this.loading = false; }
+                    },
+
+                    async cargarMasSalidasTabla() {
+                        if (!this.salidasTablaHasMore || this.loading) return;
+                        this.loading = true;
+                        try {
+                            const params = new URLSearchParams();
+                            if (this.mov.q) params.set('q', this.mov.q);
+                            if (this.mov.desde) params.set('desde', this.mov.desde);
+                            if (this.mov.hasta) params.set('hasta', this.mov.hasta);
+                            params.set('offset', this.salidasTablaOffset);
+                            const res = await fetch('/explore/salidas/tabla?' + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
+                            const d = await res.json();
+                            const nueva = d.data ?? d;
+                            this.salidasTablaData  = [...this.salidasTablaData, ...nueva];
+                            this.salidasTablaOffset += nueva.length;
+                            this.salidasTablaHasMore = d.has_more ?? false;
+                        } catch(e) { console.error(e); }
                         finally { this.loading = false; }
                     },
 
@@ -2883,9 +2982,10 @@
                                 this.inventario = data;
                                 this.inventarioTotalImporte = null;
                             } else {
-                                this.inventario = data.rows ?? [];
+                                this.inventario             = data.rows ?? [];
                                 this.inventarioTotalImporte = data.total_importe ?? null;
-                                this.inventarioHasMore = data.has_more ?? false;
+                                this.inventarioHasMore      = data.has_more ?? false;
+                                this.inventarioTotalesFamilia = data.totales_familia ?? {};
                             }
                         } catch (e) {
                             console.error(e);
@@ -2960,9 +3060,16 @@
         if (this.ent.tipo)         params.set('tipo',  this.ent.tipo);
         if (this.modoHerramientas) params.set('solo_h', '1');
 
+        this.entradasOffset = 0; this.entradasHasMore = false;
+        this.entradasTotalImporte = null;
+        this.entradasConteoPorTipo = {};
         const res = await fetchConCsrf("{{ route('explore.entradas') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
         const d = await res.json();
-        this.entradas = d.data ?? d;
+        this.entradas              = d.data ?? d;
+        this.entradasOffset        = this.entradas.length;
+        this.entradasHasMore       = d.has_more ?? false;
+        this.entradasTotalImporte  = d.total_importe ?? null;
+        this.entradasConteoPorTipo = d.conteo_por_tipo ?? {};
     } catch (e) { console.error(e); this.entradas = []; }
     finally { this.loading = false; }
 },
@@ -3021,9 +3128,12 @@
                             if (this.trans.desde) params.set('desde', this.trans.desde);
                             if (this.trans.hasta) params.set('hasta', this.trans.hasta);
 
+                            this.transOffset = 0; this.transHasMore = false;
                             const res = await fetchConCsrf("{{ route('explore.transferencias') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
                             const d = await res.json();
                             this.transferencias = d.data ?? d;
+                            this.transOffset    = this.transferencias.length;
+                            this.transHasMore   = d.has_more ?? false;
                         } catch (e) { console.error(e); this.transferencias = []; }
                         finally { this.loading = false; }
                     },
@@ -3116,12 +3226,17 @@
                             if (this.mov.desde)             params.set('desde',  this.mov.desde);
                             if (this.mov.hasta)             params.set('hasta',  this.mov.hasta);
                             if (this.mov.soloHerramientas)  params.set('solo_h', '1');
+                            this.salidasTablaOffset = 0; this.salidasTablaHasMore = false; this.salidasTablaBgLoading = false;
+                            this.salidasTotalImporte = null;
                             const [resSal, resTrans] = await Promise.all([
                                 fetch('/explore/salidas/tabla?' + params.toString(), { headers:{'Accept':'application/json'}, cache:'no-store' }),
                                 fetch('/explore/transferencias/enviadas/tabla?' + params.toString(), { headers:{'Accept':'application/json'}, cache:'no-store' }),
                             ]);
                             const dSal = await resSal.json();
-                            this.salidasTablaData = dSal.data ?? dSal;
+                            this.salidasTablaData     = dSal.data ?? dSal;
+                            this.salidasTablaOffset   = this.salidasTablaData.length;
+                            this.salidasTablaHasMore  = dSal.has_more ?? false;
+                            this.salidasTotalImporte  = dSal.total_importe ?? null;
                             const dTrans = await resTrans.json();
                             this.transSalidasData = dTrans.data ?? dTrans;
                         } catch (e) {
@@ -3130,6 +3245,115 @@
                             this.transSalidasData = [];
                         } finally {
                             this.loading = false;
+                        }
+                    },
+
+                    // ── Carga automática en segundo plano ─────────────────────────────
+                    async _bgCargar(seccion) {
+                        const cfg = {
+                            mov: {
+                                getData:    () => this.movimientos,
+                                setData:    (d) => { this.movimientos = d; },
+                                getOffset:  () => this.movOffset,
+                                setOffset:  (n) => { this.movOffset = n; },
+                                getHasMore: () => this.movHasMore,
+                                setHasMore: (v) => { this.movHasMore = v; },
+                                getBg:      () => this.movBgLoading,
+                                setBg:      (v) => { this.movBgLoading = v; },
+                                url: () => {
+                                    const p = new URLSearchParams();
+                                    if (this.mov.q) p.set('q', this.mov.q);
+                                    if (this.mov.desde) p.set('desde', this.mov.desde);
+                                    if (this.mov.hasta) p.set('hasta', this.mov.hasta);
+                                    p.set('offset', this.movOffset);
+                                    return "{{ route('explore.movimientos') }}?" + p.toString();
+                                },
+                                key: 'data',
+                            },
+                            entradas: {
+                                getData:    () => this.entradas,
+                                setData:    (d) => { this.entradas = d; },
+                                getOffset:  () => this.entradasOffset,
+                                setOffset:  (n) => { this.entradasOffset = n; },
+                                getHasMore: () => this.entradasHasMore,
+                                setHasMore: (v) => { this.entradasHasMore = v; },
+                                getBg:      () => this.entradasBgLoading,
+                                setBg:      (v) => { this.entradasBgLoading = v; },
+                                url: () => {
+                                    const p = new URLSearchParams();
+                                    if (this.ent.q) p.set('q', this.ent.q);
+                                    if (this.ent.desde) p.set('desde', this.ent.desde);
+                                    if (this.ent.hasta) p.set('hasta', this.ent.hasta);
+                                    if (this.ent.tipo) p.set('tipo', this.ent.tipo);
+                                    p.set('offset', this.entradasOffset);
+                                    return "{{ route('explore.entradas') }}?" + p.toString();
+                                },
+                                key: 'data',
+                            },
+                            trans: {
+                                getData:    () => this.transferencias,
+                                setData:    (d) => { this.transferencias = d; },
+                                getOffset:  () => this.transOffset,
+                                setOffset:  (n) => { this.transOffset = n; },
+                                getHasMore: () => this.transHasMore,
+                                setHasMore: (v) => { this.transHasMore = v; },
+                                getBg:      () => this.transBgLoading,
+                                setBg:      (v) => { this.transBgLoading = v; },
+                                url: () => {
+                                    const p = new URLSearchParams();
+                                    if (this.trans.q) p.set('q', this.trans.q);
+                                    if (this.trans.desde) p.set('desde', this.trans.desde);
+                                    if (this.trans.hasta) p.set('hasta', this.trans.hasta);
+                                    p.set('offset', this.transOffset);
+                                    return "{{ route('explore.transferencias') }}?" + p.toString();
+                                },
+                                key: 'data',
+                            },
+                            salidasTabla: {
+                                getData:    () => this.salidasTablaData,
+                                setData:    (d) => { this.salidasTablaData = d; },
+                                getOffset:  () => this.salidasTablaOffset,
+                                setOffset:  (n) => { this.salidasTablaOffset = n; },
+                                getHasMore: () => this.salidasTablaHasMore,
+                                setHasMore: (v) => { this.salidasTablaHasMore = v; },
+                                getBg:      () => this.salidasTablaBgLoading,
+                                setBg:      (v) => { this.salidasTablaBgLoading = v; },
+                                url: () => {
+                                    const p = new URLSearchParams();
+                                    if (this.mov.q) p.set('q', this.mov.q);
+                                    if (this.mov.desde) p.set('desde', this.mov.desde);
+                                    if (this.mov.hasta) p.set('hasta', this.mov.hasta);
+                                    p.set('offset', this.salidasTablaOffset);
+                                    return '/explore/salidas/tabla?' + p.toString();
+                                },
+                                key: 'data',
+                            },
+                        };
+
+                        const c = cfg[seccion];
+                        if (!c || c.getBg()) return;
+                        c.setBg(true);
+
+                        try {
+                            while (c.getHasMore()) {
+                                try {
+                                    const res  = await fetchConCsrf(c.url(), {headers:{'Accept':'application/json'},cache:'no-store'});
+                                    const d    = await res.json();
+                                    const nueva = Array.isArray(d[c.key]) ? d[c.key] : (Array.isArray(d) ? d : []);
+                                    // Si el servidor devuelve vacío, detener para evitar loop infinito
+                                    if (nueva.length === 0) { c.setHasMore(false); break; }
+                                    c.setData([...c.getData(), ...nueva]);
+                                    c.setOffset(c.getOffset() + nueva.length);
+                                    c.setHasMore(d.has_more === true);
+                                } catch(e) {
+                                    console.error('bg load error', seccion, e);
+                                    break;
+                                }
+                                await new Promise(r => setTimeout(r, 150));
+                            }
+                        } finally {
+                            // Siempre apagar el indicador, sin excepción
+                            c.setBg(false);
                         }
                     },
 
@@ -3364,6 +3588,19 @@
                         return this.entradas.filter(e => e.tipo === tipo);
                     },
 
+                    // Indica si un tipo tiene registros (incluso si no están en los 200 cargados)
+                    entradaTipoTieneRegistros(tipo) {
+                        const enCargados = this.entradasPorTipo(tipo).length > 0;
+                        const enServidor = (this.entradasConteoPorTipo[tipo] ?? 0) > 0;
+                        return enCargados || enServidor;
+                    },
+
+                    entradaTipoConteo(tipo) {
+                        const enCargados = this.entradasPorTipo(tipo).length;
+                        const enServidor = this.entradasConteoPorTipo[tipo] ?? 0;
+                        return Math.max(enCargados, enServidor);
+                    },
+
                     _gruposFlat(items, expandidos, keyPrefix) {
                         const mapped = items.map(e => ({ ...e, familia: e.familia || 'SIN FAMILIA' }));
                         const result = [];
@@ -3569,11 +3806,13 @@
                         const result = [];
                         const grupos = this.agruparPorFamilia(this.inventario, 'cantidad');
                         for (const grupo of grupos) {
+                            // Usar total del servidor si está disponible (garantiza exactitud)
+                            const importeServidor = this.inventarioTotalesFamilia[grupo.familia];
                             result.push({
                                 _tipo: 'familia', _key: 'f_' + grupo.familia,
                                 familia: grupo.familia,
                                 cantidad_total: grupo.cantidad_total,
-                                importe_total: grupo.importe_total,
+                                importe_total: importeServidor !== undefined ? importeServidor : grupo.importe_total,
                                 count: grupo.filas.length,
                             });
                             if (this.inventarioFamiliaExpandidos[grupo.familia]) {
@@ -3586,10 +3825,13 @@
                     },
 
                     totalSalidas() {
-                        return this.salidasTablaData.reduce((s, r) => s + (r.importe ?? 0), 0);
+                        const salidas = this.salidasTotalImporte ?? this.salidasTablaData.reduce((s, r) => s + (r.importe ?? 0), 0);
+                        const trans   = this.transSalidasData.reduce((s, r) => s + (r.importe != null ? parseFloat(r.importe) : 0), 0);
+                        return salidas + trans;
                     },
 
                     totalEntradas() {
+                        if (this.entradasTotalImporte !== null) return this.entradasTotalImporte;
                         return this.entradas.reduce((s, e) => s + (e.importe ?? 0), 0);
                     },
 
@@ -3745,6 +3987,22 @@
                         window.open('/explore/exportar/entradas?' + params.toString(), '_blank');
                     },
 
+                    exportarEntradasAgrupado() {
+                        const params = new URLSearchParams();
+                        if (this.ent.q)     params.set('q',     this.ent.q);
+                        if (this.ent.desde) params.set('desde', this.ent.desde);
+                        if (this.ent.hasta) params.set('hasta', this.ent.hasta);
+                        window.open("{{ route('explore.exportar.entradas_agrupado') }}?" + params.toString(), '_blank');
+                    },
+
+                    exportarSalidasAgrupado() {
+                        const params = new URLSearchParams();
+                        if (this.mov.q)     params.set('q',     this.mov.q);
+                        if (this.mov.desde) params.set('desde', this.mov.desde);
+                        if (this.mov.hasta) params.set('hasta', this.mov.hasta);
+                        window.open("{{ route('explore.exportar.salidas_agrupado') }}?" + params.toString(), '_blank');
+                    },
+
                     exportarSalidas() {
                         const params = new URLSearchParams();
                         if (this.mov.q)     params.set('q',     this.mov.q);
@@ -3757,6 +4015,12 @@
                         const params = new URLSearchParams();
                         if (this.inv.q) params.set('q', this.inv.q);
                         window.open('/explore/exportar/inventario?' + params.toString(), '_blank');
+                    },
+
+                    exportarInventarioAgrupado() {
+                        const params = new URLSearchParams();
+                        if (this.inv.q) params.set('q', this.inv.q);
+                        window.open("{{ route('explore.exportar.inventario_pro') }}?" + params.toString(), '_blank');
                     },
 
                     exportarFiniquitadas() {
