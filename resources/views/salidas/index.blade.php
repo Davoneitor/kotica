@@ -218,7 +218,7 @@
                                                     @click="seleccionar(p)"
                                                 >
                                                     <div class="font-semibold text-gray-800" x-text="p.descripcion"></div>
-                                                    <div class="text-xs text-gray-500 mt-0.5">
+                                                    <div class="text-xs mt-0.5 text-gray-500">
                                                         <template x-if="p.insumo_id">
                                                             <span>Cód: <strong x-text="p.insumo_id"></strong> &nbsp;|&nbsp;</span>
                                                         </template>

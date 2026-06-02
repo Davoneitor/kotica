@@ -47,7 +47,10 @@ class InventarioController extends Controller
         $inventariosQ = Inventario::query()
             ->with('obra:id,nombre')
             ->when($obraActualId > 0, fn ($qq) => $qq->where('obra_id', $obraActualId))
-            ->when($obsoleto,     fn ($qq) => $qq->where('obsoleto',   1))
+            ->when($obsoleto,
+                fn ($qq) => $qq->where('obsoleto', 1),                        // ?obsoleto=1 → solo obsoletos
+                fn ($qq) => $qq->where(fn($w) => $w->whereNull('obsoleto')->orWhere('obsoleto', 0)) // default → ocultar obsoletos
+            )
             ->when($herramientas, fn ($qq) => $qq->where('devolvible', 1))
             ->when($q !== '', function ($qq) use ($q) {
                 $clean = str_starts_with($q, '#') ? trim(substr($q, 1)) : $q;

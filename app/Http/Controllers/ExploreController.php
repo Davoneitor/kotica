@@ -71,11 +71,9 @@ public function movimientos(Request $request)
 {
     $obraId = Auth::user()?->obra_actual_id;
 
-    $q      = trim((string) $request->get('q', ''));
-    $desde  = $request->get('desde');
-    $hasta  = $request->get('hasta');
-    $offset = (int) $request->get('offset', 0);
-    $limit  = 200;
+    $q     = trim((string) $request->get('q', ''));
+    $desde = $request->get('desde');
+    $hasta = $request->get('hasta');
 
     $rows = Movimiento::query()
         ->leftJoin('obras as o', 'o.id', '=', 'movimientos.obra_id')
@@ -90,7 +88,6 @@ public function movimientos(Request $request)
         ->when($desde, fn($qq) => $qq->whereDate('movimientos.fecha', '>=', $desde))
         ->when($hasta, fn($qq) => $qq->whereDate('movimientos.fecha', '<=', $hasta))
         ->orderByDesc('movimientos.fecha')
-        ->skip($offset)->take($limit + 1)
         ->get([
             'movimientos.id',
             'movimientos.obra_id',
@@ -102,9 +99,6 @@ public function movimientos(Request $request)
             'movimientos.observaciones',
             DB::raw('o.nombre as obra'), // ? nombre de obra
         ]);
-
-    $hasMore = $rows->count() > $limit;
-    if ($hasMore) $rows = $rows->slice(0, $limit);
 
     // Resolver nombres legibles de destino desde ERP
     $erpNombres = $this->resolverNombresDestino(
@@ -128,7 +122,7 @@ public function movimientos(Request $request)
         return $row;
     });
 
-    return response()->json(['data' => $rows->values(), 'has_more' => $hasMore]);
+    return response()->json($rows->values());
 }
 
 
@@ -207,13 +201,11 @@ public function movimientoDetalles(Movimiento $movimiento)
      */
     public function salidasTabla(Request $request)
     {
-        $obraId      = Auth::user()?->obra_actual_id;
-        $desde       = $request->get('desde');
-        $hasta       = $request->get('hasta');
-        $q           = trim((string) $request->get('q', ''));
-        $soloH       = $request->boolean('solo_h');
-        $offset      = (int) $request->get('offset', 0);
-        $limit       = 200;
+        $obraId = Auth::user()?->obra_actual_id;
+        $desde  = $request->get('desde');
+        $hasta  = $request->get('hasta');
+        $q      = trim((string) $request->get('q', ''));
+        $soloH  = $request->boolean('solo_h');
 
         $rows = MovimientoDetalle::query()
             ->join('movimientos', 'movimientos.id', '=', 'movimiento_detalles.movimiento_id')
@@ -237,7 +229,6 @@ public function movimientoDetalles(Movimiento $movimiento)
             })
             ->orderByDesc('movimientos.fecha')
             ->orderByDesc('movimientos.id')
-            ->skip($offset)->take($limit + 1)
             ->get([
                 'movimiento_detalles.id',
                 'movimiento_detalles.movimiento_id',
@@ -260,10 +251,7 @@ public function movimientoDetalles(Movimiento $movimiento)
                 DB::raw('obs_s.nombre as obra_nombre'),
             ]);
 
-        $hasMore = $rows->count() > $limit;
-        if ($hasMore) $rows = $rows->slice(0, $limit);
-
-        return response()->json(['data' => $rows->map(fn($r) => [
+        return response()->json($rows->map(fn($r) => [
             'id'              => $r->id,
             'movimiento_id'   => (int) $r->movimiento_id,
             'fecha'           => (string) $r->fecha,
@@ -283,7 +271,7 @@ public function movimientoDetalles(Movimiento $movimiento)
                                     : null,
             'devolvible'      => (int) ($r->devolvible ?? 0),
             'observaciones'   => (string) ($r->observaciones ?? ''),
-        ])->values(), 'has_more' => $hasMore]);
+        ])->values());
     }
 
     /**
@@ -445,11 +433,8 @@ public function movimientoDetalles(Movimiento $movimiento)
                     'destino','proveedor','devolvible','obsoleto','updated_at',
                 ]);
         } else {
-            $offset = (int) $request->get('offset', 0);
-            $limit  = 200;
             $rows = $query
                 ->orderByDesc('updated_at')
-                ->skip($offset)->take($limit + 1)
                 ->get([
                     'id','insumo_id','familia','subfamilia','descripcion','descripcionauxiliar',
                     'unidad','cantidad','cantidad_teorica','en_espera','costo_promedio',
@@ -470,9 +455,6 @@ public function movimientoDetalles(Movimiento $movimiento)
             ->whereNotNull('costo_promedio')
             ->selectRaw('SUM(cantidad * costo_promedio) as total')
             ->value('total') ?? 0;
-
-        $hasMore = isset($limit) && $rows->count() > $limit;
-        if ($hasMore) $rows = $rows->slice(0, $limit);
 
         return response()->json([
             'rows'          => $rows->map(fn($r) => [
@@ -497,7 +479,6 @@ public function movimientoDetalles(Movimiento $movimiento)
                 'updated_at'          => (string) ($r->updated_at ?? ''),
             ])->values(),
             'total_importe' => round($totalImporte, 2),
-            'has_more'      => $hasMore ?? false,
         ]);
     }
 
@@ -831,13 +812,11 @@ $user = Auth::user();
 {
     $obraId = Auth::user()?->obra_actual_id;
 
-    $q      = trim((string) $request->get('q', ''));
-    $desde  = $request->get('desde');
-    $hasta  = $request->get('hasta');
-    $tipo   = $request->get('tipo');
-    $soloH  = $request->boolean('solo_h');
-    $offset = (int) $request->get('offset', 0);
-    $limit  = 200;
+    $q     = trim((string) $request->get('q', ''));
+    $desde = $request->get('desde');
+    $hasta = $request->get('hasta');
+    $tipo  = $request->get('tipo');
+    $soloH = $request->boolean('solo_h');
 
     // For searching transferencias by obra origen name
     $transIdsByOrigen = [];
@@ -882,11 +861,7 @@ $user = Auth::user();
             }
         })
         ->orderByDesc('oc_recepciones.fecha_recibido')
-        ->skip($offset)->take($limit + 1)
         ->get();
-
-    $hasMore = $rows->count() > $limit;
-    if ($hasMore) $rows = $rows->slice(0, $limit);
 
     // Lookup obra_origen + transferencia_id for transferencias by matching insumo + obra_destino_id
     // (id_pedido is 0 on all transfer receipts, so we match by insumo and pick closest date)
@@ -1000,7 +975,7 @@ $user = Auth::user();
         ];
     });
 
-    return response()->json(['data' => $rows->values(), 'has_more' => $hasMore]);
+    return response()->json($rows->values());
 }
 
 public function entradaDetalles($id)
@@ -1159,23 +1134,17 @@ public function entradaFoto($id)
         // Si el usuario seleccionó una obra específica (y es multiobra) la usamos; si no, la obra actual
         $obraId        = $obraFiltroId ?? $obraActualId;
 
-        $q      = trim((string) $request->get('q', ''));
-        $desde  = $request->get('desde');
-        $hasta  = $request->get('hasta');
-        $offset = (int) $request->get('offset', 0);
-        $limit  = 200;
+        $q     = trim((string) $request->get('q', ''));
+        $desde = $request->get('desde');
+        $hasta = $request->get('hasta');
 
-        $rows = $this->queryTransferencias($obraId, $q, $desde, $hasta)
-            ->skip($offset)->take($limit + 1)->get();
+        $rows = $this->queryTransferencias($obraId, $q, $desde, $hasta)->get();
 
-        $hasMore = $rows->count() > $limit;
-        if ($hasMore) $rows = $rows->slice(0, $limit);
-
-        return response()->json(['data' => $rows->map(fn($r) => array_merge((array) $r, [
+        return response()->json($rows->map(fn($r) => array_merge((array) $r, [
             'direccion' => ($obraId && (int) $r->obra_origen_id === (int) $obraId)
                           ? 'enviada'
                           : 'recibida',
-        ]))->values(), 'has_more' => $hasMore]);
+        ]))->values());
     }
 
     /**

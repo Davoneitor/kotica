@@ -203,7 +203,6 @@ class SalidaController extends Controller
 
         $query = Inventario::query()
             ->where('obra_id', $obraId)
-            ->where(fn($q2) => $q2->whereNull('obsoleto')->orWhere('obsoleto', 0))
             ->when($soloH, fn ($qq) => $qq->where('devolvible', 1));
 
         if (ctype_digit($q) && $mode !== 'desc') {
@@ -232,6 +231,7 @@ class SalidaController extends Controller
                 'subfamilia',
                 'proveedor',
                 'costo_promedio',
+                'obsoleto',
             ]);
 
         // Fallback al ERP cuando no hay resultados locales (búsqueda por código o descripción)
@@ -380,21 +380,6 @@ class SalidaController extends Controller
             // ✅ firma obligatoria
             'firma_base64' => ['required', 'string'],
         ]);
-
-        // Validar que ningún insumo sea obsoleto
-        $idsItems = array_map(fn($it) => (int) $it['inventario_id'], $request->items);
-        $obsoletos = Inventario::whereIn('id', $idsItems)
-            ->where('obra_id', $obraId)
-            ->where('obsoleto', 1)
-            ->pluck('descripcion')
-            ->toArray();
-
-        if (!empty($obsoletos)) {
-            return response()->json([
-                'ok'      => false,
-                'message' => 'No se pueden incluir insumos obsoletos: ' . implode(', ', $obsoletos),
-            ], 422);
-        }
 
         return DB::transaction(function () use ($request, $obraId, $uuid) {
 

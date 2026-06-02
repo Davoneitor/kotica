@@ -17,6 +17,31 @@
     </x-slot>
 
     <div class="py-6" x-data="exploreUI()" x-init="init()">
+
+        {{-- ── Barra de carga global ── --}}
+        <div x-show="loading || loadingEscom"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed top-0 left-0 right-0 z-50"
+             style="display:none">
+            {{-- Barra de progreso --}}
+            <div class="h-1 bg-gray-200">
+                <div class="h-1 bg-gray-900 animate-pulse" style="width:100%"></div>
+            </div>
+            {{-- Banner --}}
+            <div class="bg-gray-900 text-white text-sm font-medium px-4 py-2.5 flex items-center gap-3 shadow-lg">
+                <svg class="animate-spin w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                Cargando registros, por favor espera…
+            </div>
+        </div>
+
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
 
             {{-- Tabs --}}
@@ -2747,7 +2772,6 @@
 
                     async cargarMovimientos() {
                         this.loading = true;
-                        this.movOffset = 0; this.movHasMore = false;
                         this.detallesMovId = null; this.detalles = []; this.movimientoCabecera = null;
                         try {
                             const params = new URLSearchParams();
@@ -2755,10 +2779,7 @@
                             if (this.mov.desde) params.set('desde', this.mov.desde);
                             if (this.mov.hasta) params.set('hasta', this.mov.hasta);
                             const res = await fetchConCsrf("{{ route('explore.movimientos') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
-                            const d = await res.json();
-                            this.movimientos = d.data ?? d;
-                            this.movOffset   = this.movimientos.length;
-                            this.movHasMore  = d.has_more ?? false;
+                            this.movimientos = await res.json();
                         } catch(e) { console.error(e); this.movimientos = []; }
                         finally { this.loading = false; }
                     },
@@ -2924,8 +2945,6 @@
                             } else {
                                 this.inventario = data.rows ?? [];
                                 this.inventarioTotalImporte = data.total_importe ?? null;
-                                this.inventarioOffset  = this.inventario.length;
-                                this.inventarioHasMore = data.has_more ?? false;
                             }
                         } catch (e) {
                             console.error(e);
@@ -3019,32 +3038,10 @@
         if (this.modoHerramientas) params.set('solo_h', '1');
 
         const res = await fetchConCsrf("{{ route('explore.entradas') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
-        const d = await res.json();
-        this.entradas       = d.data ?? d;
-        this.entradasOffset = this.entradas.length;
-        this.entradasHasMore = d.has_more ?? false;
+        this.entradas = await res.json();
     } catch (e) { console.error(e); this.entradas = []; }
     finally { this.loading = false; }
 },
-
-                    async cargarMasEntradas() {
-                        if (!this.entradasHasMore || this.loadingMasEntradas) return;
-                        this.loadingMasEntradas = true;
-                        try {
-                            const params = new URLSearchParams();
-                            if (this.ent.q)     params.set('q',     this.ent.q);
-                            if (this.ent.desde) params.set('desde', this.ent.desde);
-                            if (this.ent.hasta) params.set('hasta', this.ent.hasta);
-                            if (this.ent.tipo)  params.set('tipo',  this.ent.tipo);
-                            params.set('offset', this.entradasOffset);
-                            const res = await fetchConCsrf("{{ route('explore.entradas') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
-                            const d = await res.json();
-                            const nueva = d.data ?? d;
-                            this.entradas        = [...this.entradas, ...nueva];
-                            this.entradasOffset += nueva.length;
-                            this.entradasHasMore = d.has_more ?? false;
-                        } catch(e) { console.error(e); }
-                        finally { this.loadingMasEntradas = false; }
                     },
 
                     async verEntradaDetalles(id) {
@@ -3102,31 +3099,9 @@
                             if (this.trans.hasta) params.set('hasta', this.trans.hasta);
 
                             const res = await fetchConCsrf("{{ route('explore.transferencias') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
-                            const d = await res.json();
-                            this.transferencias = d.data ?? d;
-                            this.transOffset    = this.transferencias.length;
-                            this.transHasMore   = d.has_more ?? false;
+                            this.transferencias = await res.json();
                         } catch (e) { console.error(e); this.transferencias = []; }
                         finally { this.loading = false; }
-                    },
-
-                    async cargarMasTransferencias() {
-                        if (!this.transHasMore || this.loadingMasTrans) return;
-                        this.loadingMasTrans = true;
-                        try {
-                            const params = new URLSearchParams();
-                            if (this.trans.q)     params.set('q',     this.trans.q);
-                            if (this.trans.desde) params.set('desde', this.trans.desde);
-                            if (this.trans.hasta) params.set('hasta', this.trans.hasta);
-                            params.set('offset', this.transOffset);
-                            const res = await fetchConCsrf("{{ route('explore.transferencias') }}?" + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
-                            const d = await res.json();
-                            const nueva = d.data ?? d;
-                            this.transferencias  = [...this.transferencias, ...nueva];
-                            this.transOffset    += nueva.length;
-                            this.transHasMore    = d.has_more ?? false;
-                        } catch(e) { console.error(e); }
-                        finally { this.loadingMasTrans = false; }
                     },
 
                     exportarTransferenciasExcel() {
@@ -3217,17 +3192,12 @@
                             if (this.mov.desde)             params.set('desde',  this.mov.desde);
                             if (this.mov.hasta)             params.set('hasta',  this.mov.hasta);
                             if (this.mov.soloHerramientas)  params.set('solo_h', '1');
-                            this.salidasTablaOffset = 0; this.salidasTablaHasMore = false;
                             const [resSal, resTrans] = await Promise.all([
                                 fetch('/explore/salidas/tabla?' + params.toString(), { headers:{'Accept':'application/json'}, cache:'no-store' }),
                                 fetch('/explore/transferencias/enviadas/tabla?' + params.toString(), { headers:{'Accept':'application/json'}, cache:'no-store' }),
                             ]);
-                            const dSal = await resSal.json();
-                            this.salidasTablaData      = dSal.data ?? dSal;
-                            this.salidasTablaOffset    = this.salidasTablaData.length;
-                            this.salidasTablaHasMore   = dSal.has_more ?? false;
-                            const dTrans = await resTrans.json();
-                            this.transSalidasData = dTrans.data ?? dTrans;
+                            this.salidasTablaData = await resSal.json();
+                            this.transSalidasData = await resTrans.json();
                         } catch (e) {
                             console.error(e);
                             this.salidasTablaData = [];
@@ -3235,26 +3205,6 @@
                         } finally {
                             this.loading = false;
                         }
-                    },
-
-                    async cargarMasSalidasTabla() {
-                        if (!this.salidasTablaHasMore || this.loadingMasSalidasTabla) return;
-                        this.loadingMasSalidasTabla = true;
-                        try {
-                            const params = new URLSearchParams();
-                            if (this.mov.q)                params.set('q',      this.mov.q);
-                            if (this.mov.desde)            params.set('desde',  this.mov.desde);
-                            if (this.mov.hasta)            params.set('hasta',  this.mov.hasta);
-                            if (this.mov.soloHerramientas) params.set('solo_h', '1');
-                            params.set('offset', this.salidasTablaOffset);
-                            const res = await fetch('/explore/salidas/tabla?' + params.toString(), {headers:{'Accept':'application/json'},cache:'no-store'});
-                            const d = await res.json();
-                            const nueva = d.data ?? d;
-                            this.salidasTablaData      = [...this.salidasTablaData, ...nueva];
-                            this.salidasTablaOffset   += nueva.length;
-                            this.salidasTablaHasMore   = d.has_more ?? false;
-                        } catch(e) { console.error(e); }
-                        finally { this.loadingMasSalidasTabla = false; }
                     },
 
                     transSalidasGruposFlat() {

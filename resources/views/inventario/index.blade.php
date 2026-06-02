@@ -14,14 +14,7 @@
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 Inventario
             </h2>
-            <div class="flex items-center gap-2">
-                @if($isAdmin)
-                <a href="{{ route('inventario.create') }}"
-                   class="px-3 py-2 text-sm border rounded bg-white hover:bg-gray-50">
-                    Nuevo producto
-                </a>
-                @endif
-            </div>
+            <div></div>
         </div>
     </x-slot>
 
@@ -29,38 +22,28 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white shadow-sm sm:rounded-lg p-4">
 
-                {{-- 🔍 BUSCADOR INVENTARIO (amigable para tablet) --}}
-                <form method="GET"
-                      action="{{ route('inventario.index') }}"
-                      class="mb-4 p3 md:p-4 border rounded-lg bg-white">
+                {{-- 🔍 BUSCADOR --}}
+                <form method="GET" action="{{ route('inventario.index') }}"
+                      class="mb-4 p-3 md:p-4 border rounded-lg bg-white">
 
-                    @if($obsoleto)
-                        <input type="hidden" name="obsoleto" value="1">
-                    @endif
-                    @if($herramientas)
-                        <input type="hidden" name="herramientas" value="1">
-                    @endif
+                    @if($obsoleto)     <input type="hidden" name="obsoleto"     value="1"> @endif
+                    @if($herramientas) <input type="hidden" name="herramientas" value="1"> @endif
 
                     <div class="flex flex-col md:flex-row md:items-end gap-3">
                         <div class="flex-1">
                             <label class="block text-xs md:text-sm text-gray-600 mb-1">
                                 Buscar por ID (INSUMO) o descripción
                             </label>
-
-                            <input type="text"
-                                   name="q"
-                                   value="{{ request('q') }}"
+                            <input type="text" name="q" value="{{ request('q') }}"
                                    class="w-full border rounded-lg px-4 py-3 text-base md:text-sm"
                                    placeholder="Ej: 303-ARF-0201 ó varilla"
                                    inputmode="search">
                         </div>
-
                         <div class="flex gap-2">
                             <button type="submit"
                                     class="w-full md:w-auto px-5 py-3 rounded-lg bg-gray-800 text-white text-base md:text-sm hover:bg-gray-900">
                                 Buscar
                             </button>
-
                             @if(request('q'))
                                 <a href="{{ route('inventario.index', array_filter(['obsoleto' => $obsoleto ? 1 : null, 'herramientas' => $herramientas ? 1 : null])) }}"
                                    class="w-full md:w-auto px-5 py-3 rounded-lg border bg-gray-100 text-gray-800 text-base md:text-sm hover:bg-gray-200 text-center">
@@ -70,33 +53,22 @@
                         </div>
                     </div>
 
-                    {{-- Chips / ayuda + toggle obsoleto --}}
                     <div class="mt-3 flex flex-wrap gap-2 text-sm items-center">
-                        <span class="px-3 py-1 rounded-full bg-gray-100 text-gray-700">
-                            Tip: puedes escribir <b>#303-ARF-0201</b>
-                        </span>
-
                         @if(request('q'))
                             <span class="px-3 py-1 rounded-full bg-amber-100 text-amber-900">
                                 Filtro: <b>{{ request('q') }}</b>
                             </span>
                         @endif
 
-                        <span class="px-3 py-1 rounded-full bg-gray-50 text-gray-600">
-                            Obra: <b>{{ $obraActual?->nombre ?? 'Sin obra' }}</b>
-                        </span>
-
-                        {{-- Toggle: Herramientas/retornables --}}
                         @if($herramientas)
                             <span id="btn-herramientas-activo"
                                class="px-3 py-1 rounded-full bg-blue-500 text-white font-semibold border border-blue-600">
                                 🔧 Solo herramientas ✕
                             </span>
-                            {{-- En modo herramientas el enlace para quitar se oculta vía JS --}}
                             <a id="btn-herramientas-quitar"
                                href="{{ route('inventario.index', array_filter(['q' => request('q'), 'obsoleto' => request('obsoleto') ?: null])) }}"
                                class="px-3 py-1 rounded-full bg-blue-500 text-white font-semibold border border-blue-600 hover:bg-blue-600 transition-colors"
-                               style="display:none;">
+                               style="display:none">
                                 🔧 Solo herramientas ✕
                             </a>
                         @else
@@ -105,35 +77,7 @@
                                 🔧 Herramientas
                             </a>
                         @endif
-                        <script>
-                        (function(){
-                            const modo = localStorage.getItem('modoHerramientas') === '1';
-                            // Auto-redirect si estamos en modo herramientas pero sin el filtro
-                            @if(!$herramientas)
-                            if (modo) {
-                                const url = new URL(window.location.href);
-                                url.searchParams.set('herramientas', '1');
-                                window.location.replace(url.toString());
-                            }
-                            @endif
-                            // En modo herramientas: ocultar botón de quitar filtro, mostrar solo el span bloqueado
-                            @if($herramientas)
-                            if (modo) {
-                                const activo = document.getElementById('btn-herramientas-activo');
-                                const quitar = document.getElementById('btn-herramientas-quitar');
-                                if (activo) activo.style.display = 'inline-flex';
-                                if (quitar) quitar.style.display = 'none';
-                            } else {
-                                const activo = document.getElementById('btn-herramientas-activo');
-                                const quitar = document.getElementById('btn-herramientas-quitar');
-                                if (activo) activo.style.display = 'none';
-                                if (quitar) quitar.style.display = 'inline-flex';
-                            }
-                            @endif
-                        })();
-                        </script>
 
-                        {{-- Botón toggle Inventario obsoleto --}}
                         @if($obsoleto)
                             <a href="{{ route('inventario.index', array_filter(['q' => request('q'), 'herramientas' => request('herramientas') ?: null])) }}"
                                class="px-3 py-1 rounded-full bg-yellow-400 text-yellow-900 font-semibold border border-yellow-500 hover:bg-yellow-500 transition-colors">
@@ -147,56 +91,55 @@
                         @endif
                     </div>
 
-                    {{-- Banner: solo herramientas --}}
+                    <script>
+                    (function(){
+                        const modo = localStorage.getItem('modoHerramientas') === '1';
+                        @if(!$herramientas)
+                        if (modo) { const u=new URL(window.location.href); u.searchParams.set('herramientas','1'); window.location.replace(u.toString()); }
+                        @endif
+                        @if($herramientas)
+                        const a=document.getElementById('btn-herramientas-activo'), q=document.getElementById('btn-herramientas-quitar');
+                        if(modo){if(a)a.style.display='inline-flex';if(q)q.style.display='none';}
+                        else{if(a)a.style.display='none';if(q)q.style.display='inline-flex';}
+                        @endif
+                    })();
+                    </script>
+
                     @if($herramientas)
                         <div class="mt-3 flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-50 border border-blue-300 text-blue-800 text-sm">
-                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l5.654-4.654m5.65-4.647 3.033-2.498c.668-.549 1.61-.676 2.417-.349M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0Z"/>
-                            </svg>
-                            Mostrando <b class="mx-1">solo herramientas / retornables</b> (devolvible = 1).
+                            Mostrando <b class="mx-1">solo herramientas / retornables</b>
                         </div>
                     @endif
-
-                    {{-- Banner cuando se está viendo solo obsoletos --}}
                     @if($obsoleto)
                         <div class="mt-3 flex items-center gap-2 px-4 py-2 rounded-lg bg-yellow-50 border border-yellow-300 text-yellow-800 text-sm">
-                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/>
-                            </svg>
-                            Mostrando <b class="mx-1">solo inventario obsoleto</b> — estos insumos ya no están en uso activo pero conservan su historial de movimientos.
+                            Mostrando <b class="mx-1">solo inventario obsoleto</b>
                         </div>
                     @endif
                 </form>
 
+                @if(session('success'))
+                    <div class="mb-3 p-3 bg-green-100 text-green-800 rounded">{{ session('success') }}</div>
+                @endif
+                @if(session('error'))
+                    <div class="mb-3 p-3 bg-red-100 text-red-800 rounded">{{ session('error') }}</div>
+                @endif
+                @if($errors->any())
+                    <div class="mb-3 p-3 bg-red-100 text-red-800 rounded">
+                        <div class="font-semibold mb-1">Revisa los errores:</div>
+                        <ul class="list-disc ml-5 text-sm">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
+                    </div>
+                @endif
+
+                @php
+                    $highlightId = (string) session('highlight_id');
+                    $isAdmin     = auth()->check() && auth()->user()->is_admin == 1;
+                @endphp
+
+                <div class="text-xs text-gray-600 mb-3">
+                    Registros en esta página: {{ $inventarios->count() }}
+                </div>
 
                 <div class="overflow-auto">
-                    <div class="text-xs text-gray-600 mb-3">
-                        Registros en esta página: {{ $inventarios->count() }}
-                    </div>
-
-                    @if(session('success'))
-                        <div class="mb-3 p-3 bg-green-100 text-green-800 rounded">
-                            {{ session('success') }}
-                        </div>
-                    @endif
-
-                    @if(session('error'))
-                        <div class="mb-3 p-3 bg-red-100 text-red-800 rounded">
-                            {{ session('error') }}
-                        </div>
-                    @endif
-
-                    @if($errors->any())
-                        <div class="mb-3 p-3 bg-red-100 text-red-800 rounded">
-                            <div class="font-semibold mb-1">Revisa los errores:</div>
-                            <ul class="list-disc ml-5 text-sm">
-                                @foreach($errors->all() as $e)
-                                    <li>{{ $e }}</li>
-                                @endforeach
-                            </ul>
-                        </div>
-                    @endif
-
                     <table class="min-w-full text-sm">
                         <thead class="text-left border-b">
                         <tr>
@@ -204,84 +147,23 @@
                             <th class="py-2 pr-3">Familia</th>
                             <th class="py-2 pr-3">Subfamilia</th>
                             <th class="py-2 pr-3">Descripción</th>
-                            <th class="py-2 pr-3">Desc. auxiliar</th>
                             <th class="py-2 pr-3">Unidad</th>
-                            <th class="py-2 pr-3">Obra</th>
-                            <th class="py-2 pr-3">Proveedor</th>
                             <th class="py-2 pr-3">Cantidad</th>
                             <th class="py-2 pr-3">P.U</th>
                             <th class="py-2 pr-3">Acciones</th>
                         </tr>
                         </thead>
-
-                        @php
-                            $highlightId   = (string) session('highlight_id');
-                            $highlightType = session('highlight_type');
-                        @endphp
-
                         <tbody>
-                        @foreach($inventarios as $inv)
+                        @forelse($inventarios as $inv)
                             @php
-                                $style = '';
-
-                                if ($highlightId !== '' && $highlightId === (string) $inv->id) {
-                                    $style = 'background-color:#dcfce7;color:#166534;';
-                                }
-
-                                // ✅ SOLO ADMIN (por correo)
-                               $isAdmin = auth()->check() && auth()->user()->is_admin == 1;
-
-                            @endphp
-
-                            @php
-                                $rowClass = '';
                                 $rowStyle = '';
-                                if ($style) {
-                                    $rowClass = 'row-highlight';
-                                    $rowStyle = $style;
+                                if ($highlightId !== '' && $highlightId === (string) $inv->id) {
+                                    $rowStyle = 'background-color:#dcfce7;color:#166534;';
                                 } elseif ($inv->obsoleto) {
-                                    $rowClass = 'row-obsoleto';
                                     $rowStyle = 'background-color:#fefce8;';
                                 }
                             @endphp
-                            <tr class="border-b {{ $rowClass }}" id="inv-{{ $inv->id }}" style="{{ $rowStyle }}"
-                                x-data="{
-                                    editing: false,
-                                    val: {{ json_encode($inv->descripcionauxiliar ?? '') }},
-                                    saving: false,
-                                    saved: false,
-                                    error: '',
-                                    async guardar() {
-                                        this.saving = true;
-                                        this.error  = '';
-                                        try {
-                                            const r = await fetch('{{ route('inventario.desc_auxiliar', $inv) }}', {
-                                                method: 'PATCH',
-                                                headers: {
-                                                    'Content-Type': 'application/json',
-                                                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
-                                                    'Accept': 'application/json',
-                                                },
-                                                body: JSON.stringify({ descripcionauxiliar: this.val }),
-                                            });
-                                            const data = await r.json();
-                                            if (!r.ok) throw new Error(data.error ?? 'Error al guardar.');
-                                            this.val     = data.descripcionauxiliar;
-                                            this.editing = false;
-                                            this.saved   = true;
-                                            this.$el.style.backgroundColor = '#dcfce7';
-                                        } catch(e) {
-                                            this.error = e.message;
-                                        } finally {
-                                            this.saving = false;
-                                        }
-                                    },
-                                    cancelar() {
-                                        this.val     = {{ json_encode($inv->descripcionauxiliar ?? '') }};
-                                        this.editing = false;
-                                        this.error   = '';
-                                    }
-                                }">
+                            <tr class="border-b" id="inv-{{ $inv->id }}" style="{{ $rowStyle }}">
                                 <td class="py-2 pr-3">{{ $inv->insumo_id }}</td>
                                 <td class="py-2 pr-3">{{ $inv->familia }}</td>
                                 <td class="py-2 pr-3">{{ $inv->subfamilia }}</td>
@@ -291,72 +173,24 @@
                                         <span class="ml-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-yellow-200 text-yellow-800 border border-yellow-300">OBSOLETO</span>
                                     @endif
                                 </td>
-
-                                {{-- Columna: Descripción auxiliar --}}
-                                <td class="py-2 pr-3 min-w-[160px]">
-                                    @if($puedeEditarAuxiliar && !$inv->obsoleto)
-                                        {{-- Modo lectura: clic para editar --}}
-                                        <div x-show="!editing" class="flex items-center gap-1 group cursor-pointer" @click="editing = true">
-                                            <span x-text="val || '—'" class="text-gray-700"></span>
-                                            <svg class="w-3 h-3 text-gray-300 group-hover:text-gray-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z"/>
-                                            </svg>
-                                        </div>
-                                        {{-- Modo edición --}}
-                                        <div x-show="editing" class="flex flex-col gap-1" @keydown.escape.window="cancelar()">
-                                            <input x-model="val"
-                                                   x-ref="inputAux"
-                                                   x-init="$watch('editing', v => v && $nextTick(() => $refs.inputAux.focus()))"
-                                                   type="text"
-                                                   maxlength="450"
-                                                   class="border rounded px-2 py-1 text-sm w-full"
-                                                   @keydown.enter.prevent="guardar()"
-                                                   @keydown.escape.prevent="cancelar()">
-                                            <div class="flex gap-1">
-                                                <button @click="guardar()"
-                                                        :disabled="saving"
-                                                        class="px-2 py-0.5 rounded bg-gray-800 text-white text-xs hover:bg-gray-900 disabled:opacity-50">
-                                                    <span x-text="saving ? 'Guardando...' : 'Guardar'"></span>
-                                                </button>
-                                                <button @click="cancelar()"
-                                                        class="px-2 py-0.5 rounded border text-xs hover:bg-gray-100">
-                                                    Cancelar
-                                                </button>
-                                            </div>
-                                            <span x-show="error" x-text="error" class="text-red-600 text-xs"></span>
-                                        </div>
-                                    @else
-                                        {{-- Solo lectura --}}
-                                        <span class="text-gray-600">{{ $inv->descripcionauxiliar ?: '—' }}</span>
-                                    @endif
-                                </td>
-
                                 <td class="py-2 pr-3">{{ $inv->unidad }}</td>
-                                <td class="py-2 pr-3">{{ optional($inv->obra)->nombre }}</td>
-                                <td class="py-2 pr-3">{{ $inv->proveedor }}</td>
                                 <td class="py-2 pr-3">{{ $inv->cantidad }}</td>
                                 <td class="py-2 pr-3">{{ $inv->costo_promedio }}</td>
-
                                 <td class="py-2 pr-3">
                                     <div class="flex items-center gap-2">
-                                        {{-- Historial (todos los usuarios) --}}
                                         <button type="button"
                                                 onclick="abrirHistorial({{ $inv->id }}, '{{ addslashes($inv->descripcion) }}')"
                                                 class="px-3 py-2 text-sm rounded border bg-blue-50 hover:bg-blue-100 text-blue-700">
                                             Historial
                                         </button>
-
                                         @if($isAdmin && !$inv->obsoleto)
                                             <a href="{{ route('inventario.edit', array_filter(['inventario' => $inv->id, 'page' => request('page', 1), 'obsoleto' => request('obsoleto')])) }}"
                                                class="px-3 py-2 text-sm rounded border bg-gray-50 hover:bg-gray-100">
                                                 Editar
                                             </a>
-
-                                            <form method="POST"
-                                                  action="{{ route('inventario.destroy', $inv) }}"
-                                                  onsubmit="return confirm('¿Seguro que quieres eliminar este registro (ID {{ $inv->id }})?');">
-                                                @csrf
-                                                @method('DELETE')
+                                            <form method="POST" action="{{ route('inventario.destroy', $inv) }}"
+                                                  onsubmit="return confirm('¿Seguro que quieres eliminar este registro?');">
+                                                @csrf @method('DELETE')
                                                 <button type="submit"
                                                         class="px-3 py-2 text-sm rounded border bg-gray-50 hover:bg-gray-100">
                                                     Eliminar
@@ -366,15 +200,13 @@
                                     </div>
                                 </td>
                             </tr>
-                        @endforeach
-
-                        @if($inventarios->count() === 0)
+                        @empty
                             <tr>
-                                <td colspan="11" class="py-6 text-center text-gray-500">
+                                <td colspan="8" class="py-6 text-center text-gray-500">
                                     No hay productos en inventario todavía.
                                 </td>
                             </tr>
-                        @endif
+                        @endforelse
                         </tbody>
                     </table>
                 </div>
@@ -815,11 +647,21 @@
                             <div x-show="resultados.length"
                                  class="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-64 overflow-auto z-50">
                                 <template x-for="p in resultados" :key="p.id">
-                                    <button type="button"
-                                            class="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 border-b border-gray-100 last:border-b-0 first:rounded-t-xl last:rounded-b-xl"
-                                            @click="seleccionar(p)">
-                                        <div class="font-semibold text-gray-800" x-text="p.descripcion"></div>
-                                        <div class="text-xs text-gray-500 mt-0.5">
+                                    <div
+                                        :class="p.obsoleto ? 'cursor-not-allowed' : 'hover:bg-gray-50 cursor-pointer'"
+                                        class="w-full text-left px-4 py-3 text-sm border-b border-gray-100 last:border-b-0 first:rounded-t-xl last:rounded-b-xl"
+                                        @click="p.obsoleto ? null : seleccionar(p)">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <span class="font-semibold"
+                                                  :class="p.obsoleto ? 'text-gray-400' : 'text-gray-800'"
+                                                  x-text="p.descripcion"></span>
+                                            <span x-show="p.obsoleto"
+                                                  class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
+                                                  style="background:#fee2e2;color:#b91c1c">
+                                                ⛔ Obsoleto — no se puede agregar a salidas
+                                            </span>
+                                        </div>
+                                        <div class="text-xs mt-0.5" :class="p.obsoleto ? 'text-gray-400' : 'text-gray-500'">
                                             <template x-if="p.insumo_id">
                                                 <span>Cód: <strong x-text="p.insumo_id"></strong> &nbsp;|&nbsp;</span>
                                             </template>
@@ -827,7 +669,7 @@
                                             Exist: <span x-text="p.cantidad"></span>
                                             <span x-show="p.devolvible" class="text-blue-600"> | Retornable</span>
                                         </div>
-                                    </button>
+                                    </div>
                                 </template>
                             </div>
 
@@ -1095,6 +937,7 @@
                 },
 
                 seleccionar(p) {
+                    if (p.obsoleto) return;
                     this.selected = p;
                     this.q = `#${p.id} - ${p.descripcion}`;
                     this.resultados = [];
