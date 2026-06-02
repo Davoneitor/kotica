@@ -162,8 +162,13 @@ class ActualizarReportesController extends Controller
             return response()->json(['items' => [], 'total' => 0, 'con_diffs' => 0, 'sin_erp' => 0]);
         }
 
-        // 2) Fetch ERP
-        $erpData = $this->fetchErp(array_keys($merged));
+        // 2) Fetch ERP — filtrar ViewPUC por los proyectos ERP de las obras seleccionadas
+        $proyectos = DB::table('obras')
+            ->whereIn('id', $obraIds)
+            ->whereNotNull('erp_proyecto_id')
+            ->pluck('erp_proyecto_id')
+            ->toArray();
+        $erpData = $this->fetchErp(array_keys($merged), $proyectos);
 
         // 3) Comparar
         $items    = [];
@@ -450,7 +455,7 @@ class ActualizarReportesController extends Controller
     }
 
     /** Fetch ERP data para una lista de local IDs (maneja normalización 4-dígito → 5-dígito). */
-    private function fetchErp(array $localIds): array
+    private function fetchErp(array $localIds, array $proyectos = []): array
     {
         if (empty($localIds)) return [];
 
@@ -466,34 +471,67 @@ class ActualizarReportesController extends Controller
         $result = [];
         foreach (array_chunk($erpIds, 500) as $chunk) {
             try {
-                $rows = DB::connection('erp')
+                // 1. P.U. real desde ViewPUC (Costo_ultima_compra) — filtrado por proyectos de las obras seleccionadas
+                $pucRows = DB::connection('erp')
+                    ->table('ViewPUC')
+                    ->whereIn('Insumo', $chunk)
+                    ->when(!empty($proyectos), fn($q) => $q->whereIn('Proyecto', $proyectos))
+                    ->select(
+                        'Insumo             as insumo',
+                        'Descripcion        as descripcion',
+                        'Costo_ultima_compra as precio_unitario',
+                        'Familia            as familia',
+                        'Unidad             as unidad',
+                        'Fecha_ultima_compra as fecha_pu'
+                    )
+                    ->orderByDesc('Fecha_ultima_compra')
+                    ->get();
+
+                // Agrupar por insumo, quedarse con el precio más reciente
+                $pucMap = [];
+                foreach ($pucRows as $row) {
+                    $k = (string) $row->insumo;
+                    if (!isset($pucMap[$k])) {
+                        $pucMap[$k] = $row;
+                    }
+                }
+
+                // 2. Descripción, familia, subfamilia y unidad desde AcCatInsumos
+                $catRows = DB::connection('erp')
                     ->table('AcCatInsumos as I')
                     ->leftJoin('AcFamilias as FI',   'I.idFamilia', '=', 'FI.idFamilia')
                     ->leftJoin('AcCatUnidades as U',  'I.idUnidad',  '=', 'U.IdUnidad')
                     ->whereIn('I.INSUMO', $chunk)
                     ->select(
-                        'I.INSUMO            as insumo',
-                        'I.DescripcionLarga   as descripcion',
-                        'I.Costo             as precio_unitario',
+                        'I.INSUMO           as insumo',
+                        'I.DescripcionLarga  as descripcion',
                         'FI.FamiliaPrincipal as familia',
-                        'FI.Familia          as subfamilia',
-                        'U.Unidad            as unidad'
+                        'FI.Familia         as subfamilia',
+                        'U.Unidad           as unidad'
                     )
-                    ->get();
+                    ->get()
+                    ->keyBy('insumo');
 
-                foreach ($rows as $row) {
-                    $erpKey  = (string) $row->insumo;
+                // 3. Combinar: P.U. de ViewPUC + resto de AcCatInsumos
+                $allInsumos = array_unique(array_merge(array_keys($pucMap), $catRows->keys()->toArray()));
+
+                foreach ($allInsumos as $erpKey) {
+                    $puc = $pucMap[$erpKey] ?? null;
+                    $cat = $catRows[$erpKey] ?? null;
+
                     $localId = $erpToLocal[$erpKey] ?? $erpKey;
-                    $data    = [
-                        'descripcion'    => trim((string) ($row->descripcion ?? '')),
-                        'unidad'         => trim((string) ($row->unidad ?? '')),
-                        'familia'        => trim((string) ($row->familia ?? '')),
-                        'subfamilia'     => trim((string) ($row->subfamilia ?? '')),
-                        'precio_unitario'=> $row->precio_unitario !== null ? (float) $row->precio_unitario : null,
+                    $data = [
+                        'descripcion'     => trim((string) ($cat?->descripcion ?? $puc?->descripcion ?? '')),
+                        'unidad'          => trim((string) ($cat?->unidad      ?? $puc?->unidad      ?? '')),
+                        'familia'         => trim((string) ($cat?->familia     ?? $puc?->familia     ?? '')),
+                        'subfamilia'      => trim((string) ($cat?->subfamilia  ?? '')),
+                        'precio_unitario' => $puc?->precio_unitario !== null ? (float) $puc->precio_unitario : null,
                     ];
+
                     $result[$localId] = $data;
                     if ($localId !== $erpKey) $result[$erpKey] = $data;
                 }
+
             } catch (\Throwable $e) {
                 Log::error('ActualizarReportes fetchErp', ['err' => $e->getMessage()]);
             }

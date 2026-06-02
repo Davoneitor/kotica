@@ -99,7 +99,12 @@ class ActualizarReportesJob implements ShouldQueue
                 return;
             }
 
-            $erpData = $this->fetchErp($insumosSel);
+            $proyectos = DB::table('obras')
+                ->whereIn('id', $this->obraIds)
+                ->whereNotNull('erp_proyecto_id')
+                ->pluck('erp_proyecto_id')
+                ->toArray();
+            $erpData = $this->fetchErp($insumosSel, $proyectos);
             if (empty($erpData)) {
                 DB::table('masivo_procesos')->where('token', $this->token)->update([
                     'status' => 'error',
@@ -282,7 +287,7 @@ class ActualizarReportesJob implements ShouldQueue
         return $total;
     }
 
-    private function fetchErp(array $localIds): array
+    private function fetchErp(array $localIds, array $proyectos = []): array
     {
         if (empty($localIds)) return [];
 
@@ -298,30 +303,57 @@ class ActualizarReportesJob implements ShouldQueue
         $result = [];
         foreach (array_chunk($erpIds, 500) as $chunk) {
             try {
-                $rows = DB::connection('erp')
-                    ->table('AcCatInsumos as I')
-                    ->leftJoin('AcFamilias as FI',  'I.idFamilia', '=', 'FI.idFamilia')
-                    ->leftJoin('AcCatUnidades as U', 'I.idUnidad',  '=', 'U.IdUnidad')
-                    ->whereIn('I.INSUMO', $chunk)
+                // 1. P.U. real desde ViewPUC filtrado por proyectos de las obras seleccionadas
+                $pucRows = DB::connection('erp')
+                    ->table('ViewPUC')
+                    ->whereIn('Insumo', $chunk)
+                    ->when(!empty($proyectos), fn($q) => $q->whereIn('Proyecto', $proyectos))
                     ->select(
-                        'I.INSUMO            as insumo',
-                        'I.DescripcionLarga   as descripcion',
-                        'I.Costo             as precio_unitario',
-                        'FI.FamiliaPrincipal as familia',
-                        'FI.Familia          as subfamilia',
-                        'U.Unidad            as unidad'
+                        'Insumo             as insumo',
+                        'Costo_ultima_compra as precio_unitario',
+                        'Fecha_ultima_compra as fecha_pu'
                     )
+                    ->orderByDesc('Fecha_ultima_compra')
                     ->get();
 
-                foreach ($rows as $row) {
-                    $erpKey  = (string) $row->insumo;
+                $pucMap = [];
+                foreach ($pucRows as $row) {
+                    $k = (string) $row->insumo;
+                    if (!isset($pucMap[$k])) {
+                        $pucMap[$k] = $row;
+                    }
+                }
+
+                // 2. Descripción, familia, subfamilia y unidad desde AcCatInsumos
+                $catRows = DB::connection('erp')
+                    ->table('AcCatInsumos as I')
+                    ->leftJoin('AcFamilias as FI',   'I.idFamilia', '=', 'FI.idFamilia')
+                    ->leftJoin('AcCatUnidades as U',  'I.idUnidad',  '=', 'U.IdUnidad')
+                    ->whereIn('I.INSUMO', $chunk)
+                    ->select(
+                        'I.INSUMO           as insumo',
+                        'I.DescripcionLarga  as descripcion',
+                        'FI.FamiliaPrincipal as familia',
+                        'FI.Familia         as subfamilia',
+                        'U.Unidad           as unidad'
+                    )
+                    ->get()
+                    ->keyBy('insumo');
+
+                // 3. Combinar
+                $allInsumos = array_unique(array_merge(array_keys($pucMap), $catRows->keys()->toArray()));
+
+                foreach ($allInsumos as $erpKey) {
+                    $puc = $pucMap[$erpKey] ?? null;
+                    $cat = $catRows->get($erpKey);
                     $localId = $erpToLocal[$erpKey] ?? $erpKey;
-                    $data    = [
-                        'descripcion'    => trim((string) ($row->descripcion ?? '')),
-                        'unidad'         => trim((string) ($row->unidad ?? '')),
-                        'familia'        => trim((string) ($row->familia ?? '')),
-                        'subfamilia'     => trim((string) ($row->subfamilia ?? '')),
-                        'precio_unitario'=> $row->precio_unitario !== null ? (float) $row->precio_unitario : null,
+
+                    $data = [
+                        'descripcion'     => trim((string) ($cat?->descripcion ?? '')),
+                        'unidad'          => trim((string) ($cat?->unidad ?? '')),
+                        'familia'         => trim((string) ($cat?->familia ?? '')),
+                        'subfamilia'      => trim((string) ($cat?->subfamilia ?? '')),
+                        'precio_unitario' => $puc && $puc->precio_unitario !== null ? (float) $puc->precio_unitario : null,
                     ];
                     $result[$localId] = $data;
                     if ($localId !== $erpKey) $result[$erpKey] = $data;

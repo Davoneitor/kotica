@@ -197,11 +197,13 @@ class CamionEscombroController extends Controller
         $hasta   = $request->get('hasta');
         $obraFiltro = $request->get('obra_id');   // filtro explícito desde el frontend
 
+        // Filtrar siempre por la obra activa del usuario
+        $obraEfectiva = $obraFiltro && $multi ? (int)$obraFiltro : $obraId;
+
         $rows = SalidaCamionEscombro::query()
             ->leftJoin('users',  'users.id',  '=', 'salida_camiones_escombro.user_id')
             ->leftJoin('obras',  'obras.id',  '=', 'salida_camiones_escombro.obra_id')
-            ->when(!$multi,       fn($q) => $q->where('salida_camiones_escombro.obra_id', $obraId))
-            ->when($multi && $obraFiltro, fn($q) => $q->where('salida_camiones_escombro.obra_id', $obraFiltro))
+            ->where('salida_camiones_escombro.obra_id', $obraEfectiva)
             ->when($desde, fn($q) => $q->whereDate('salida_camiones_escombro.fecha', '>=', $desde))
             ->when($hasta, fn($q) => $q->whereDate('salida_camiones_escombro.fecha', '<=', $hasta))
             ->orderByDesc('salida_camiones_escombro.fecha')
@@ -270,75 +272,177 @@ class CamionEscombroController extends Controller
      */
     public function exportar(Request $request)
     {
-        $user   = Auth::user();
-        $obraId = $user?->obra_actual_id;
-        $obra   = $obraId ? Obra::find($obraId) : null;
+        $user       = Auth::user();
+        $obraId     = $user?->obra_actual_id;
+        $multi      = $user?->is_multiobra;
+        $obraFiltro = $request->get('obra_id');
+        $obra       = $obraId ? Obra::find($obraId) : null;
 
         $desde = $request->get('desde');
         $hasta = $request->get('hasta');
 
-        $rawRows = SalidaCamionEscombro::where('salida_camiones_escombro.obra_id', $obraId)
+        // Misma query que explore() — siempre filtrar por obra activa
+        $obraEfectiva = $obraFiltro && $multi ? (int)$obraFiltro : $obraId;
+
+        $rawRows = SalidaCamionEscombro::query()
             ->leftJoin('users', 'users.id', '=', 'salida_camiones_escombro.user_id')
+            ->leftJoin('obras', 'obras.id', '=', 'salida_camiones_escombro.obra_id')
+            ->where('salida_camiones_escombro.obra_id', $obraEfectiva)
             ->when($desde, fn($q) => $q->whereDate('salida_camiones_escombro.fecha', '>=', $desde))
             ->when($hasta, fn($q) => $q->whereDate('salida_camiones_escombro.fecha', '<=', $hasta))
             ->orderBy('salida_camiones_escombro.fecha')
             ->orderBy('salida_camiones_escombro.id')
-            ->get([
-                'salida_camiones_escombro.*',
-                'users.name as usuario_nombre',
-            ]);
+            ->get(['salida_camiones_escombro.*', 'users.name as usuario_nombre', 'obras.nombre as obra_nombre']);
 
-        // Calcular totales por fecha en PHP
-        $totalesPorFecha = [];
-        foreach ($rawRows as $r) {
-            $k = $r->fecha?->format('Y-m-d') ?? '';
-            $totalesPorFecha[$k] = ($totalesPorFecha[$k] ?? 0) + ($r->metros_cubicos ?? 0);
-        }
-
-        // Helper 12h
         $h24a12 = fn($t) => !$t ? '' : (function ($t) {
             [$h, $m] = explode(':', $t);
-            $h    = (int) $h;
-            $ampm = $h >= 12 ? 'PM' : 'AM';
-            $h12  = ($h % 12) ?: 12;
+            $h = (int)$h; $ampm = $h >= 12 ? 'PM' : 'AM'; $h12 = ($h % 12) ?: 12;
             return str_pad($h12, 2, '0', STR_PAD_LEFT) . ':' . $m . ' ' . $ampm;
         })($t);
 
-        $data = $rawRows->map(fn($r) => [
-            $r->fecha?->format('d/m/Y') ?? '',                                     // 0 date
-            $h24a12($r->hora_entrada),                                             // 1 text
-            $h24a12($r->hora_salida),                                              // 2 text
-            (string) ($r->tipo_material ?? ''),                                    // 3 text
-            (string) ($r->placas ?? ''),                                           // 4 text
-            (string) ($r->chofer ?? ''),                                           // 5 text
-            (string) ($r->camion ?? ''),                                           // 6 text
-            (float)  ($r->metros_cubicos ?? 0),                                    // 7 number
-            (float)  ($totalesPorFecha[$r->fecha?->format('Y-m-d') ?? ''] ?? 0),  // 8 number
-            (string) ($r->folio_recibo ?? ''),                                     // 9 text
-            (string) ($r->usuario_nombre ?? ''),                                   // 10 text
-        ])->values()->toArray();
+        // Agrupar por mes
+        $meses = [1=>'Enero',2=>'Febrero',3=>'Marzo',4=>'Abril',5=>'Mayo',6=>'Junio',
+                  7=>'Julio',8=>'Agosto',9=>'Septiembre',10=>'Octubre',11=>'Noviembre',12=>'Diciembre'];
+        $byMes = [];
+        foreach ($rawRows as $r) {
+            $key = $r->fecha ? $r->fecha->format('Y-m') : '0000-00';
+            $byMes[$key][] = $r;
+        }
+        ksort($byMes);
 
-        $filters = array_filter([
-            $obra  ? 'Obra: ' . $obra->nombre : null,
-            $desde ? 'Desde: ' . $desde        : null,
-            $hasta ? 'Hasta: ' . $hasta         : null,
+        $F = \PhpOffice\PhpSpreadsheet\Style\Fill::class;
+        $B = \PhpOffice\PhpSpreadsheet\Style\Border::class;
+        $A = \PhpOffice\PhpSpreadsheet\Style\Alignment::class;
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sh = $spreadsheet->getActiveSheet();
+        $sh->setTitle('Control Camiones');
+        $sh->getTabColor()->setRGB('374151');
+        $sh->setShowSummaryBelow(false);
+
+        $userName   = $user?->name ?? 'Sistema';
+        $now        = now()->format('d/m/Y H:i');
+        $obraNombre = $obra?->nombre ?? 'Sin obra';
+
+        // Fila 1 — info
+        $sh->setCellValue('A1', "Control Salida Camiones  |  Obra: {$obraNombre}  |  Generado: {$now}  |  Usuario: {$userName}");
+        $sh->mergeCells('A1:K1');
+        $sh->getStyle('A1')->applyFromArray([
+            'font'      => ['bold'=>true,'size'=>9,'color'=>['rgb'=>'FFFFFF']],
+            'fill'      => ['fillType'=>$F::FILL_SOLID,'startColor'=>['rgb'=>'111827']],
+            'alignment' => ['horizontal'=>$A::HORIZONTAL_LEFT,'vertical'=>$A::VERTICAL_CENTER],
         ]);
+        $sh->getRowDimension(1)->setRowHeight(20);
 
-        Log::info('Excel export: Control Camiones', [
-            'user_id'  => Auth::id(),
-            'obra_id'  => $obraId,
-            'registros'=> count($data),
-            'filtros'  => $filters,
+        // Fila 2 — total general
+        $totalM3 = $rawRows->sum('metros_cubicos');
+        $sh->setCellValue('A2', 'TOTAL GENERAL');
+        $sh->mergeCells('A2:F2');
+        $sh->setCellValue('G2', number_format($totalM3, 1) . ' m³');
+        $sh->getStyle('A2:I2')->applyFromArray([
+            'font'    => ['bold'=>true,'size'=>11,'color'=>['rgb'=>'FFFFFF']],
+            'fill'    => ['fillType'=>$F::FILL_SOLID,'startColor'=>['rgb'=>'111827']],
         ]);
+        $sh->getStyle('F2')->getNumberFormat()->setFormatCode('#,##0.00');
+        $sh->getRowDimension(2)->setRowHeight(22);
 
-        return ExcelExporter::download(
-            filename:    'salida_camiones',
-            moduleName:  'Control Salida Camiones',
-            headers:     ['Fecha', 'H. Entrada', 'H. Salida', 'Tipo Material', 'Placas', 'Chofer', 'Camión', 'm³', 'Total Día (m³)', 'Cód. Recibo', 'Usuario'],
-            rows:        $data,
-            columnTypes: [7 => 'number', 8 => 'number'],
-            filters:     $filters,
-        );
+        // Fila 3 — encabezados
+        $headers = ['Fecha','H. Entrada','H. Salida','Tipo Material','Placas','m³','Total Día m³','Cód. Recibo','Usuario'];
+        foreach ($headers as $i => $h) $sh->setCellValue(chr(65+$i).'3', $h);
+        $sh->getStyle('A3:I3')->applyFromArray([
+            'font'      => ['bold'=>true,'size'=>9,'color'=>['rgb'=>'FFFFFF']],
+            'fill'      => ['fillType'=>$F::FILL_SOLID,'startColor'=>['rgb'=>'374151']],
+            'alignment' => ['horizontal'=>$A::HORIZONTAL_CENTER],
+        ]);
+        $sh->getRowDimension(3)->setRowHeight(18);
+        $sh->setAutoFilter('A3:I3');
+        $sh->freezePane('A4');
+
+        $row = 4;
+
+        foreach ($byMes as $mesKey => $items) {
+            [$anio, $mes] = explode('-', $mesKey);
+            $nombreMes = ($meses[(int)$mes] ?? $mesKey) . ' ' . $anio;
+            $totalMes  = array_sum(array_map(fn($r) => (float)($r->metros_cubicos ?? 0), $items));
+
+            // Agrupar por día dentro del mes
+            $byDia = [];
+            foreach ($items as $r) {
+                $dia = $r->fecha?->format('Y-m-d') ?? '0000-00-00';
+                $byDia[$dia][] = $r;
+            }
+            ksort($byDia);
+
+            // ── Fila mes ──────────────────────────────────────
+            $sh->setCellValue("A{$row}", $nombreMes);
+            $sh->mergeCells("A{$row}:F{$row}");
+            $sh->setCellValue("G{$row}", number_format($totalMes, 1) . ' m³  — ' . count($items) . ' viajes');
+            $sh->getStyle("A{$row}:I{$row}")->applyFromArray([
+                'font'    => ['bold'=>true,'size'=>10,'color'=>['rgb'=>'FFFFFF']],
+                'fill'    => ['fillType'=>$F::FILL_SOLID,'startColor'=>['rgb'=>'374151']],
+            ]);
+            $sh->getRowDimension($row)->setRowHeight(18);
+            $row++;
+
+            foreach ($byDia as $diaKey => $diaItems) {
+                $totalDia   = array_sum(array_map(fn($r) => (float)($r->metros_cubicos ?? 0), $diaItems));
+                $fechaLabel = \Carbon\Carbon::parse($diaKey)->format('d/m/Y');
+
+                // ── Fila día ──────────────────────────────────
+                $sh->setCellValue("A{$row}", $fechaLabel);
+                $sh->mergeCells("A{$row}:F{$row}");
+                $sh->setCellValue("G{$row}", number_format($totalDia, 1) . ' m³  — ' . count($diaItems) . ' viajes');
+                $sh->getStyle("A{$row}:I{$row}")->applyFromArray([
+                    'font'    => ['bold'=>true,'size'=>9,'color'=>['rgb'=>'1F2937']],
+                    'fill'    => ['fillType'=>$F::FILL_SOLID,'startColor'=>['rgb'=>'E5E7EB']],
+                    'borders' => ['top'=>['borderStyle'=>$B::BORDER_THIN,'color'=>['rgb'=>'9CA3AF']]],
+                ]);
+                $rd = $sh->getRowDimension($row);
+                $rd->setRowHeight(16);
+                $rd->setOutlineLevel(1);
+                $row++;
+
+                // ── Filas detalle del día ────────────────────
+                foreach ($diaItems as $idx => $r) {
+                    $bg = $idx % 2 === 0 ? 'FFFFFF' : 'F9FAFB';
+                    $sh->setCellValue("A{$row}", $fechaLabel);
+                    $sh->setCellValue("B{$row}", $h24a12($r->hora_entrada));
+                    $sh->setCellValue("C{$row}", $h24a12($r->hora_salida));
+                    $sh->setCellValue("D{$row}", (string)($r->tipo_material ?? ''));
+                    $sh->setCellValue("E{$row}", (string)($r->placas ?? ''));
+                    $sh->setCellValue("F{$row}", (float)($r->metros_cubicos ?? 0));
+                    $sh->setCellValue("G{$row}", $totalDia);
+                    $sh->setCellValue("H{$row}", (string)($r->folio_recibo ?? ''));
+                    $sh->setCellValue("I{$row}", (string)($r->usuario_nombre ?? ''));
+                    $sh->getStyle("F{$row}")->getNumberFormat()->setFormatCode('#,##0.00');
+                    $sh->getStyle("G{$row}")->getNumberFormat()->setFormatCode('#,##0.00');
+                    $sh->getStyle("A{$row}:I{$row}")->applyFromArray([
+                        'font'    => ['size'=>9,'color'=>['rgb'=>'374151']],
+                        'fill'    => ['fillType'=>$F::FILL_SOLID,'startColor'=>['rgb'=>$bg]],
+                        'borders' => ['allBorders'=>['borderStyle'=>$B::BORDER_THIN,'color'=>['rgb'=>'E5E7EB']]],
+                    ]);
+                    $rd2 = $sh->getRowDimension($row);
+                    $rd2->setRowHeight(15);
+                    $rd2->setOutlineLevel(2);
+                    $row++;
+                }
+            }
+        }
+
+        // Anchos de columna
+        foreach (['A'=>12,'B'=>10,'C'=>10,'D'=>18,'E'=>12,'F'=>10,'G'=>16,'H'=>12,'I'=>35] as $col => $w) {
+            $sh->getColumnDimension($col)->setWidth($w);
+        }
+
+        Log::info('Excel export: Control Camiones', ['user_id'=>Auth::id(),'obra_id'=>$obraId,'registros'=>$rawRows->count()]);
+
+        $filename = 'salida_camiones_' . now()->format('Ymd_Hi') . '.xlsx';
+        $writer   = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        return response()->stream(fn() => $writer->save('php://output'), 200, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Cache-Control'       => 'max-age=0, no-cache, no-store',
+        ]);
     }
 
     public function pdf(Request $request)

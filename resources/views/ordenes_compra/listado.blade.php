@@ -500,6 +500,19 @@
                           @submit.prevent="sending = true; submitConTokenFresco($event.target)">
                         @csrf
 
+                        {{-- Insumo fijado: botón para limpiar y buscar otro --}}
+                        <div x-show="insumoFijado" x-cloak
+                             class="flex items-center justify-between gap-3 p-3 rounded-lg bg-blue-50 border border-blue-200">
+                            <span class="text-sm text-blue-800">
+                                Insumo seleccionado: <strong x-text="descripcion"></strong>
+                            </span>
+                            <button type="button"
+                                    @click="limpiar()"
+                                    class="shrink-0 px-4 py-2 rounded-lg border border-blue-300 text-blue-700 text-sm font-medium hover:bg-blue-100">
+                                × Buscar otro
+                            </button>
+                        </div>
+
                         {{-- DESCRIPCIÓN (autocomplete por descripción) --}}
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 overflow-visible">
                             <div class="md:col-span-2 relative">

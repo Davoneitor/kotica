@@ -1896,11 +1896,6 @@
                             class="px-4 py-2 bg-gray-900 text-white rounded text-sm">
                         Filtrar
                     </button>
-                    <a :href="urlPdfEscombro()"
-                       target="_blank"
-                       class="px-4 py-2 border rounded text-sm bg-white hover:bg-gray-50">
-                        PDF
-                    </a>
                     <button @click="exportarEscombro()"
                             class="flex items-center gap-1.5 px-3 py-1.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm font-medium transition-colors whitespace-nowrap">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">

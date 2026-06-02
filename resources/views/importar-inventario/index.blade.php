@@ -305,7 +305,7 @@
                                     class="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors"
                                     :class="conflictResolution === opt.value
                                         ? 'bg-orange-600 text-white border-orange-600'
-                                        : 'bg-white text-orange-700 border-orange-300 hover:bg-orange-100'">
+                                        : 'bg-orange-50 text-orange-700 border-orange-300 hover:bg-orange-100'">
                                 <span x-text="opt.label"></span>
                             </button>
                         </template>
@@ -321,7 +321,7 @@
                                 class="px-3 py-1 rounded-full text-xs font-medium border transition-colors"
                                 :class="filtroVal === f.value
                                     ? 'bg-gray-800 text-white border-gray-800'
-                                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'">
+                                    : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'">
                             <span x-text="f.label"></span>
                         </button>
                     </template>
@@ -535,7 +535,7 @@
                         Nueva importación
                     </button>
                     <a href="{{ route('inventario.index') }}"
-                       class="px-5 py-2 rounded-lg text-sm font-medium bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors">
+                       class="px-5 py-2 rounded-lg text-sm font-medium bg-gray-100 border border-gray-200 text-gray-700 hover:bg-gray-200 transition-colors">
                         Ir a Inventario
                     </a>
                 </div>

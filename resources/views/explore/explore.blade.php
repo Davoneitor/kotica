@@ -209,19 +209,12 @@
                                 class="px-3 py-1 rounded border text-sm transition-colors">Historial ajustes</button>
 
                         <div class="ml-auto flex items-center gap-2">
-                            <button @click="exportarSalidas()"
-                                    class="flex items-center gap-1.5 px-3 py-1.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm font-medium transition-colors whitespace-nowrap">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-                                </svg>
-                                Exportar Excel
-                            </button>
                             <button @click="exportarSalidasAgrupado()"
                                     class="flex items-center gap-1.5 px-3 py-1.5 rounded border border-emerald-400 bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-semibold transition-colors whitespace-nowrap">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
                                 </svg>
-                                Exportar Excel Agrupado
+                                Exportar a Excel
                             </button>
                         </div>
                     </div>
@@ -744,7 +737,7 @@
 <div x-show="tab==='ent'" class="mt-4 space-y-3">
 
     <div class="bg-white shadow-sm sm:rounded-lg p-4">
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-2">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
             <div class="md:col-span-2">
                 <label class="block text-xs text-gray-500 mb-1">Buscar insumo / descripción / OC</label>
                 <input class="w-full border rounded px-3 py-2"
@@ -786,19 +779,12 @@
                     class="px-3 py-1 rounded border text-sm transition-colors">Tabla</button>
 
             <div class="ml-auto flex items-center gap-2">
-                <button @click="exportarEntradas()"
-                        class="flex items-center gap-1.5 px-3 py-1.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm font-medium transition-colors whitespace-nowrap">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-                    </svg>
-                    Exportar Excel
-                </button>
                 <button @click="exportarEntradasAgrupado()"
                         class="flex items-center gap-1.5 px-3 py-1.5 rounded border border-emerald-400 bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-semibold transition-colors whitespace-nowrap">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
                     </svg>
-                    Exportar Excel Agrupado
+                    Exportar a Excel
                 </button>
             </div>
         </div>
@@ -956,7 +942,9 @@
                             <tr :class="row._fila==='familia' ? 'cursor-pointer select-none' : ''"
                                 :style="row._fila==='familia'
                                     ? dk('border-top:2px solid #6ee7b7;background:#d1fae5','border-top:2px solid #059669;background:#0a2e18')
-                                    : dk('border-top:1px solid #d1fae5','border-top:1px solid #0d2e14')"
+                                    : (row._fila==='detalle' && parseFloat(row.cantidad_llego||0)===0
+                                        ? 'border-top:1px solid #fecaca;background:#fef2f2'
+                                        : dk('border-top:1px solid #d1fae5','border-top:1px solid #0d2e14'))"
                                 @click="row._fila==='familia' && toggleOcGrupo(row.familia)">
                                 <td class="px-2 py-2 text-center w-8">
                                     <svg x-show="row._fila==='familia'"
@@ -1024,99 +1012,53 @@
                  :style="dk('background:#fff','background:#060810')">
                 <table class="w-full text-sm">
                     <thead class="text-xs uppercase border-b"
-                           :style="dk('background:#eff6ff;color:#6b7280','background:#090f25;color:#60a5fa')"
-                    >
+                           :style="dk('background:#eff6ff;color:#6b7280','background:#090f25;color:#60a5fa')">
                         <tr>
                             <th class="w-8 px-2 py-2"></th>
-                            <th class="px-3 py-2 text-left">Fecha</th>
+                            <th class="px-3 py-2 text-left">Familia / Fecha</th>
                             <th class="px-3 py-2 text-left">Código</th>
                             <th class="px-3 py-2 text-left">Descripción</th>
                             <th class="px-3 py-2 text-left">Unidad</th>
                             <th class="px-3 py-2 text-right">Cantidad</th>
                             <th class="px-3 py-2 text-right">P.U.</th>
                             <th class="px-3 py-2 text-right">Importe</th>
-                            <th class="px-3 py-2 text-left">Registrado por</th>
-                            <th class="px-3 py-2 text-left">Estado</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <template x-for="row in entradasManualGruposFlat()" :key="row._key">
-                            <tr :style="row._fila==='obra'
-                                        ? dk('border-top:2px solid #bfdbfe;background:#dbeafe;cursor:pointer;user-select:none','border-top:2px solid #2563eb;background:#0e1e45;cursor:pointer;user-select:none')
-                                        : row._fila==='folio'
-                                            ? dk('border-top:1px solid #93c5fd;background:#eff6ff;cursor:pointer;user-select:none','border-top:1px solid #1e3a6e;background:#071428;cursor:pointer;user-select:none')
-                                            : dk('border-top:1px solid #bfdbfe','border-top:1px solid #122040') + (row.revertida ? ';opacity:0.5' : '')"
-                                @click="row._fila==='obra' ? toggleManualObra(row.obra) : (row._fila==='folio' ? toggleManualFolio(row._folioKey) : null)">
+                        <template x-for="row in manualFamiliaFlat()" :key="row._key">
+                            <tr :style="row._tipo === 'familia'
+                                    ? dk('border-top:2px solid #bfdbfe;background:#dbeafe;cursor:pointer;user-select:none','border-top:2px solid #2563eb;background:#0e1e45;cursor:pointer;user-select:none')
+                                    : dk('border-top:1px solid #bfdbfe','border-top:1px solid #122040')"
+                                @click="row._tipo === 'familia' && toggleManualFamilia(row.familia)">
                                 <td class="px-2 py-2 text-center w-8">
-                                    <svg x-show="row._fila==='obra'"
-                                         :class="manualObraExpandidos[row.obra] ? 'rotate-90' : ''"
-                                         class="inline w-4 h-4 transition-transform duration-150"
+                                    <svg x-show="row._tipo === 'familia'"
+                                         :class="manualFamiliaExpandidos[row.familia] ? 'rotate-90':''"
+                                         class="inline w-4 h-4 transition-transform"
                                          :style="dk('color:#2563eb','color:#60a5fa')"
                                          fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                                     </svg>
-                                    <svg x-show="row._fila==='folio'"
-                                         :class="manualFolioExpandidos[row._folioKey] ? 'rotate-90' : ''"
-                                         class="inline transition-transform duration-150"
-                                         style="width:0.85rem;height:0.85rem;margin-left:0.5rem"
-                                         :style="dk('color:#3b82f6','color:#93c5fd')"
-                                         fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-                                    </svg>
                                 </td>
-                                <td class="px-3 py-2 text-xs whitespace-nowrap tabular-nums"
-                                    :style="row._fila==='obra' ? dk('color:#3b82f6;font-weight:500','color:#93c5fd;font-weight:600')
-                                          : row._fila==='folio' ? dk('color:#1d4ed8;font-weight:600','color:#60a5fa;font-weight:600')
-                                          : dk('color:#6b7280;padding-left:1.5rem','color:#5070a0;padding-left:1.5rem')">
-                                    <template x-if="row._fila==='obra'">
-                                        <span x-text="row.count+' lote'+(row.count!==1?'s':'')"></span>
-                                    </template>
-                                    <template x-if="row._fila==='folio'">
-                                        <span>
-                                            <span x-text="row.fid||'S/N'"></span>
-                                            <span style="color:#9ca3af;font-weight:400;margin-left:0.35rem" x-text="row.fecha ? formatFechaCorta(row.fecha) : ''"></span>
-                                        </span>
-                                    </template>
-                                    <template x-if="row._fila==='detalle'">
-                                        <span x-text="formatFechaCorta(row.fecha_recibido)"></span>
-                                    </template>
-                                </td>
+                                <td class="px-3 py-2 text-xs tabular-nums"
+                                    :style="row._tipo==='familia'
+                                        ? dk('color:#1e3a8a;font-weight:700;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em','color:#60a5fa;font-weight:700;font-size:0.8rem;text-transform:uppercase')
+                                        : dk('color:#6b7280;padding-left:1.5rem','color:#5070a0;padding-left:1.5rem')"
+                                    x-text="row._tipo==='familia' ? row.familia : formatFechaCorta(row.fecha_recibido)"></td>
                                 <td class="px-3 py-2 font-mono text-xs"
-                                    :style="row._fila==='folio' ? dk('color:#d1d5db','color:#2a3a50') : dk('color:#4b5563;padding-left:1.5rem','color:#5a7090;padding-left:1.5rem')"
-                                    x-text="row._fila==='folio' ? row.count+' prod.' : (row._fila==='detalle' ? row.insumo : '')"></td>
-                                <td class="px-3 py-2"
-                                    :style="row._fila==='obra' ? dk('color:#1e3a8a;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.05em','color:#60a5fa;font-weight:700;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.05em')
-                                          : row._fila==='folio' ? dk('color:#1d4ed8;font-size:0.75rem','color:#93c5fd;font-size:0.75rem')
-                                          : dk('font-size:0.75rem;color:#374151;padding-left:1.5rem','font-size:0.75rem;color:#6a90b0;padding-left:1.5rem')"
-                                    x-text="row._fila==='obra' ? row.obra : (row._fila==='folio' ? '' : row.descripcion)"></td>
+                                    :style="dk('color:#4b5563','color:#5a7090')"
+                                    x-text="row._tipo==='familia' ? (row.count + ' producto' + (row.count!==1?'s':'')) : (row.insumo||'—')"></td>
+                                <td class="px-3 py-2 text-xs" :style="dk('color:#374151','color:#8a9ab0')"
+                                    x-text="row._tipo==='detalle' ? row.descripcion : ''"></td>
                                 <td class="px-3 py-2 text-xs" :style="dk('color:#6b7280','color:#3a5070')"
-                                    x-text="row._fila==='detalle' ? row.unidad : ''"></td>
-                                <td class="px-3 py-2 text-right tabular-nums"
-                                    :style="row._fila==='obra' ? dk('color:#1d4ed8;font-weight:700','color:#93c5fd;font-weight:700')
-                                          : row._fila==='folio' ? dk('color:#2563eb;font-weight:600;font-size:0.75rem','color:#60a5fa;font-weight:600;font-size:0.75rem')
-                                          : dk('font-size:0.75rem;font-weight:500;color:#374151','font-size:0.75rem;font-weight:500;color:#6a90b0')"
-                                    x-text="formatNum(row._fila==='detalle' ? row.cantidad_llego : row.cantidad_total)"></td>
+                                    x-text="row._tipo==='detalle' ? (row.unidad||'—') : ''"></td>
+                                <td class="px-3 py-2 text-right text-xs font-semibold tabular-nums"
+                                    :style="dk('color:#1d4ed8','color:#93c5fd')"
+                                    x-text="row._tipo==='familia' ? formatNum(row.cantidad_total) : formatNum(row.cantidad_llego)"></td>
                                 <td class="px-3 py-2 text-right text-xs tabular-nums" :style="dk('color:#6b7280','color:#3a5070')"
-                                    x-text="row._fila==='detalle' && row.precio_unitario != null ? '$'+formatMoney(row.precio_unitario) : '—'"></td>
-                                <td class="px-3 py-2 text-right tabular-nums"
-                                    :style="row._fila==='obra' ? dk('color:#1d4ed8;font-weight:700','color:#93c5fd;font-weight:700')
-                                          : row._fila==='folio' ? dk('color:#2563eb;font-weight:600;font-size:0.75rem','color:#60a5fa;font-weight:600;font-size:0.75rem')
-                                          : dk('font-size:0.75rem;color:#374151','font-size:0.75rem;color:#6a90b0')"
-                                    x-text="row._fila==='detalle'
-                                        ? (row.importe != null ? '$'+formatMoney(row.importe) : '—')
-                                        : (row.importe_total > 0 ? '$'+formatMoney(row.importe_total) : '—')"></td>
-                                <td class="px-3 py-2 text-xs" :style="dk('color:#6b7280','color:#3a5070')"
-                                    x-text="row._fila==='detalle' ? (row.usuario||'—') : ''"></td>
-                                <td class="px-3 py-2">
-                                    <template x-if="row._fila==='detalle' && row.revertida">
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold"
-                                              :style="dk('background:#fee2e2;color:#b91c1c','background:#2a0505;color:#f87171')">✗ Revertida</span>
-                                    </template>
-                                    <template x-if="row._fila==='detalle' && !row.revertida">
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold"
-                                              :style="dk('background:#dcfce7;color:#15803d','background:#041208;color:#4ade80')">✓ Activa</span>
-                                    </template>
-                                </td>
+                                    x-text="row._tipo==='detalle' && row.precio_unitario != null ? '$'+formatMoney(row.precio_unitario) : '—'"></td>
+                                <td class="px-3 py-2 text-right text-xs font-semibold tabular-nums"
+                                    :style="dk('color:#1d4ed8','color:#93c5fd')"
+                                    x-text="row._tipo==='familia' ? '$'+formatMoney(row.importe_total) : (row.importe!=null?'$'+formatMoney(row.importe):'—')"></td>
                             </tr>
                         </template>
                     </tbody>
@@ -1166,7 +1108,9 @@
                                         ? dk('border-top:2px solid #f97316;background:#fff7ed;cursor:pointer;user-select:none','border-top:2px solid #ea580c;background:#2e1400;cursor:pointer;user-select:none')
                                         : row._fila==='folio'
                                             ? dk('border-top:1px solid #fed7aa;background:#fff7ed;cursor:pointer;user-select:none','border-top:1px solid #7c2d12;background:#1e0c00;cursor:pointer;user-select:none')
-                                            : dk('border-top:1px solid #fef3c7','border-top:1px solid #3a1800') + (row.revertida ? ';opacity:0.5' : '')"
+                                            : (row._fila==='detalle' && parseFloat(row.cantidad_llego||0)===0
+                                                ? 'border-top:1px solid #fecaca;background:#fef2f2'
+                                                : dk('border-top:1px solid #fef3c7','border-top:1px solid #3a1800') + (row.revertida ? ';opacity:0.5' : ''))"
                                 @click="row._fila==='obra' ? toggleTransObraGrupo(row.obra) : (row._fila==='folio' && toggleTransGrupo(row._folioKey))">
                                 {{-- Col 1: flecha obra y folio --}}
                                 <td class="px-2 py-2 text-center w-8">
@@ -1296,7 +1240,9 @@
                                         ? dk('border-top:2px solid #94a3b8;background:#e2e8f0;cursor:pointer;user-select:none','border-top:2px solid #475569;background:#1e293b;cursor:pointer;user-select:none')
                                         : row._fila==='folio'
                                             ? dk('border-top:1px solid #cbd5e1;background:#f1f5f9;cursor:pointer;user-select:none','border-top:1px solid #334155;background:#161d2b;cursor:pointer;user-select:none')
-                                            : dk('border-top:1px solid #e2e8f0','border-top:1px solid #1e293b')"
+                                            : (row._fila==='detalle' && parseFloat(row.cantidad_llego||0)===0
+                                                ? 'border-top:1px solid #fecaca;background:#fef2f2'
+                                                : dk('border-top:1px solid #e2e8f0','border-top:1px solid #1e293b'))"
                                 @click="row._fila==='obra' ? toggleFiniquitoObra(row.obra) : (row._fila==='folio' ? toggleFiniquitoFolio(row._folioKey) : null)">
                                 <td class="px-2 py-2 text-center w-8">
                                     <svg x-show="row._fila==='obra'"
@@ -1565,14 +1511,37 @@
                     </div>
                 </div>
 
-                {{-- Resumen de importe --}}
+                {{-- Balance de transferencias --}}
                 <div x-show="transferenciasFiltered().length > 0 && !loading"
-                     class="bg-white shadow-sm sm:rounded-lg px-5 py-3 flex items-center justify-between border-l-4 border-indigo-400">
-                    <span class="text-sm text-gray-600">
-                        <span class="font-semibold" x-text="transferenciasFiltered().length"></span> transferencias
-                    </span>
-                    <span class="text-base font-bold tabular-nums text-gray-800"
-                          x-text="'$' + formatMoney(transferenciasFiltered().reduce((s,t) => s + parseFloat(t.total_importe||0), 0))"></span>
+                     class="bg-white shadow-sm sm:rounded-lg px-5 py-3 border-l-4 border-indigo-400">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <span class="text-sm text-gray-500">
+                            <span class="font-semibold text-gray-700" x-text="transferenciasFiltered().length"></span> transferencias
+                        </span>
+                        <div class="flex flex-wrap gap-6 items-center tabular-nums text-sm">
+                            <div class="flex flex-col items-end">
+                                <span class="text-xs text-gray-400 uppercase tracking-wide">Enviadas</span>
+                                <span class="font-bold text-red-600"
+                                      x-text="'-$' + formatMoney(transferenciasFiltered().filter(t=>t.direccion==='enviada').reduce((s,t)=>s+parseFloat(t.total_importe||0),0))"></span>
+                            </div>
+                            <div class="flex flex-col items-end">
+                                <span class="text-xs text-gray-400 uppercase tracking-wide">Recibidas</span>
+                                <span class="font-bold text-green-700"
+                                      x-text="'+$' + formatMoney(transferenciasFiltered().filter(t=>t.direccion!=='enviada').reduce((s,t)=>s+parseFloat(t.total_importe||0),0))"></span>
+                            </div>
+                            <div class="flex flex-col items-end border-l pl-6">
+                                <span class="text-xs text-gray-400 uppercase tracking-wide">Balance</span>
+                                <span class="font-bold text-base"
+                                      :class="(transferenciasFiltered().filter(t=>t.direccion!=='enviada').reduce((s,t)=>s+parseFloat(t.total_importe||0),0) - transferenciasFiltered().filter(t=>t.direccion==='enviada').reduce((s,t)=>s+parseFloat(t.total_importe||0),0)) >= 0 ? 'text-green-700' : 'text-red-600'"
+                                      x-text="(function(){
+                                          const env = transferenciasFiltered().filter(t=>t.direccion==='enviada').reduce((s,t)=>s+parseFloat(t.total_importe||0),0);
+                                          const rec = transferenciasFiltered().filter(t=>t.direccion!=='enviada').reduce((s,t)=>s+parseFloat(t.total_importe||0),0);
+                                          const bal = rec - env;
+                                          return (bal >= 0 ? '+' : '-') + '$' + formatMoney(Math.abs(bal));
+                                      })()"></span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {{-- Sin resultados --}}
@@ -1622,8 +1591,12 @@
                                             <td class="px-4 py-3 text-sm font-medium text-gray-800" x-text="tr.obra_destino"></td>
                                             <td class="px-4 py-3 text-sm text-gray-600" x-text="tr.usuario"></td>
                                             <td class="px-4 py-3 text-right text-sm font-semibold tabular-nums"
-                                                :class="parseFloat(tr.total_importe||0) > 0 ? 'text-gray-800' : 'text-gray-300'"
-                                                x-text="parseFloat(tr.total_importe||0) > 0 ? '$'+formatMoney(tr.total_importe) : '—'"></td>
+                                                :class="parseFloat(tr.total_importe||0) > 0
+                                                    ? (tr.direccion === 'enviada' ? 'text-red-600' : 'text-green-700')
+                                                    : 'text-gray-300'"
+                                                x-text="parseFloat(tr.total_importe||0) > 0
+                                                    ? (tr.direccion === 'enviada' ? '-' : '+') + '$' + formatMoney(tr.total_importe)
+                                                    : '—'"></td>
                                             <td class="px-4 py-3 text-center">
                                                 <div class="flex items-center justify-center gap-2">
                                                     <button @click="verTransDetalles(tr.id)"
@@ -1829,7 +1802,7 @@
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
                                 </svg>
-                                Exportar Excel Agrupado
+                                Exportar a Excel
                             </button>
                         </div>
                     </div>
@@ -2234,11 +2207,11 @@
                         PDF
                     </a>
                     <button @click="exportarEscombro()"
-                            class="flex items-center gap-1.5 px-3 py-1.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm font-medium transition-colors whitespace-nowrap">
+                            class="flex items-center gap-1.5 px-3 py-1.5 rounded border border-emerald-400 bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-semibold transition-colors whitespace-nowrap">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
                         </svg>
-                        Exportar Excel
+                        Exportar a Excel
                     </button>
                 </div>
             </div>
@@ -2259,38 +2232,59 @@
                 </div>
             </div>
 
-            {{-- Bloques expandibles por día --}}
-            <div x-show="escombros.length > 0 && !loadingEscom" class="space-y-2">
-                <template x-for="grupo in escomGrupos()" :key="grupo.fecha">
-                    <div class="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-100">
+            {{-- Bloques por mes → día --}}
+            <div x-show="escombros.length > 0 && !loadingEscom" class="space-y-3">
+                <template x-for="mes in escomMeses()" :key="mes.mesKey">
+                    <div class="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
 
-                        {{-- ── Encabezado del día (siempre visible) ── --}}
+                        {{-- ── Encabezado del mes ── --}}
                         <button type="button"
-                                @click="toggleEscomDia(grupo.fecha)"
-                                class="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors select-none group">
+                                @click="toggleEscomMes(mes.mesKey)"
+                                class="w-full flex items-center justify-between px-4 py-3 select-none transition-colors"
+                                style="background:#1f2937;color:#fff">
                             <div class="flex items-center gap-3">
-                                <svg :class="escomExpandidos[grupo.fecha] ? 'rotate-90 text-gray-600' : 'text-gray-300'"
-                                     class="w-4 h-4 transition-transform duration-200 flex-shrink-0"
+                                <svg :class="escomMesesExpandidos[mes.mesKey] ? 'rotate-90' : ''"
+                                     class="w-4 h-4 transition-transform duration-200 shrink-0 text-gray-300"
                                      fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                                 </svg>
-                                <span class="font-bold text-gray-900 text-sm tracking-tight"
-                                      x-text="grupo.fecha"></span>
-                                <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full whitespace-nowrap"
-                                      x-text="grupo.count + (grupo.count === 1 ? ' viaje' : ' viajes')"></span>
+                                <span class="font-bold text-base" x-text="mes.nombre"></span>
+                                <span class="text-xs px-2 py-0.5 rounded-full font-medium"
+                                      style="background:rgba(255,255,255,0.15)"
+                                      x-text="mes.count + (mes.count===1?' viaje':' viajes')"></span>
                             </div>
-                            <span class="font-extrabold text-gray-900 text-base tabular-nums whitespace-nowrap"
-                                  x-text="grupo.total.toFixed(1) + ' m³'"></span>
+                            <span class="font-extrabold text-xl tabular-nums"
+                                  x-text="mes.total.toFixed(1) + ' m³'"></span>
                         </button>
 
-                        {{-- ── Tabla de registros (expandible) ── --}}
-                        <div x-show="escomExpandidos[grupo.fecha]"
-                             class="border-t border-gray-100">
+                        {{-- ── Días del mes ── --}}
+                        <div x-show="escomMesesExpandidos[mes.mesKey]" class="divide-y divide-gray-100">
+                            <template x-for="grupo in mes.dias" :key="grupo.fecha">
+                                <div>
+                                    <button type="button"
+                                            @click="toggleEscomDia(grupo.fecha)"
+                                            class="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors select-none bg-gray-50">
+                                        <div class="flex items-center gap-3">
+                                            <svg :class="escomExpandidos[grupo.fecha] ? 'rotate-90 text-gray-600' : 'text-gray-300'"
+                                                 class="w-3.5 h-3.5 transition-transform shrink-0"
+                                                 fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                            </svg>
+                                            <span class="font-semibold text-gray-800 text-sm" x-text="grupo.fecha"></span>
+                                            <span class="text-xs text-gray-400 bg-gray-200 px-2 py-0.5 rounded-full"
+                                                  x-text="grupo.count + (grupo.count===1?' viaje':' viajes')"></span>
+                                        </div>
+                                        <span class="font-bold text-gray-800 tabular-nums"
+                                              x-text="grupo.total.toFixed(1) + ' m³'"></span>
+                                    </button>
+
+                                    <div x-show="escomExpandidos[grupo.fecha]"
+                                         class="border-t border-gray-100">
                             <div class="overflow-x-auto">
                                 <table class="w-full text-sm">
                                     <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
                                         <tr>
-                                            <th class="px-3 py-2 text-left" x-show="esMultiobra">Obra</th>
+                                            <th class="px-3 py-2 text-left">Obra</th>
                                             <th class="px-3 py-2 text-left">H. Entrada</th>
                                             <th class="px-3 py-2 text-left">H. Salida</th>
                                             <th class="px-3 py-2 text-left">Tipo material</th>
@@ -2304,8 +2298,7 @@
                                     <tbody>
                                         <template x-for="r in grupo.filas" :key="r.id">
                                             <tr class="border-t border-gray-50 hover:bg-gray-50">
-                                                <td class="px-3 py-2 text-xs text-gray-500 whitespace-nowrap"
-                                                    x-show="esMultiobra"
+                                                <td class="px-3 py-2 text-xs text-gray-600 whitespace-nowrap"
                                                     x-text="r.obra || '—'"></td>
                                                 <td class="px-3 py-2 whitespace-nowrap text-gray-700"
                                                     x-text="formatHoraEscom(r.hora_entrada)"></td>
@@ -2320,7 +2313,7 @@
                                                     x-text="(parseFloat(r.metros_cubicos) || 0).toFixed(1) + ' m³'"></td>
                                                 <td class="px-3 py-2 text-xs text-gray-500"
                                                     x-text="r.folio_recibo || '—'"></td>
-                                                <td class="px-3 py-2 text-xs text-gray-600"
+                                                <td class="px-3 py-2 text-xs text-gray-600 min-w-[160px]"
                                                     x-text="r.usuario || '—'"></td>
                                                 <td class="px-3 py-2 text-center">
                                                     <div class="flex gap-1 justify-center">
@@ -2350,6 +2343,9 @@
                                     </tbody>
                                 </table>
                             </div>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
 
                     </div>
@@ -2596,7 +2592,10 @@
         <script>
             function formatFecha(fechaStr) {
                 if (!fechaStr) return '';
-                const d = new Date(fechaStr.replace(' ', 'T'));
+                const normalized = String(fechaStr).includes('T') || String(fechaStr).includes(' ')
+                    ? fechaStr.replace(' ', 'T')
+                    : fechaStr + 'T00:00:00';
+                const d = new Date(normalized);
                 if (isNaN(d)) return fechaStr;
                 const mes  = String(d.getMonth() + 1).padStart(2, '0');
                 const dia  = String(d.getDate()).padStart(2, '0');
@@ -2644,6 +2643,7 @@
                     manualTablaExpandidos: {},
                     manualObraExpandidos: {},
                     manualFolioExpandidos: {},
+                    manualFamiliaExpandidos: {},
                     ocTablaExpandidos: {},
                     ocObraExpandidos: {},
                     ocFolioExpandidos: {},
@@ -2665,6 +2665,7 @@
                     loadingEscom: false,
                     escomImgModal: { show: false, url: '', label: '' },
                     escomExpandidos: {},
+                    escomMesesExpandidos: {},
                     movimientos: [],
                     movOffset: 0, movHasMore: false, movBgLoading: false,
                     salidasTotalImporte: null,
@@ -3668,6 +3669,36 @@
                         this._tv++;
                     },
 
+                    manualFamiliaFlat() {
+                        const items = this.entradasPorTipo('manual');
+                        const map = {};
+                        for (const e of items) {
+                            const fam = (e.familia || '').trim() || 'SIN FAMILIA';
+                            if (!map[fam]) map[fam] = { familia: fam, items: [], cantidad_total: 0, importe_total: 0 };
+                            map[fam].items.push(e);
+                            map[fam].cantidad_total += parseFloat(e.cantidad_llego || 0);
+                            map[fam].importe_total  += e.importe ?? 0;
+                        }
+                        const grupos = Object.values(map).sort((a,b) => {
+                            if (a.familia === 'SIN FAMILIA') return 1;
+                            if (b.familia === 'SIN FAMILIA') return -1;
+                            return a.familia.localeCompare(b.familia, 'es-MX');
+                        });
+                        const result = [];
+                        for (const g of grupos) {
+                            result.push({ _tipo:'familia', _key:'mf_'+g.familia, familia:g.familia,
+                                count:g.items.length, cantidad_total:g.cantidad_total, importe_total:g.importe_total });
+                            if (this.manualFamiliaExpandidos[g.familia]) {
+                                for (const e of g.items) {
+                                    result.push({ _tipo:'detalle', _key:'md_'+e.id, ...e });
+                                }
+                            }
+                        }
+                        return result;
+                    },
+                    toggleManualFamilia(familia) {
+                        this.manualFamiliaExpandidos = { ...this.manualFamiliaExpandidos, [familia]: !this.manualFamiliaExpandidos[familia] };
+                    },
                     entradasManualGruposFlat() {
                         void this._tv;
                         return this._entradasObraFolioFlat(
@@ -3971,11 +4002,12 @@
 
                     formatFechaCorta(fechaStr) {
                         if (!fechaStr) return '';
-                        const d = new Date(fechaStr.replace(' ', 'T'));
-                        if (isNaN(d)) return fechaStr;
-                        return String(d.getDate()).padStart(2,'0') + '/' +
-                               String(d.getMonth()+1).padStart(2,'0') + '/' +
-                               d.getFullYear();
+                        const datePart = String(fechaStr).split('T')[0].split(' ')[0];
+                        const parts = datePart.split('-');
+                        if (parts.length === 3) {
+                            return parts[2].padStart(2,'0') + '/' + parts[1].padStart(2,'0') + '/' + parts[0];
+                        }
+                        return fechaStr;
                     },
 
                     // ─── Exportar a Excel ─────────────────────────────────────
@@ -4043,6 +4075,8 @@
                         const params = new URLSearchParams();
                         if (this.escom.desde) params.set('desde', this.escom.desde);
                         if (this.escom.hasta) params.set('hasta', this.escom.hasta);
+                        // Para multiobra: pasar el filtro de obra activo si existe
+                        if (this.esMultiobra && this.escom.obra_id) params.set('obra_id', this.escom.obra_id);
                         window.open('/control-camiones/exportar?' + params.toString(), '_blank');
                     },
 
@@ -4057,6 +4091,46 @@
                     // ─── Agrupación por día ───────────────────────────────────
                     // Devuelve array de grupos: { fecha, total, count, filas[] }
                     // Preserva el orden DESC que viene del servidor usando Map
+                    escomMeses() {
+                        void this._tv;
+                        const mesesMap = new Map();
+                        const mesesNombres = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                                              'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+                        for (const r of this.escombros) {
+                            if (!r.fecha) continue;
+                            // Soporta tanto 'dd/mm/yyyy' como 'yyyy-mm-dd'
+                            let anio, mes0;
+                            if (r.fecha.includes('/')) {
+                                const p = r.fecha.split('/'); // dd/mm/yyyy
+                                anio = p[2]; mes0 = parseInt(p[1]) - 1;
+                            } else {
+                                const p = r.fecha.split('-'); // yyyy-mm-dd
+                                anio = p[0]; mes0 = parseInt(p[1]) - 1;
+                            }
+                            const mesKey = anio + '-' + String(mes0 + 1).padStart(2, '0');
+                            if (!mesesMap.has(mesKey)) {
+                                mesesMap.set(mesKey, {
+                                    mesKey, nombre: mesesNombres[mes0] + ' ' + anio,
+                                    total: 0, count: 0, dias: new Map()
+                                });
+                            }
+                            const mes = mesesMap.get(mesKey);
+                            mes.total += parseFloat(r.metros_cubicos || 0);
+                            mes.count++;
+                            if (!mes.dias.has(r.fecha)) {
+                                mes.dias.set(r.fecha, { fecha: r.fecha, total: 0, count: 0, filas: [] });
+                            }
+                            const dia = mes.dias.get(r.fecha);
+                            dia.total += parseFloat(r.metros_cubicos || 0);
+                            dia.count++;
+                            dia.filas.push(r);
+                        }
+                        // Ordenar meses cronológicamente
+                        return [...mesesMap.entries()]
+                            .sort((a, b) => a[0].localeCompare(b[0]))
+                            .map(([, m]) => ({ ...m, dias: [...m.dias.values()] }));
+                    },
+
                     escomGrupos() {
                         void this._tv;
                         const gruposMap = new Map();
@@ -4070,6 +4144,11 @@
                             g.filas.push(r);
                         }
                         return [...gruposMap.values()];
+                    },
+
+                    toggleEscomMes(mesKey) {
+                        this.escomMesesExpandidos = { ...this.escomMesesExpandidos, [mesKey]: !this.escomMesesExpandidos[mesKey] };
+                        this._tv++;
                     },
 
                     toggleEscomDia(fecha) {

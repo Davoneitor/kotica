@@ -223,6 +223,7 @@ public function movimientoDetalles(Movimiento $movimiento)
             ->when($obraId, fn($qq) => $qq->where('movimientos.obra_id', $obraId))
             ->when($desde, fn($qq) => $qq->whereDate('movimientos.fecha', '>=', $desde))
             ->when($hasta, fn($qq) => $qq->whereDate('movimientos.fecha', '<=', $hasta))
+            ->where(fn($qq) => $qq->whereNull('movimiento_detalles.devolvible')->orWhere('movimiento_detalles.devolvible', 0))
             ->when($soloH, fn($qq) => $qq->where('movimiento_detalles.devolvible', 1))
             ->when($q !== '', function ($qq) use ($q) {
                 $qq->where(function ($w) use ($q) {
@@ -286,6 +287,7 @@ public function movimientoDetalles(Movimiento $movimiento)
             ->when($obraId, fn($q2) => $q2->where('m.obra_id', $obraId))
             ->when($desde, fn($q2) => $q2->whereDate('m.fecha', '>=', $desde))
             ->when($hasta, fn($q2) => $q2->whereDate('m.fecha', '<=', $hasta))
+            ->where(fn($q2) => $q2->whereNull('md.devolvible')->orWhere('md.devolvible', 0))
             ->when($soloH, fn($q2) => $q2->where('md.devolvible', 1))
             ->whereNotNull('md.precio_unitario')
             ->selectRaw('ROUND(SUM(md.cantidad * md.precio_unitario), 2) as total')
@@ -1298,6 +1300,8 @@ public function entradaFoto($id)
             ->get([
                 't.fecha',
                 't.id as transferencia_id',
+                't.obra_origen_id',
+                't.obra_destino_id',
                 DB::raw('oo.nombre as obra_origen'),
                 DB::raw('od.nombre as obra_destino'),
                 DB::raw("ISNULL(d.insumo_id, '') as codigo"),
@@ -1308,60 +1312,189 @@ public function entradaFoto($id)
                 'd.precio_unitario',
             ]);
 
+        // ── Construir datos con dirección e importe con signo ───────────────
         $fmtDate = fn($d) => $d ? date('d/m/Y', strtotime((string) $d)) : '';
 
-        $data = $rows->map(fn($r) => [
-            $fmtDate($r->fecha),                                                       // 0
-            (int) $r->transferencia_id,                                                // 1 integer
-            (string) $r->obra_origen,                                                  // 2
-            (string) $r->obra_destino,                                                 // 3
-            (string) $r->codigo,                                                       // 4
-            (string) $r->descripcion,                                                  // 5
-            (string) $r->unidad,                                                       // 6
-            (float) $r->cantidad,                                                      // 7 number
-            (float) $r->cantidad_recibida,                                             // 8 number
-            $r->precio_unitario !== null ? (float) $r->precio_unitario : null,         // 9 currency
-            $r->precio_unitario !== null
+        $totalEnviadas  = 0.0;
+        $totalRecibidas = 0.0;
+        $dataRows       = [];
+
+        foreach ($rows as $r) {
+            $enviada  = (int) $r->obra_origen_id === (int) $obraId;
+            $importe  = $r->precio_unitario !== null
                 ? round((float) $r->cantidad * (float) $r->precio_unitario, 2)
-                : null,                                                                // 10 currency
-        ])->values()->toArray();
+                : null;
+            $importeSigned = $importe !== null ? ($enviada ? -$importe : $importe) : null;
 
-        $dirLabel = match($dir) {
-            'enviada'  => 'Enviadas',
-            'recibida' => 'Recibidas',
-            default    => null,
-        };
+            if ($importe !== null) {
+                if ($enviada) $totalEnviadas  += $importe;
+                else          $totalRecibidas += $importe;
+            }
 
-        $filters = array_filter([
-            $obra       ? 'Obra actual: ' . $obra->nombre : null,
-            $obraNombre ? 'Filtro obra: ' . $obraNombre   : null,
-            $dirLabel   ? 'Dirección: '   . $dirLabel     : null,
-            $q          ? 'Búsqueda: '    . $q            : null,
-            $desde      ? 'Desde: '       . $desde        : null,
-            $hasta      ? 'Hasta: '       . $hasta        : null,
+            $dataRows[] = [
+                $fmtDate($r->fecha),
+                (int) $r->transferencia_id,
+                $enviada ? 'Enviada' : 'Recibida',
+                (string) $r->obra_origen,
+                (string) $r->obra_destino,
+                (string) $r->codigo,
+                (string) $r->descripcion,
+                (string) $r->unidad,
+                (float) $r->cantidad,
+                $r->precio_unitario !== null ? (float) $r->precio_unitario : null,
+                $importeSigned,
+            ];
+        }
+
+        $balance = $totalRecibidas - $totalEnviadas;
+
+        // ── Construir hoja con PhpSpreadsheet ────────────────────────────────
+        $Alignment = \PhpOffice\PhpSpreadsheet\Style\Alignment::class;
+        $Fill      = \PhpOffice\PhpSpreadsheet\Style\Fill::class;
+        $Border    = \PhpOffice\PhpSpreadsheet\Style\Border::class;
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet       = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Transferencias');
+
+        $now      = now()->format('d/m/Y H:i');
+        $userName = Auth::user()?->name ?? '';
+
+        // Fila 1 — título
+        $sheet->mergeCells('A1:K1');
+        $sheet->setCellValue('A1', 'Transferencias — ' . ($obra?->nombre ?? ''));
+        $sheet->getStyle('A1')->applyFromArray([
+            'font'      => ['bold' => true, 'size' => 13, 'color' => ['rgb' => 'FFFFFF']],
+            'fill'      => ['fillType' => $Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EA580C']],
+            'alignment' => ['horizontal' => $Alignment::HORIZONTAL_LEFT, 'vertical' => $Alignment::VERTICAL_CENTER, 'indent' => 1],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(26);
+
+        // Fila 2 — meta
+        $sheet->mergeCells('A2:K2');
+        $dirLabel = match($dir) { 'enviada' => 'Enviadas', 'recibida' => 'Recibidas', default => 'Todas' };
+        $meta = implode('   |   ', array_filter([
+            "Generado: {$now}",
+            "Usuario: {$userName}",
+            $desde || $hasta ? 'Período: ' . ($desde ?? '…') . ' → ' . ($hasta ?? '…') : null,
+            "Dirección: {$dirLabel}",
+            $q ? "Búsqueda: {$q}" : null,
+        ]));
+        $sheet->setCellValue('A2', $meta);
+        $sheet->getStyle('A2')->applyFromArray([
+            'font'      => ['size' => 9, 'color' => ['rgb' => '6B7280']],
+            'fill'      => ['fillType' => $Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFF7ED']],
+            'alignment' => ['horizontal' => $Alignment::HORIZONTAL_LEFT, 'indent' => 1],
         ]);
 
-        Log::info('Excel export: Transferencias', [
-            'user_id'   => Auth::id(),
-            'obra_id'   => $obraId,
-            'registros' => count($data),
-            'filtros'   => $filters,
+        // Filas 4-6 — balance (3 bloques: Enviadas | Recibidas | Balance)
+        $balColor = $balance >= 0 ? '15803D' : 'DC2626';
+        $blocks = [
+            4 => ['label' => 'ENVIADAS',  'value' => -$totalEnviadas, 'color' => 'DC2626', 'bgLabel' => 'FEE2E2', 'bgVal' => 'FEF2F2'],
+            5 => ['label' => 'RECIBIDAS', 'value' => $totalRecibidas,  'color' => '15803D', 'bgLabel' => 'DCFCE7', 'bgVal' => 'F0FDF4'],
+            6 => ['label' => 'BALANCE',   'value' => $balance,         'color' => $balColor,'bgLabel' => 'E0E7FF', 'bgVal' => 'EEF2FF'],
+        ];
+
+        foreach ($blocks as $row => $b) {
+            // Etiqueta en A-D
+            $sheet->mergeCells("A{$row}:D{$row}");
+            $sheet->setCellValue("A{$row}", $b['label']);
+            $sheet->getStyle("A{$row}")->applyFromArray([
+                'font'      => ['bold' => true, 'size' => 10, 'color' => ['rgb' => $b['color']]],
+                'fill'      => ['fillType' => $Fill::FILL_SOLID, 'startColor' => ['rgb' => $b['bgLabel']]],
+                'alignment' => ['horizontal' => $Alignment::HORIZONTAL_RIGHT, 'vertical' => $Alignment::VERTICAL_CENTER, 'indent' => 1],
+            ]);
+            $sheet->getRowDimension($row)->setRowHeight(18);
+
+            // Valor en E-H
+            $sheet->mergeCells("E{$row}:H{$row}");
+            $sheet->setCellValue("E{$row}", $b['value']);
+            $sheet->getStyle("E{$row}")->getNumberFormat()->setFormatCode('"$"#,##0.00');
+            $sheet->getStyle("E{$row}")->applyFromArray([
+                'font'      => ['bold' => true, 'size' => 11, 'color' => ['rgb' => $b['color']]],
+                'fill'      => ['fillType' => $Fill::FILL_SOLID, 'startColor' => ['rgb' => $b['bgVal']]],
+                'alignment' => ['horizontal' => $Alignment::HORIZONTAL_LEFT, 'vertical' => $Alignment::VERTICAL_CENTER, 'indent' => 1],
+            ]);
+
+            // Relleno I-K con mismo fondo de valor
+            $sheet->mergeCells("I{$row}:K{$row}");
+            $sheet->getStyle("I{$row}")->applyFromArray([
+                'fill' => ['fillType' => $Fill::FILL_SOLID, 'startColor' => ['rgb' => $b['bgVal']]],
+            ]);
+        }
+
+        // Fila 8 — encabezados de tabla (11 columnas, sin "Cant. Recibida")
+        $headers = ['Fecha', '# Trans.', 'Dirección', 'Obra Origen', 'Obra Destino', 'Código', 'Descripción', 'Unidad', 'Cantidad', 'P.U.', 'Importe'];
+        foreach ($headers as $ci => $h) {
+            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($ci + 1);
+            $sheet->setCellValue("{$col}8", $h);
+        }
+        $sheet->getStyle('A8:K8')->applyFromArray([
+            'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill'      => ['fillType' => $Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EA580C']],
+            'alignment' => ['horizontal' => $Alignment::HORIZONTAL_CENTER],
+            'borders'   => ['bottom' => ['borderStyle' => $Border::BORDER_THIN, 'color' => ['rgb' => 'C2410C']]],
         ]);
 
-        return ExcelExporter::download(
-            filename:    'transferencias',
-            moduleName:  'Transferencias',
-            headers:     [
-                'Fecha', '# Trans.', 'Obra Origen', 'Obra Destino',
-                'Código', 'Descripción', 'Unidad',
-                'Cantidad', 'Cant. Recibida', 'P.U.', 'Importe',
-            ],
-            rows:        $data,
-            columnTypes: [1 => 'integer', 7 => 'number', 8 => 'number', 9 => 'currency', 10 => 'currency'],
-            filters:     $filters,
-            color:       'EA580C',  // naranja — igual que Trans. Recibidas en el sistema
-            columnWidths: [5 => 42],  // Descripción
-        );
+        // Filas de datos (índices: 0=fecha,1=trans,2=dir,3=origen,4=destino,5=cod,6=desc,7=unidad,8=cant,9=pu,10=importe)
+        $dataStartRow = 9;
+        foreach ($dataRows as $ri => $row) {
+            $excelRow = $dataStartRow + $ri;
+            $enviada  = ($row[2] === 'Enviada');
+
+            foreach ($row as $ci => $val) {
+                $col  = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($ci + 1);
+                $cell = $sheet->getCell("{$col}{$excelRow}");
+
+                if ($val === null) {
+                    $cell->setValue('—');
+                } elseif (in_array($ci, [9, 10])) {
+                    $cell->setValue($val);
+                    $sheet->getStyle("{$col}{$excelRow}")->getNumberFormat()->setFormatCode('#,##0.00');
+                } elseif ($ci === 8) {
+                    $cell->setValue($val);
+                    $sheet->getStyle("{$col}{$excelRow}")->getNumberFormat()->setFormatCode('#,##0.##');
+                } elseif ($ci === 1) {
+                    $cell->setValue($val);
+                    $sheet->getStyle("{$col}{$excelRow}")->getNumberFormat()->setFormatCode('0');
+                } else {
+                    $cell->setValue($val);
+                }
+            }
+
+            // Color del importe (col K = índice 10) según dirección
+            if ($row[10] !== null) {
+                $sheet->getStyle("K{$excelRow}")->applyFromArray([
+                    'font' => ['color' => ['rgb' => $enviada ? 'DC2626' : '15803D'], 'bold' => true],
+                ]);
+            }
+
+            // Fondo zebra
+            if ($ri % 2 === 0) {
+                $sheet->getStyle("A{$excelRow}:K{$excelRow}")->applyFromArray([
+                    'fill' => ['fillType' => $Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFF7F4']],
+                ]);
+            }
+        }
+
+        // Anchos de columna (11 columnas)
+        foreach ([0=>11, 1=>8, 2=>10, 3=>22, 4=>22, 5=>14, 6=>38, 7=>8, 8=>9, 9=>11, 10=>12] as $ci => $w) {
+            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($ci + 1);
+            $sheet->getColumnDimension($col)->setWidth($w);
+        }
+
+        $writer   = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $filename = 'transferencias_' . now()->format('Ymd_His') . '.xlsx';
+
+        Log::info('Excel export: Transferencias', ['user_id' => Auth::id(), 'obra_id' => $obraId, 'registros' => count($dataRows)]);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Cache-Control'       => 'max-age=0, no-cache, no-store',
+        ]);
     }
 
     /**
@@ -1986,8 +2119,10 @@ public function entradaFoto($id)
         string $obraNombre,
         string $userName,
         string $now,
-        array  $byFamilia, // ['Familia' => [['codigo','descripcion','unidad','cantidad','pu','importe','fecha'], ...]]
-        string $colorTab = '1D4ED8'
+        array  $byFamilia,
+        string $colorTab     = '1D4ED8',
+        bool   $conOrigen    = false,
+        string $labelOrigen  = 'Obra Origen'
     ): void {
         $F = \PhpOffice\PhpSpreadsheet\Style\Fill::class;
         $B = \PhpOffice\PhpSpreadsheet\Style\Border::class;
@@ -2014,21 +2149,25 @@ public function entradaFoto($id)
         ]);
         $sh->getRowDimension(1)->setRowHeight(20);
 
+        $lastCol  = $conOrigen ? 'H' : 'G';
+        $headers  = ['Familia','Subfamilia','Código','Descripción','Cantidad','P.U.','Total'];
+        if ($conOrigen) $headers[] = $labelOrigen;
+
         // Fila 2 — encabezados
-        foreach (['Familia','Subfamilia','Código','Descripción','Cantidad','P.U.','Total'] as $i => $h) {
+        foreach ($headers as $i => $h) {
             $sh->setCellValue(chr(65+$i).'2', $h);
         }
-        $sh->getStyle('A2:G2')->applyFromArray([
+        $sh->getStyle("A2:{$lastCol}2")->applyFromArray([
             'font'      => ['bold'=>true,'size'=>10,'color'=>['rgb'=>'FFFFFF']],
             'fill'      => ['fillType'=>$F::FILL_SOLID,'startColor'=>['rgb'=>'1E3A8A']],
             'alignment' => ['horizontal'=>$A::HORIZONTAL_CENTER,'vertical'=>$A::VERTICAL_CENTER],
         ]);
         $sh->getRowDimension(2)->setRowHeight(20);
-        $sh->setAutoFilter('A2:G2');
+        $sh->setAutoFilter("A2:{$lastCol}2");
 
         // Fila 3 — Total General
         $sh->setCellValue('A3', 'TOTAL GENERAL');
-        $sh->mergeCells('A3:F3');
+        $sh->mergeCells("A3:F3");
         $sh->setCellValue('G3', $totalGeneral);
         $sh->getStyle('A3:G3')->applyFromArray([
             'font'    => ['bold'=>true,'size'=>11,'color'=>['rgb'=>'FFFFFF']],
@@ -2066,6 +2205,7 @@ public function entradaFoto($id)
                     $sh->setCellValue("E{$row}", $cantidad);
                     if ($pu !== null) $sh->setCellValue("F{$row}", $pu);
                     $sh->setCellValue("G{$row}", $importe);
+                    if ($conOrigen) $sh->setCellValue("H{$row}", (string)($item['origen'] ?? ''));
 
                     $sh->getStyle("E{$row}")->getNumberFormat()->setFormatCode('#,##0.00');
                     $sh->getStyle("F{$row}")->getNumberFormat()->setFormatCode('"$"#,##0.00');
@@ -2074,14 +2214,14 @@ public function entradaFoto($id)
                     $rd = $sh->getRowDimension($row);
                     $rd->setRowHeight(15);
                     if ($esPrimeraSubDeFamilia && $esPrimeraFilaDeSub) {
-                        $sh->getStyle("A{$row}:G{$row}")->applyFromArray([
+                        $sh->getStyle("A{$row}:{$lastCol}{$row}")->applyFromArray([
                             'font'    => ['size'=>9,'bold'=>true,'color'=>['rgb'=>'111827']],
                             'fill'    => ['fillType'=>$F::FILL_SOLID,'startColor'=>['rgb'=>'F3F4F6']],
                             'borders' => ['allBorders'=>['borderStyle'=>$B::BORDER_THIN,'color'=>['rgb'=>'D1D5DB']]],
                         ]);
                     } elseif ($esPrimeraFilaDeSub) {
                         $rd->setOutlineLevel(1);
-                        $sh->getStyle("A{$row}:G{$row}")->applyFromArray([
+                        $sh->getStyle("A{$row}:{$lastCol}{$row}")->applyFromArray([
                             'font'    => ['size'=>9,'color'=>['rgb'=>'374151']],
                             'fill'    => ['fillType'=>$F::FILL_SOLID,'startColor'=>['rgb'=>'F9FAFB']],
                             'borders' => ['allBorders'=>['borderStyle'=>$B::BORDER_THIN,'color'=>['rgb'=>'E5E7EB']]],
@@ -2089,7 +2229,7 @@ public function entradaFoto($id)
                         $sh->getStyle("B{$row}")->getFont()->setBold(true);
                     } else {
                         $rd->setOutlineLevel(2);
-                        $sh->getStyle("A{$row}:G{$row}")->applyFromArray([
+                        $sh->getStyle("A{$row}:{$lastCol}{$row}")->applyFromArray([
                             'font'    => ['size'=>9,'color'=>['rgb'=>'374151']],
                             'fill'    => ['fillType'=>$F::FILL_SOLID,'startColor'=>['rgb'=>'FFFFFF']],
                             'borders' => ['allBorders'=>['borderStyle'=>$B::BORDER_THIN,'color'=>['rgb'=>'E5E7EB']]],
@@ -2106,7 +2246,7 @@ public function entradaFoto($id)
             $sh->setCellValue("A{$row}", 'Subtotal: ' . $familia);
             $sh->mergeCells("A{$row}:F{$row}");
             $sh->setCellValue("G{$row}", $famTotal);
-            $sh->getStyle("A{$row}:G{$row}")->applyFromArray([
+            $sh->getStyle("A{$row}:{$lastCol}{$row}")->applyFromArray([
                 'font'    => ['bold'=>true,'size'=>9,'color'=>['rgb'=>'FFFFFF']],
                 'fill'    => ['fillType'=>$F::FILL_SOLID,'startColor'=>['rgb'=>'374151']],
             ]);
@@ -2122,6 +2262,7 @@ public function entradaFoto($id)
         $sh->getColumnDimension('E')->setWidth(13);
         $sh->getColumnDimension('F')->setWidth(15);
         $sh->getColumnDimension('G')->setWidth(16);
+        if ($conOrigen) $sh->getColumnDimension('H')->setWidth(28);
     }
 
     /**
@@ -2175,7 +2316,57 @@ public function entradaFoto($id)
 
         $byFamiliaOC     = $toFamilia($rowsOC);
         $byFamiliaManual = $toFamilia($rowsManual);
-        $byFamiliaTrans  = $toFamilia($rowsTrans);
+
+        // Para transferencias: obtener obra origen
+        $transIds = $rowsTrans->pluck('r_id')->filter()->values()->toArray();
+        $origenMap = [];
+        if ($rowsTrans->isNotEmpty()) {
+            $transIdsActual = DB::table('oc_recepciones as r2')
+                ->leftJoinSub($invFamilias, 'inv2', 'inv2.insumo_id', '=', 'r2.insumo')
+                ->where('r2.obra_id', $obraId)->whereNull('r2.revertida_at')
+                ->where('r2.tipo', 'transferencia')
+                ->when($desde, fn($qq) => $qq->whereDate('r2.fecha_recibido', '>=', $desde))
+                ->when($hasta, fn($qq) => $qq->whereDate('r2.fecha_recibido', '<=', $hasta))
+                ->pluck('r2.id')->toArray();
+
+            if (!empty($transIdsActual)) {
+                try {
+                    $matched = DB::select("
+                        SELECT ocr_id, origen_nombre FROM (
+                            SELECT ocr.id AS ocr_id, oo.nombre AS origen_nombre,
+                                   ROW_NUMBER() OVER (PARTITION BY ocr.id ORDER BY ABS(DATEDIFF(day, CAST(ocr.fecha_recibido AS DATE), te.fecha))) AS rn
+                            FROM oc_recepciones ocr
+                            INNER JOIN transferencias_entre_obras_detalle ted ON ted.insumo_id = ocr.insumo
+                            INNER JOIN transferencias_entre_obras te ON te.id = ted.transferencia_id AND te.obra_destino_id = ocr.obra_id
+                            INNER JOIN obras oo ON oo.id = te.obra_origen_id
+                            WHERE ocr.id IN (" . implode(',', array_map('intval', $transIdsActual)) . ")
+                        ) ranked WHERE rn = 1
+                    ");
+                    foreach ($matched as $m) $origenMap[(int)$m->ocr_id] = $m->origen_nombre;
+                } catch (\Throwable $e) {}
+            }
+        }
+
+        // Reconstruir byFamiliaTrans con origen y con ID
+        $rowsTransConId = (clone $baseQuery)->where('r.tipo','transferencia')
+            ->get(array_merge($cols, ['r.id as r_id']));
+
+        $byFamiliaTrans = [];
+        foreach ($rowsTransConId as $r) {
+            $fam = trim($r->familia ?? '') ?: 'SIN FAMILIA';
+            $pu  = $r->precio_unitario !== null ? (float)$r->precio_unitario : null;
+            $byFamiliaTrans[$fam][] = [
+                'subfamilia'  => $r->subfamilia ?? '',
+                'codigo'      => $r->codigo ?? '',
+                'descripcion' => $r->descripcion ?? '',
+                'unidad'      => $r->unidad ?? '',
+                'cantidad'    => (float)($r->cantidad ?? 0),
+                'pu'          => $pu,
+                'importe'     => $pu !== null ? round((float)($r->cantidad ?? 0) * $pu, 2) : 0,
+                'origen'      => $origenMap[(int)($r->r_id ?? 0)] ?? '',
+            ];
+        }
+        ksort($byFamiliaTrans);
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $userName2   = Auth::user()?->name ?? 'Sistema';
@@ -2201,7 +2392,7 @@ public function entradaFoto($id)
             $shT = $spreadsheet->createSheet();
             $shT->setTitle('Transferencias Recibidas');
             $shT->getTabColor()->setRGB('D97706');
-            $this->generarHojaAgrupada($shT, 'Transferencias Recibidas', $obraNombre2, $userName2, $now2, $byFamiliaTrans);
+            $this->generarHojaAgrupada($shT, 'Transferencias Recibidas', $obraNombre2, $userName2, $now2, $byFamiliaTrans, 'D97706', true);
         }
 
         $spreadsheet->setActiveSheetIndex(0);
@@ -2229,6 +2420,7 @@ public function entradaFoto($id)
             ->join('movimientos as m', 'm.id', '=', 'md.movimiento_id')
             ->leftJoin('inventarios as inv', 'inv.id', '=', 'md.inventario_id')
             ->when($obraId, fn($qq) => $qq->where('m.obra_id', $obraId))
+            ->where(fn($qq) => $qq->whereNull('md.devolvible')->orWhere('md.devolvible', 0))
             ->when($q !== '', fn($qq) => $qq->where(fn($w) => $w->where('md.descripcion','like',"%{$q}%")->orWhere('inv.insumo_id','like',"%{$q}%")))
             ->when($desde, fn($qq) => $qq->whereDate('m.fecha', '>=', $desde))
             ->when($hasta, fn($qq) => $qq->whereDate('m.fecha', '<=', $hasta))
@@ -2256,14 +2448,64 @@ public function entradaFoto($id)
         }
         ksort($byFamilia);
 
+        // Transferencias enviadas
+        $rowsTrans = DB::table('transferencias_entre_obras_detalle as d')
+            ->join('transferencias_entre_obras as t', 't.id', '=', 'd.transferencia_id')
+            ->join('obras as od', 'od.id', '=', 't.obra_destino_id')
+            ->leftJoin('inventarios as inv', function($join) use ($obraId) {
+                $join->on('inv.insumo_id', '=', 'd.insumo_id')->where('inv.obra_id', '=', $obraId);
+            })
+            ->where('t.obra_origen_id', $obraId)
+            ->whereNotNull('d.precio_unitario')
+            ->when($q !== '', fn($qq) => $qq->where(fn($w) => $w->where('d.descripcion','like',"%{$q}%")->orWhere('d.insumo_id','like',"%{$q}%")))
+            ->when($desde, fn($qq) => $qq->whereDate('t.fecha', '>=', $desde))
+            ->when($hasta, fn($qq) => $qq->whereDate('t.fecha', '<=', $hasta))
+            ->orderByDesc('t.fecha')
+            ->get([
+                DB::raw("ISNULL(inv.familia,'SIN FAMILIA') as familia"),
+                DB::raw("ISNULL(inv.subfamilia,'') as subfamilia"),
+                'd.insumo_id as codigo', 'd.descripcion', 'd.unidad',
+                'd.cantidad', 'd.precio_unitario',
+                DB::raw('od.nombre as obra_destino'),
+            ]);
+
+        $byFamiliaTrans = [];
+        foreach ($rowsTrans as $r) {
+            $fam = trim($r->familia ?? '') ?: 'SIN FAMILIA';
+            $pu  = (float)$r->precio_unitario;
+            $byFamiliaTrans[$fam][] = [
+                'subfamilia'  => $r->subfamilia ?? '',
+                'codigo'      => (string)($r->codigo ?? ''),
+                'descripcion' => $r->descripcion ?? '',
+                'unidad'      => $r->unidad ?? '',
+                'cantidad'    => (float)($r->cantidad ?? 0),
+                'pu'          => $pu,
+                'importe'     => round((float)($r->cantidad ?? 0) * $pu, 2),
+                'origen'      => (string)($r->obra_destino ?? ''),
+            ];
+        }
+        ksort($byFamiliaTrans);
+
+        $userName2   = Auth::user()?->name ?? 'Sistema';
+        $now2        = now()->format('d/m/Y H:i');
+        $obraNombre2 = $obra?->nombre ?? 'Sin obra';
+
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sh = $spreadsheet->getActiveSheet();
         $sh->setTitle('Salidas');
         $sh->getTabColor()->setRGB('DC2626');
 
-        $this->generarHojaAgrupada($sh, 'Salidas', $obra?->nombre ?? 'Sin obra',
-            Auth::user()?->name ?? 'Sistema', now()->format('d/m/Y H:i'), $byFamilia);
+        $this->generarHojaAgrupada($sh, 'Salidas', $obraNombre2, $userName2, $now2, $byFamilia);
 
+        // Hoja 2: Transferencias Enviadas (solo si existen)
+        if (!empty($byFamiliaTrans)) {
+            $shT = $spreadsheet->createSheet();
+            $shT->setTitle('Transferencias Enviadas');
+            $shT->getTabColor()->setRGB('EA580C');
+            $this->generarHojaAgrupada($shT, 'Transferencias Enviadas', $obraNombre2, $userName2, $now2, $byFamiliaTrans, 'EA580C', true, 'Obra Destino');
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
         $filename = 'salidas_agrupado_' . now()->format('Ymd_Hi') . '.xlsx';
         $writer   = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
         return response()->stream(fn() => $writer->save('php://output'), 200, [
@@ -2965,6 +3207,7 @@ public function entradaFoto($id)
             ->join('movimientos as m', 'm.id', '=', 'md.movimiento_id')
             ->leftJoin('inventarios as inv', 'inv.id', '=', 'md.inventario_id')
             ->where('m.obra_id', $obraId)
+            ->where(fn($q2) => $q2->whereNull('md.devolvible')->orWhere('md.devolvible', 0))
             ->when($desde, fn($q2) => $q2->whereDate('m.fecha', '>=', $desde))
             ->when($hasta, fn($q2) => $q2->whereDate('m.fecha', '<=', $hasta))
             ->when($q !== '', function ($q2) use ($q) {
