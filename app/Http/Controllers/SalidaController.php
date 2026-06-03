@@ -155,6 +155,9 @@ class SalidaController extends Controller
         // ── Búsqueda directa en ERP (entrada manual) ─────────────────────────
         if ($srcErp && in_array($mode, ['code', 'desc']) && $q !== '') {
             try {
+                // Nombre de proyecto ERP de la obra actual para filtrar ViewPUC
+                $erpProyecto = \App\Services\ErpProyectoHelper::nombreParaObra($obraId);
+
                 $erpQuery = DB::connection('erp')
                     ->table('AcCatInsumos as I')
                     ->join('AcFamilias as FI',    'I.idFamilia',    '=', 'FI.idFamilia')
@@ -163,7 +166,6 @@ class SalidaController extends Controller
                     ->select(
                         'I.INSUMO as insumo_id',
                         'I.DescripcionLarga as descripcion',
-                        'I.Costo as costo_promedio',
                         'U.Unidad as unidad',
                         'FI.FamiliaPrincipal as familia',
                         'FI.Familia as subfamilia'
@@ -177,6 +179,23 @@ class SalidaController extends Controller
                 }
 
                 $erpRows = $erpQuery->orderBy('I.INSUMO')->limit(15)->get();
+
+                // Obtener Costo_ultima_compraCIVA desde ViewPUC para la obra actual
+                $insumoIds = $erpRows->pluck('insumo_id')->toArray();
+                $pucMap = [];
+                if (!empty($insumoIds) && $erpProyecto) {
+                    $pucQuery = DB::connection('erp')
+                        ->table('ViewPUCPralmacen')
+                        ->whereIn('Insumo', $insumoIds);
+                    \App\Services\ErpProyectoHelper::aplicarFiltroViewPUC($pucQuery, [$erpProyecto]);
+                    $pucRows = $pucQuery->orderByDesc('Fecha_ultima_compra')
+                        ->get(['Insumo', 'Costo_ultima_compraCIVA']);
+                    foreach ($pucRows as $p) {
+                        if (!isset($pucMap[$p->Insumo])) {
+                            $pucMap[$p->Insumo] = (float) $p->Costo_ultima_compraCIVA;
+                        }
+                    }
+                }
 
                 $erpRows->each(fn($r) => Familia::registrarSiNuevo(
                     trim((string) $r->familia),
@@ -193,7 +212,7 @@ class SalidaController extends Controller
                     'familia'        => (string) ($r->familia    ?? ''),
                     'subfamilia'     => (string) ($r->subfamilia ?? ''),
                     'proveedor'      => null,
-                    'costo_promedio' => (float)  ($r->costo_promedio ?? 0),
+                    'costo_promedio' => $pucMap[$r->insumo_id] ?? 0,
                     'from_erp'       => true,
                 ]));
             } catch (\Throwable) {

@@ -99,11 +99,7 @@ class ActualizarReportesJob implements ShouldQueue
                 return;
             }
 
-            $proyectos = DB::table('obras')
-                ->whereIn('id', $this->obraIds)
-                ->whereNotNull('erp_proyecto_id')
-                ->pluck('erp_proyecto_id')
-                ->toArray();
+            $proyectos = \App\Services\ErpProyectoHelper::nombresParaObras($this->obraIds);
             $erpData = $this->fetchErp($insumosSel, $proyectos);
             if (empty($erpData)) {
                 DB::table('masivo_procesos')->where('token', $this->token)->update([
@@ -304,13 +300,15 @@ class ActualizarReportesJob implements ShouldQueue
         foreach (array_chunk($erpIds, 500) as $chunk) {
             try {
                 // 1. P.U. real desde ViewPUC filtrado por proyectos de las obras seleccionadas
-                $pucRows = DB::connection('erp')
-                    ->table('ViewPUC')
-                    ->whereIn('Insumo', $chunk)
-                    ->when(!empty($proyectos), fn($q) => $q->whereIn('Proyecto', $proyectos))
-                    ->select(
+                $pucQuery = DB::connection('erp')
+                    ->table('ViewPUCPralmacen')
+                    ->whereIn('Insumo', $chunk);
+                if (!empty($proyectos)) {
+                    \App\Services\ErpProyectoHelper::aplicarFiltroViewPUC($pucQuery, $proyectos);
+                }
+                $pucRows = $pucQuery->select(
                         'Insumo             as insumo',
-                        'Costo_ultima_compra as precio_unitario',
+                        'Costo_ultima_compraCIVA as precio_unitario',
                         'Fecha_ultima_compra as fecha_pu'
                     )
                     ->orderByDesc('Fecha_ultima_compra')

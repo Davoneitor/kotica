@@ -162,12 +162,8 @@ class ActualizarReportesController extends Controller
             return response()->json(['items' => [], 'total' => 0, 'con_diffs' => 0, 'sin_erp' => 0]);
         }
 
-        // 2) Fetch ERP — filtrar ViewPUC por los proyectos ERP de las obras seleccionadas
-        $proyectos = DB::table('obras')
-            ->whereIn('id', $obraIds)
-            ->whereNotNull('erp_proyecto_id')
-            ->pluck('erp_proyecto_id')
-            ->toArray();
+        // 2) Fetch ERP — filtrar ViewPUC por los nombres de proyecto de las obras seleccionadas
+        $proyectos = \App\Services\ErpProyectoHelper::nombresParaObras($obraIds);
         $erpData = $this->fetchErp(array_keys($merged), $proyectos);
 
         // 3) Comparar
@@ -472,14 +468,16 @@ class ActualizarReportesController extends Controller
         foreach (array_chunk($erpIds, 500) as $chunk) {
             try {
                 // 1. P.U. real desde ViewPUC (Costo_ultima_compra) — filtrado por proyectos de las obras seleccionadas
-                $pucRows = DB::connection('erp')
-                    ->table('ViewPUC')
-                    ->whereIn('Insumo', $chunk)
-                    ->when(!empty($proyectos), fn($q) => $q->whereIn('Proyecto', $proyectos))
-                    ->select(
+                $pucQuery = DB::connection('erp')
+                    ->table('ViewPUCPralmacen')
+                    ->whereIn('Insumo', $chunk);
+                if (!empty($proyectos)) {
+                    \App\Services\ErpProyectoHelper::aplicarFiltroViewPUC($pucQuery, $proyectos);
+                }
+                $pucRows = $pucQuery->select(
                         'Insumo             as insumo',
                         'Descripcion        as descripcion',
-                        'Costo_ultima_compra as precio_unitario',
+                        'Costo_ultima_compraCIVA as precio_unitario',
                         'Familia            as familia',
                         'Unidad             as unidad',
                         'Fecha_ultima_compra as fecha_pu'

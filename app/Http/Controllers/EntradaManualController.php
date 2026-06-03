@@ -48,13 +48,24 @@ class EntradaManualController extends Controller
         $cantidad    = (float)  $data['cantidad'];
         $pu          = (float)  $data['costo_unitario'];
 
-        // Sobreescribir PU con Costo del ERP si el insumo existe en catálogo
+        // Sobreescribir PU con Costo_ultima_compraCIVA de ViewPUC filtrado por la obra actual
         if ($insumoId) {
             try {
-                $erpCosto = DB::connection('erp')
-                    ->table('AcCatInsumos')
-                    ->where('INSUMO', $insumoId)
-                    ->value('Costo');
+                $erpProyecto = \App\Services\ErpProyectoHelper::nombreParaObra(
+                    (int) Auth::user()?->obra_actual_id
+                );
+
+                if ($erpProyecto) {
+                    $pucQuery = DB::connection('erp')
+                        ->table('ViewPUCPralmacen')
+                        ->where('Insumo', $insumoId);
+                    \App\Services\ErpProyectoHelper::aplicarFiltroViewPUC($pucQuery, [$erpProyecto]);
+                    $erpCosto = $pucQuery->orderByDesc('Fecha_ultima_compra')
+                        ->value('Costo_ultima_compraCIVA');
+                } else {
+                    $erpCosto = null;
+                }
+
                 if ($erpCosto !== null) {
                     $pu = (float) $erpCosto;
                 }

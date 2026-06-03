@@ -633,6 +633,7 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
                                     Costo unitario <span class="text-red-500">*</span>
+                                    <span class="text-gray-400 font-normal">(último precio comprado en esta obra)</span>
                                 </label>
                                 <input type="number"
                                        name="costo_unitario"
@@ -642,6 +643,12 @@
                                        class="w-full border rounded-lg px-4 py-3 text-sm text-right"
                                        placeholder="Ej: 150 ó 89.50"
                                        required>
+                                <details class="mt-1">
+                                    <summary class="text-xs text-gray-400 cursor-pointer select-none hover:text-gray-600">Ver consulta SQL</summary>
+                                    <div class="mt-1 bg-gray-50 border border-gray-200 rounded p-2 text-xs font-mono text-gray-600 break-all">
+                                        SELECT Costo_ultima_compraCIVA FROM ViewPUCPralmacen WHERE Proyecto LIKE '<span class="font-semibold text-indigo-600">{{ Str::before($obra->nombre ?? '', ' /') }}%</span>' AND Insumo = '<span class="font-semibold text-indigo-600" x-text="selectedInsumoId || '{código}'"></span>' ORDER BY Fecha_ultima_compra DESC
+                                    </div>
+                                </details>
                             </div>
                         </div>
 
@@ -944,7 +951,7 @@
                     this.descripcion      = item.descripcion  || '';
                     this.unidad           = item.unidad       || '';
                     this.proveedor        = item.proveedor    || '';
-                    this.costoUnitario    = item.costo_promedio > 0 ? item.costo_promedio : '';
+                    this.costoUnitario    = item.costo_promedio > 0 ? parseFloat(item.costo_promedio).toFixed(2) : '';
                     this.familia          = item.familia      || '';
                     this.subfamilia       = item.subfamilia   || '';
                     this.insumoFijado     = true;
